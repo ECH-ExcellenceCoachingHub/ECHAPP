@@ -46,7 +46,9 @@ class _DragDropQuestionWidgetState extends State<DragDropQuestionWidget> {
     // Load current answer if available
     if (widget.currentAnswer != null) {
       for (final placement in widget.currentAnswer!) {
-        _placeItem(placement['itemId']!, placement['zoneId']!);
+        final itemId = placement['itemId'];
+        final zoneId = placement['zoneId'];
+        if (itemId != null && zoneId != null) _placeItem(itemId, zoneId);
       }
     }
   }
@@ -465,9 +467,9 @@ class _DragDropQuestionWidgetState extends State<DragDropQuestionWidget> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  ...widget.question.dropZones!
-                      .map((zone) => _buildDropZone(zone.id))
-                      ,
+                  // A drag-drop question can be saved without zones; don't crash.
+                  ...?widget.question.dropZones
+                      ?.map((zone) => _buildDropZone(zone.id)),
                   SizedBox(height: isSmallScreen ? 16 : 24),
                 ],
 

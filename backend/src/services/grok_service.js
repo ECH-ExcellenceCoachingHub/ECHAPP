@@ -1,6 +1,16 @@
 const Groq = require("groq-sdk");
 
+// Models that can't be used for chat completions (speech, TTS, moderation)
+const NON_CHAT_MODEL_PATTERN = /whisper|orpheus|guard|tts/i;
+const REASONING_MODEL_PATTERN = /gpt-oss|qwen3/i;
+
 class GrokService {
+  static PREFERRED_MODELS = [
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+    "qwen/qwen3.8-27b",
+  ];
+
   constructor() {
     this.apiKey = process.env.GROQ_API_KEY;
     if (!this.apiKey) {
@@ -9,7 +19,7 @@ class GrokService {
 
     this.groq = this.apiKey ? new Groq({ apiKey: this.apiKey }) : null;
 
-    this.currentModel = "llama-3.3-70b-versatile";
+    this.currentModel = "openai/gpt-oss-120b";
     this.modelCache = new Map();
     this.lastModelCheck = null;
     this.modelCheckInterval = 24 * 60 * 60 * 1000; // 24 hours
@@ -36,6 +46,17 @@ class GrokService {
     this.currentModel = modelName;
   }
 
+  /**
+   * Wrapper around chat.completions.create. Reasoning models (gpt-oss, qwen3) spend
+   * max_tokens on hidden reasoning, so keep effort low or short outputs come back empty.
+   */
+  _createCompletion(params) {
+    if (REASONING_MODEL_PATTERN.test(params.model) && params.reasoning_effort === undefined) {
+      params = { ...params, reasoning_effort: "low" };
+    }
+    return this.groq.chat.completions.create(params);
+  }
+
   // ─── Model Management ────────────────────────────────────────────────────────
 
   shouldCheckModel() {
@@ -50,7 +71,7 @@ class GrokService {
     }
 
     try {
-      await this.groq.chat.completions.create({
+      await this._createCompletion({
         messages: [{ role: "user", content: "ping" }],
         model: modelName,
         max_tokens: 1,
@@ -82,13 +103,18 @@ class GrokService {
 
     console.log(`${this.currentModel} unavailable — searching for fallback...`);
 
-    const candidates = [
-      "llama-3.3-70b-versatile",
-      "llama3-70b-8192",
-      "llama3-8b-8192", 
-      "mixtral-8x7b-32768",
-      "gemma-7b-it",
-    ];
+    const candidates = [...GrokService.PREFERRED_MODELS];
+    // Groq retires models regularly — also consider whatever the API key can currently see
+    try {
+      const { data } = await this.groq.models.list();
+      for (const m of data || []) {
+        if (m.active !== false && !NON_CHAT_MODEL_PATTERN.test(m.id) && !candidates.includes(m.id)) {
+          candidates.push(m.id);
+        }
+      }
+    } catch (error) {
+      console.warn("Could not list Groq models:", error.message);
+    }
 
     for (const model of candidates) {
       if (model === this.currentModel) continue;
@@ -267,7 +293,7 @@ ${chunk}
 ---`;
 
     const model = await this.resolveModel();
-    const completion = await this.groq.chat.completions.create({
+    const completion = await this._createCompletion({
       model,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.1,   // near-deterministic for extraction
@@ -460,7 +486,7 @@ SOURCE NOTES:
 ${contentPreview}
 ---`;
 
-    const completion = await this.groq.chat.completions.create({
+    const completion = await this._createCompletion({
       model: await this.resolveModel(),
       messages: [{ role: "user", content: prompt }],
       temperature: 0.4,
@@ -481,7 +507,7 @@ ${contentPreview}
       const preview = documentText.substring(0, 1500);
       const prompt = `Generate a concise, professional exam title (maximum 50 characters) based on this content. Return ONLY the title — no quotes, no explanation.\n\nCONTENT:\n${preview}`;
 
-      const completion = await this.groq.chat.completions.create({
+      const completion = await this._createCompletion({
         model: await this.resolveModel(),
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
@@ -506,10 +532,10 @@ ${contentPreview}
     }
 
     // Use the fastest Groq model for real-time chat; fall back to the main model if unavailable
-    const CHAT_MODEL = 'llama-3.1-8b-instant';
+    const CHAT_MODEL = 'openai/gpt-oss-20b';
 
     try {
-      const completion = await this.groq.chat.completions.create({
+      const completion = await this._createCompletion({
         model: CHAT_MODEL,
         messages,
         temperature: 0.7,
@@ -523,7 +549,7 @@ ${contentPreview}
     } catch (fastModelErr) {
       console.warn(`Fast chat model (${CHAT_MODEL}) failed: ${fastModelErr.message} — falling back to ${this.currentModel}`);
       try {
-        const completion = await this.groq.chat.completions.create({
+        const completion = await this._createCompletion({
           model: await this.resolveModel(),
           messages,
           temperature: 0.7,
@@ -617,7 +643,7 @@ ${JSON.stringify(gradingData, null, 2)}`;
 
     try {
       const model = await this.resolveModel();
-      const completion = await this.groq.chat.completions.create({
+      const completion = await this._createCompletion({
         model,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.1,
@@ -683,7 +709,7 @@ RULES:
 4. Respond ONLY with a JSON object: {"earnedPoints": number, "isCorrect": boolean, "feedback": "string (max 15 words)"}`;
 
     try {
-      const completion = await this.groq.chat.completions.create({
+      const completion = await this._createCompletion({
         model: await this.resolveModel(),
         messages: [{ role: "user", content: prompt }],
         temperature: 0.1,

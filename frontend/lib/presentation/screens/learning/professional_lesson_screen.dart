@@ -28,6 +28,7 @@ import 'package:excellencecoachinghub/models/download.dart';
 import 'package:excellencecoachinghub/services/api/video_api_service.dart';
 import 'package:excellencecoachinghub/services/api/enrollment_service.dart';
 import 'package:excellencecoachinghub/services/api/quiz_service.dart';
+import 'package:excellencecoachinghub/services/achievement_sound_service.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
 import 'package:excellencecoachinghub/data/repositories/certificate_repository.dart';
 import 'package:excellencecoachinghub/models/certificate.dart';
@@ -285,7 +286,7 @@ class _ProfessionalLessonScreenState
   }
 
   /// Picks the tab to land on. A requested tab (e.g. the student tapped a
-  /// notes card in the Materials tab) wins whenever the lesson has that
+  /// notes card in the Lessons tab) wins whenever the lesson has that
   /// content; otherwise fall back to the lesson's own content.
   _Tab _resolveInitialTab(Lesson lesson) {
     switch (widget.initialTab?.toLowerCase()) {
@@ -2927,6 +2928,7 @@ final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
 
   Widget _buildQuizTab() {
     final isDesktop = ResponsiveBreakpoints.isDesktop(context);
+    if (_exam == null) return _buildNoQuizState();
     return SingleChildScrollView(
       padding: EdgeInsets.all(isDesktop ? 24 :16),
       child: Center(
@@ -2940,6 +2942,68 @@ final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
               const SizedBox(height: 16),
               _buildQuizTipsCard(),
               const SizedBox(height: 80),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Shown when the lesson has no quiz, or its quiz couldn't be loaded.
+  Widget _buildNoQuizState() {
+    final hasQuiz = _lesson?.hasQuiz == true;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: _T.greenLight,
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: Icon(
+                    hasQuiz ? Icons.cloud_off_outlined : Icons.quiz_outlined,
+                    color: _T.green,
+                    size: 34),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                hasQuiz ? 'Quiz couldn\'t be loaded' : 'No quiz for this lesson',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w700, color: _textColor),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                hasQuiz
+                    ? 'Check your connection and try again.'
+                    : 'This lesson doesn\'t include a quiz. Keep going with the video and notes.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, height: 1.4, color: _mutedColor),
+              ),
+              if (hasQuiz) ...[
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: _loadLessonData,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('Try again'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _T.green,
+                    foregroundColor: Colors.white,
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -3789,6 +3853,7 @@ final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
         _isLessonCompleted = true;
         _checklist['complete'] = true;
       });
+      AchievementSoundService.instance.play(AchievementSound.lessonComplete);
       _showSnack('Lesson marked as completed!');
     } catch (e) {
       _showSnack('Failed to mark complete: $e', isError: true);
@@ -4406,6 +4471,9 @@ final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
   }
 
   String _getQuizButtonText() {
+    // Built on every quiz-tab render, including lessons with no (or an
+    // unloadable) quiz — so _exam may be null here.
+    if (_exam == null) return 'Start quiz';
     final isFinalExam = (_exam!['type']?.toString().toLowerCase() == 'final' ||
                         (_exam!['title']?.toString().toLowerCase().contains('final') == true));
     

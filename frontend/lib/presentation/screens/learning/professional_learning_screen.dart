@@ -35,12 +35,13 @@ import 'package:excellencecoachinghub/models/live_session.dart';
 import 'package:excellencecoachinghub/widgets/live_session_countdown.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
 import 'package:excellencecoachinghub/services/api/quiz_service.dart';
+import 'package:excellencecoachinghub/services/achievement_sound_service.dart';
 import 'package:excellencecoachinghub/presentation/screens/exams/exam_taking_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/exams/course_exam_history_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/certificates/certificates_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/community/course_community_screen.dart';
 
-/// Everything the Materials tab needs to launch a quiz: the quiz document,
+/// Everything the Lessons tab needs to launch a quiz: the quiz document,
 /// the student's previous attempts (newest first) and how many questions it has.
 typedef _QuizLaunch = ({
   Map<String, dynamic> quiz,
@@ -125,6 +126,8 @@ class _ProfessionalLearningScreenState
   int _currentSectionIndex = 0;
   // Chapter shown in the desktop detail pane; null follows _currentSectionIndex.
   String? _selectedChapterId;
+  // Mobile chapter cards, so "next chapter" can scroll one into view.
+  final Map<String, GlobalKey> _chapterCardKeys = {};
   bool _isChatExpanded = false;
   bool _isLoading = false;
   final bool _isLoadingChapterDetails = false;
@@ -313,6 +316,8 @@ class _ProfessionalLearningScreenState
       }
 
       _initializeCompletionStatus();
+      // Baseline, so only achievements earned from now on make a sound.
+      _knownUnlockedAchievements = _unlockedAchievementTitles();
       _filteredChapters = _chapters;
       
       // Load user payments for this course
@@ -465,6 +470,8 @@ class _ProfessionalLearningScreenState
     }
 
     _showChapterCompletionCelebration(chapter, chapterIndex, lessons.length);
+    // After the chapter/course jingle (longest is ~1.4 s).
+    _checkNewAchievements(delay: const Duration(milliseconds: 1800));
   }
 
   void _showChapterCompletionCelebration(Section chapter, int chapterIndex, int lessonCount) {
@@ -474,6 +481,10 @@ class _ProfessionalLearningScreenState
     final nextChapterName = (!isLastChapter && _chapters != null)
         ? 'Chapter ${chapterIndex + 2}: ${_chapters![chapterIndex + 1].title}'
         : null;
+
+    AchievementSoundService.instance.play(isLastChapter
+        ? AchievementSound.courseComplete
+        : AchievementSound.chapterComplete);
 
     showGeneralDialog(
       context: context,
@@ -495,7 +506,14 @@ class _ProfessionalLearningScreenState
         nextChapterName: nextChapterName,
         overallProgress: _progress,
         isDark: _isDark,
-        onContinue: () => Navigator.of(ctx).pop(),
+        onClose: () => Navigator.of(ctx).pop(),
+        onContinue: () {
+          Navigator.of(ctx).pop();
+          // "Continue Learning →" goes straight to the newly unlocked chapter.
+          if (!isLastChapter && _chapters != null) {
+            _goToChapter(_chapters![chapterIndex + 1]);
+          }
+        },
       ),
     );
   }
@@ -579,8 +597,16 @@ class _ProfessionalLearningScreenState
   }
 
   // ── Helpers ───────────────────────────────────
-  double get _progress =>
-      _totalLessons > 0 ? _completedLessonsCount / _totalLessons : 0.0;
+  // Counted from the course's own lessons: the server's completed list can
+  // hold hidden (content-less) lessons or duplicates, which pushed this >100%.
+  double get _progress {
+    if (_totalLessons == 0) return 0.0;
+    var done = 0;
+    for (final lessons in _chapterLessons.values) {
+      done += lessons.where((l) => _lessonCompletionStatus[l.id] == true).length;
+    }
+    return (done / _totalLessons).clamp(0.0, 1.0);
+  }
 
   bool get _isDark =>
       Theme.of(context).brightness == Brightness.dark;
@@ -1152,7 +1178,7 @@ class _ProfessionalLearningScreenState
               Tab(icon: Icon(Icons.live_tv_rounded, size: 18), text: 'Live'),
               Tab(icon: Icon(Icons.bar_chart_rounded, size: 18), text: 'Progress'),
               Tab(icon: Icon(Icons.groups_rounded, size: 18), text: 'Community'),
-              Tab(icon: Icon(Icons.folder_rounded, size: 18), text: 'Materials'),
+              Tab(icon: Icon(Icons.play_lesson_rounded, size: 18), text: 'Lessons'),
               Tab(icon: Icon(Icons.local_library_rounded, size: 18), text: 'Library'),
             ],
           ),
@@ -1230,24 +1256,33 @@ class _ProfessionalLearningScreenState
     return _chapters![i + 1];
   }
 
-  /// Desktop selects the next chapter in the detail pane; mobile opens its sheet.
-  VoidCallback? _goToNextChapter(Section s, {required bool desktop}) {
+  VoidCallback? _goToNextChapter(Section s) {
     final next = _nextChapterOf(s);
-    if (next == null) return null;
-    return () {
-      if (desktop) {
-        if (_isSearchActive) {
-          _searchController.clear();
-          setState(() {
-            _filteredChapters = null;
-            _isSearchActive = false;
-          });
-        }
-        setState(() => _selectedChapterId = next.id);
-      } else {
-        _openChapterDetails(next, _chapters!.indexOf(next));
+    return next == null ? null : () => _goToChapter(next);
+  }
+
+  /// Takes the learner straight to [chapter]: on desktop it opens in the
+  /// detail pane, on mobile the list scrolls to its card.
+  void _goToChapter(Section chapter) {
+    if (_tabController.index != 0) _tabController.animateTo(0);
+    if (_isSearchActive) _searchController.clear();
+    setState(() {
+      _filteredChapters = null;
+      _isSearchActive = false;
+      _selectedChapterId = chapter.id;
+    });
+    // Mobile: wait for the list to rebuild, then bring the card into view.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = _chapterCardKeys[chapter.id]?.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 450),
+          curve: Curves.easeOutCubic,
+          alignment: 0.02,
+        );
       }
-    };
+    });
   }
 
   /// Desktop: chapter outline on the left, the selected chapter's full
@@ -1306,7 +1341,7 @@ class _ProfessionalLearningScreenState
                     showLessonNumbers: true,
                     isLastChapter: _isLastChapter(s),
                     nextChapterTitle: _nextChapterOf(s)?.title,
-                    onNextChapter: _goToNextChapter(s, desktop: true),
+                    onNextChapter: _goToNextChapter(s),
                     onLessonTap: _openLesson,
                     onMoreTap: () => _openChapterDetails(s, numberOf(s)),
                     onMarkComplete: () => _markChapterComplete(s, numberOf(s)),
@@ -1327,8 +1362,8 @@ class _ProfessionalLearningScreenState
     int Function(Section) numberOf,
   ) {
     final total = _totalLessons;
-    final done = _completedLessonsCount;
-    final progress = total == 0 ? 0.0 : (done / total).clamp(0.0, 1.0);
+    final progress = _progress;
+    final done = (progress * total).round();
 
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
@@ -1411,36 +1446,42 @@ class _ProfessionalLearningScreenState
   }
 
   Widget _buildChaptersList(List<Section> chapters) {
-    return ListView.separated(
-      padding: EdgeInsets.fromLTRB(
-        ResponsiveBreakpoints.isSmallMobile(context) ? 12 : 16,
-        20,
-        ResponsiveBreakpoints.isSmallMobile(context) ? 12 : 16,
-        120,
+    // Not a lazy ListView: every card must be built so "next chapter" can
+    // scroll to it. Courses have few chapters, so this stays cheap.
+    final hPad = ResponsiveBreakpoints.isSmallMobile(context) ? 12.0 : 16.0;
+    return SingleChildScrollView(
+      padding: EdgeInsets.fromLTRB(hPad, 20, hPad, 120),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final s in chapters) ...[
+            if (s != chapters.first) const SizedBox(height: 20),
+            Builder(builder: (_) {
+              // Index in the full course, not the (possibly filtered) list.
+              final idx = _chapters!.indexWhere((c) => c.id == s.id);
+              return _ChapterCard(
+                key: _chapterCardKeys.putIfAbsent(s.id, GlobalKey.new),
+                section: s,
+                chapterIndex: idx,
+                lessons: _chapterLessons[s.id] ?? [],
+                isUnlocked: _chapterUnlockedStatus[s.id] ?? false,
+                isCurrent: idx == _currentSectionIndex,
+                isChapterCompleted: _chapterCompletionStatus[s.id] ?? false,
+                lessonCompletionStatus: _lessonCompletionStatus,
+                isDark: _isDark,
+                isCompact: false,
+                isLastChapter: _isLastChapter(s),
+                nextChapterTitle: _nextChapterOf(s)?.title,
+                onNextChapter: _goToNextChapter(s),
+                onLessonTap: _openLesson,
+                onMoreTap: () => _openChapterDetails(s, idx),
+                onMarkComplete: () => _markChapterComplete(s, idx),
+                isLoading: _markingCompleteChapterId == s.id,
+              );
+            }),
+          ],
+        ],
       ),
-      itemCount: chapters.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 20),
-      itemBuilder: (ctx, i) {
-        final s = chapters[i];
-        return _ChapterCard(
-          section: s,
-          chapterIndex: i,
-          lessons: _chapterLessons[s.id] ?? [],
-          isUnlocked: _chapterUnlockedStatus[s.id] ?? false,
-          isCurrent: i == _currentSectionIndex,
-          isChapterCompleted: _chapterCompletionStatus[s.id] ?? false,
-          lessonCompletionStatus: _lessonCompletionStatus,
-          isDark: _isDark,
-          isCompact: false,
-          isLastChapter: _isLastChapter(s),
-          nextChapterTitle: _nextChapterOf(s)?.title,
-          onNextChapter: _goToNextChapter(s, desktop: false),
-          onLessonTap: _openLesson,
-          onMoreTap: () => _openChapterDetails(s, i),
-          onMarkComplete: () => _markChapterComplete(s, i),
-          isLoading: _markingCompleteChapterId == s.id,
-        );
-      },
     );
   }
 
@@ -2311,10 +2352,50 @@ class _ProfessionalLearningScreenState
     );
   }
 
-  Widget _buildAchievementsGrid() {
+  /// Titles of achievements already unlocked; null until the course loads.
+  Set<String>? _knownUnlockedAchievements;
+
+  Set<String> _unlockedAchievementTitles() =>
+      _achievements().where((a) => a.unlocked).map((a) => a.title).toSet();
+
+  /// Plays the unlock sound and shows a banner for achievements earned since
+  /// the last check. [delay] lets a bigger celebration sound finish first.
+  void _checkNewAchievements({Duration delay = Duration.zero}) {
+    final known = _knownUnlockedAchievements;
+    if (known == null) return;
+    final now = _unlockedAchievementTitles();
+    final fresh = now.difference(known);
+    _knownUnlockedAchievements = now;
+    if (fresh.isEmpty) return;
+
+    Future.delayed(delay, () {
+      if (!mounted) return;
+      AchievementSoundService.instance.play(AchievementSound.achievementUnlocked);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: _DT.accent,
+        duration: const Duration(seconds: 4),
+        content: Row(
+          children: [
+            const Icon(Icons.emoji_events_rounded, color: Color(0xFFFFD700)),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Achievement unlocked: ${fresh.join(', ')}',
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        ),
+      ));
+    });
+  }
+
+  List<_Achievement> _achievements() {
     final completedChaptersCount =
         _chapterCompletionStatus.values.where((v) => v).length;
-    final achievements = [
+    return [
       _Achievement(
         title: 'First Steps',
         desc: 'Complete your first lesson',
@@ -2359,12 +2440,15 @@ class _ProfessionalLearningScreenState
         title: 'Graduate',
         desc: 'Finish the entire course',
         icon: Icons.military_tech_rounded,
-        unlocked: _completedLessonsCount == _totalLessons && _totalLessons > 0,
+        unlocked: _totalLessons > 0 && _progress >= 1.0,
         color: const Color(0xFFFFD700),
         xp: 500,
       ),
     ];
+  }
 
+  Widget _buildAchievementsGrid() {
+    final achievements = _achievements();
     final unlockedCount = achievements.where((a) => a.unlocked).length;
 
     return Container(
@@ -2557,7 +2641,7 @@ class _ProfessionalLearningScreenState
   }
 
   // ─────────────────────────────────────────────
-  //  MATERIALS TAB
+  //  LESSONS TAB
   // ─────────────────────────────────────────────
   Widget _buildMaterialsTab() {
     final authState = ref.read(authProvider);
@@ -2590,8 +2674,8 @@ class _ProfessionalLearningScreenState
     if (_chapters == null || _chapters!.isEmpty) {
       return _buildEmptyState(
           icon: Icons.folder_open_rounded,
-          title: 'No materials yet',
-          subtitle: 'Materials appear as chapters are added');
+          title: 'No lessons yet',
+          subtitle: 'Lessons appear as chapters are added');
     }
 
     // Pre-filter chapters with materials for efficient rendering
@@ -3669,6 +3753,10 @@ class _ProfessionalLearningScreenState
         _xpPoints = (_completedLessonsCount * 10) +
             (_chapterCompletionStatus.values.where((v) => v).length * 100);
       });
+      // Delay past the lesson screen's own "lesson complete" ding.
+      if (anyNewlyCompleted) {
+        _checkNewAchievements(delay: const Duration(milliseconds: 600));
+      }
 
       // Check if this lesson being completed finishes the whole chapter
       final allDone = chapterLessons.isNotEmpty &&
@@ -3685,6 +3773,7 @@ class _ProfessionalLearningScreenState
           _completedLessonsCount++;
           _xpPoints += 10;
         });
+        _checkNewAchievements(delay: const Duration(milliseconds: 600));
 
         final chapterLessons = _chapterLessons[chapterId] ?? [];
         final allDone = chapterLessons.isNotEmpty &&
@@ -3721,7 +3810,7 @@ class _ProfessionalLearningScreenState
   }
 
   // ─────────────────────────────────────────────
-  //  QUIZ FLOW (Materials tab)
+  //  QUIZ FLOW (Lessons tab)
   //  Same process as the lesson screen: load the quiz and the student's
   //  attempts, show the instructions, run the proctored ExamTakingScreen,
   //  then refresh progress and certificates with the result.
@@ -3852,7 +3941,7 @@ class _ProfessionalLearningScreenState
 
     final passed = _hasPassedQuiz(quiz, attempts);
 
-    // A passed quiz completes its lesson — the Materials tab shows chapter
+    // A passed quiz completes its lesson — the Lessons tab shows chapter
     // progress, so record it before re-syncing
     if (passed &&
         lessonId.isNotEmpty &&
@@ -3874,7 +3963,11 @@ class _ProfessionalLearningScreenState
 
     // Passing a final exam generates a certificate server-side
     if (passed && _isFinalQuiz(quiz)) {
+      final hadCertificate = _validCourseCertificate() != null;
       await _refreshCourseCertificates();
+      if (!hadCertificate) {
+        AchievementSoundService.instance.play(AchievementSound.certificateEarned);
+      }
     }
   }
 
@@ -6267,6 +6360,7 @@ class _ChapterCompletionDialog extends StatefulWidget {
   final double overallProgress;
   final bool isDark;
   final VoidCallback onContinue;
+  final VoidCallback onClose;
 
   const _ChapterCompletionDialog({
     required this.chapterName,
@@ -6279,6 +6373,7 @@ class _ChapterCompletionDialog extends StatefulWidget {
     required this.overallProgress,
     required this.isDark,
     required this.onContinue,
+    required this.onClose,
   });
 
   @override
@@ -6287,328 +6382,468 @@ class _ChapterCompletionDialog extends StatefulWidget {
 
 class _ChapterCompletionDialogState extends State<_ChapterCompletionDialog>
     with TickerProviderStateMixin {
-  late AnimationController _progressCtrl;
-  late Animation<double> _progressAnim;
+  late final AnimationController _introCtrl;
+  late final AnimationController _progressCtrl;
+  late final Animation<double> _trophyScale;
+  late final Animation<double> _progressAnim;
+  late final Animation<int> _xpCount;
+
+  static const _gold = [Color(0xFFFFB300), Color(0xFFFF6F00)];
 
   @override
   void initState() {
     super.initState();
+    _introCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 900))
+      ..forward();
+    _trophyScale = CurvedAnimation(
+        parent: _introCtrl,
+        curve: const Interval(0.1, 0.8, curve: Curves.elasticOut));
+    _xpCount = IntTween(begin: 0, end: widget.xpEarned).animate(CurvedAnimation(
+        parent: _introCtrl,
+        curve: const Interval(0.3, 1.0, curve: Curves.easeOutCubic)));
+
     _progressCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1200));
-    _progressAnim = Tween<double>(begin: 0, end: widget.overallProgress)
-        .animate(CurvedAnimation(parent: _progressCtrl, curve: Curves.easeOut));
-    Future.delayed(const Duration(milliseconds: 300), () {
+    _progressAnim = Tween<double>(
+            begin: 0, end: widget.overallProgress.clamp(0.0, 1.0))
+        .animate(CurvedAnimation(parent: _progressCtrl, curve: Curves.easeOutCubic));
+    Future.delayed(const Duration(milliseconds: 350), () {
       if (mounted) _progressCtrl.forward();
     });
   }
 
   @override
   void dispose() {
+    _introCtrl.dispose();
     _progressCtrl.dispose();
     super.dispose();
   }
 
+  /// "Chapter 2: Key Features" -> "Key Features"; the number is shown apart.
+  String get _chapterTitle {
+    final name = widget.chapterName;
+    final i = name.indexOf(': ');
+    return i >= 0 ? name.substring(i + 2) : name;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final compact = size.width < 480;
+    final pad = compact ? 20.0 : 28.0;
+    final isCourse = widget.isLastChapter;
+    final headerGrad = isCourse ? _gold : _DT.heroGrad;
     final bg = widget.isDark ? _DT.cardDark : Colors.white;
     final textPrimary = widget.isDark ? Colors.white : _DT.textPrimary;
 
     return Center(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: _DT.r24,
-              boxShadow: [
-                BoxShadow(
-                    color: Colors.black.withOpacity(0.25),
-                    blurRadius: 40,
-                    offset: const Offset(0, 16))
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // ── Green gradient header ──
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: _DT.heroGrad,
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+        padding: EdgeInsets.symmetric(
+            horizontal: compact ? 16 : 24, vertical: 24),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 520,
+            maxHeight: size.height - 48,
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: _DT.r24,
+                border: Border.all(
+                    color: headerGrad.first.withOpacity(0.35), width: 1),
+                boxShadow: [
+                  BoxShadow(
+                      color: headerGrad.first.withOpacity(0.25),
+                      blurRadius: 60,
+                      spreadRadius: -8),
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.35),
+                      blurRadius: 40,
+                      offset: const Offset(0, 20)),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildHeader(headerGrad, isCourse, compact),
+                    Padding(
+                      padding: EdgeInsets.fromLTRB(pad, 22, pad, pad),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Center(child: _buildXpPill()),
+                          const SizedBox(height: 22),
+                          _buildStats(compact),
+                          const SizedBox(height: 22),
+                          _buildProgress(textPrimary),
+                          const SizedBox(height: 20),
+                          if (!isCourse && widget.nextChapterName != null) ...[
+                            _buildUpNext(textPrimary),
+                            const SizedBox(height: 20),
+                          ],
+                          _buildActions(isCourse, compact),
+                        ],
+                      ),
                     ),
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                  ),
-                  child: Column(
-                    children: [
-                      // Trophy icon
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          shape: BoxShape.circle,
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(List<Color> grad, bool isCourse, bool compact) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: grad,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Stack(
+        children: [
+          // Decorative sparkles
+          ..._sparkles(),
+          Positioned(
+            top: 10,
+            right: 10,
+            child: IconButton(
+              tooltip: 'Close',
+              onPressed: widget.onClose,
+              icon: const Icon(Icons.close_rounded, color: Colors.white),
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.white.withOpacity(0.15),
+              ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.fromLTRB(24, compact ? 28 : 34, 24, compact ? 24 : 28),
+            child: Column(
+              children: [
+                ScaleTransition(
+                  scale: _trophyScale,
+                  child: Container(
+                    width: compact ? 78 : 92,
+                    height: compact ? 78 : 92,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.18),
+                      border: Border.all(
+                          color: Colors.white.withOpacity(0.55), width: 3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.white.withOpacity(0.35),
+                          blurRadius: 30,
+                          spreadRadius: 2,
                         ),
-                        child: const Center(
-                          child: Text('🏆', style: TextStyle(fontSize: 36)),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      const Text(
-                        'Chapter Complete!',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        widget.chapterName,
-                        style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 13,
-                            height: 1.3),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                      ),
-                    ],
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(isCourse ? '🎓' : '🏆',
+                          style: TextStyle(fontSize: compact ? 38 : 46)),
+                    ),
                   ),
                 ),
-
-                // ── XP + stats ──
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    children: [
-                      // XP earned pill
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 10),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF7C4DFF), Color(0xFF5C35E0)],
-                          ),
-                          borderRadius: _DT.r32,
-                          boxShadow: [
-                            BoxShadow(
-                                color: _DT.accent.withOpacity(0.35),
-                                blurRadius: 16,
-                                offset: const Offset(0, 6))
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.bolt_rounded,
-                                color: Colors.white, size: 18),
-                            const SizedBox(width: 6),
-                            Text(
-                              '+${widget.xpEarned} XP earned!',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Stats row
-                      Row(
-                        children: [
-                          _DialogStat(
-                            icon: Icons.play_lesson_rounded,
-                            value: '${widget.lessonCount}',
-                            label: 'Lessons done',
-                            color: _DT.primary,
-                          ),
-                          const SizedBox(width: 12),
-                          _DialogStat(
-                            icon: Icons.bolt_rounded,
-                            value: '${widget.totalXp}',
-                            label: 'Total XP',
-                            color: _DT.accent,
-                          ),
-                          const SizedBox(width: 12),
-                          _DialogStat(
-                            icon: Icons.percent_rounded,
-                            value: '${(widget.overallProgress * 100).toInt()}%',
-                            label: 'Course done',
-                            color: const Color(0xFF00ACC1),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Overall progress bar
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('Overall progress',
-                                  style: TextStyle(
-                                      fontSize: 12,
-                                      color: _DT.textSecondary,
-                                      fontWeight: FontWeight.w500)),
-                              AnimatedBuilder(
-                                animation: _progressAnim,
-                                builder: (_, __) => Text(
-                                  '${(_progressAnim.value * 100).toInt()}%',
-                                  style: const TextStyle(
-                                      fontSize: 12,
-                                      color: _DT.primary,
-                                      fontWeight: FontWeight.w700),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          AnimatedBuilder(
-                            animation: _progressAnim,
-                            builder: (_, __) => ClipRRect(
-                              borderRadius: _DT.r32,
-                              child: LinearProgressIndicator(
-                                value: _progressAnim.value,
-                                minHeight: 8,
-                                backgroundColor: _DT.primary.withOpacity(0.12),
-                                valueColor: const AlwaysStoppedAnimation<Color>(
-                                    _DT.primary),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Next chapter info
-                      if (!widget.isLastChapter &&
-                          widget.nextChapterName != null) ...
-                        [
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: _DT.primary.withOpacity(0.07),
-                              borderRadius: _DT.r12,
-                              border: Border.all(
-                                  color: _DT.primary.withOpacity(0.2)),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: _DT.primary.withOpacity(0.15),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                      Icons.lock_open_rounded,
-                                      color: _DT.primary,
-                                      size: 14),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Next chapter unlocked!',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: _DT.primary,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        widget.nextChapterName!,
-                                        style: TextStyle(
-                                            fontSize: 12,
-                                            color: textPrimary,
-                                            fontWeight: FontWeight.w600),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ]
-                      else if (widget.isLastChapter) ...
-                        [
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                  colors: [Color(0xFFFFD700), Color(0xFFFF8F00)]),
-                              borderRadius: _DT.r12,
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text('🎓',
-                                    style: TextStyle(fontSize: 20)),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Course Complete! Congratulations!',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-
-                      // Continue button
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: widget.onContinue,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _DT.primary,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            elevation: 0,
-                          ),
-                          child: Text(
-                            widget.isLastChapter
-                                ? 'View My Progress 🎉'
-                                : 'Continue Learning →',
-                            style: const TextStyle(
-                                fontSize: 15, fontWeight: FontWeight.w700),
-                          ),
-                        ),
-                      ),
-                    ],
+                const SizedBox(height: 16),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.15),
+                    borderRadius: _DT.r32,
+                  ),
+                  child: Text(
+                    isCourse
+                        ? 'COURSE COMPLETE'
+                        : 'CHAPTER ${widget.chapterNumber} COMPLETE',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.6,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  isCourse ? 'You did it! 🎉' : 'Great work!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: compact ? 24 : 28,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _chapterTitle,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: compact ? 14 : 15,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
                   ),
                 ),
               ],
             ),
           ),
-        ),
+        ],
       ),
+    );
+  }
+
+  List<Widget> _sparkles() {
+    const spots = [
+      (left: 0.08, top: 0.18, size: 18.0, o: 0.55),
+      (left: 0.20, top: 0.62, size: 12.0, o: 0.40),
+      (left: 0.30, top: 0.10, size: 10.0, o: 0.35),
+      (left: 0.72, top: 0.14, size: 12.0, o: 0.45),
+      (left: 0.84, top: 0.55, size: 20.0, o: 0.50),
+      (left: 0.66, top: 0.78, size: 10.0, o: 0.35),
+    ];
+    return [
+      for (final s in spots)
+        Positioned.fill(
+          child: Align(
+            alignment: Alignment(s.left * 2 - 1, s.top * 2 - 1),
+            child: FadeTransition(
+              opacity: _introCtrl,
+              child: Icon(Icons.auto_awesome,
+                  size: s.size, color: Colors.white.withOpacity(s.o)),
+            ),
+          ),
+        ),
+    ];
+  }
+
+  Widget _buildXpPill() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: _DT.purpleGrad),
+        borderRadius: _DT.r32,
+        boxShadow: [
+          BoxShadow(
+              color: _DT.accent.withOpacity(0.45),
+              blurRadius: 20,
+              offset: const Offset(0, 8)),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.bolt_rounded, color: Color(0xFFFFD54F), size: 22),
+          const SizedBox(width: 6),
+          AnimatedBuilder(
+            animation: _xpCount,
+            builder: (_, __) => Text(
+              '+${_xpCount.value} XP earned',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                fontFeatures: [FontFeature.tabularFigures()],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStats(bool compact) {
+    final gap = compact ? 8.0 : 12.0;
+    return Row(
+      children: [
+        _DialogStat(
+          icon: Icons.task_alt_rounded,
+          value: '${widget.lessonCount}',
+          label: widget.lessonCount == 1 ? 'Lesson' : 'Lessons',
+          color: _DT.primary,
+          isDark: widget.isDark,
+        ),
+        SizedBox(width: gap),
+        _DialogStat(
+          icon: Icons.bolt_rounded,
+          value: '${widget.totalXp}',
+          label: 'Total XP',
+          color: _DT.accent,
+          isDark: widget.isDark,
+        ),
+        SizedBox(width: gap),
+        _DialogStat(
+          icon: Icons.donut_large_rounded,
+          value: '${(widget.overallProgress.clamp(0.0, 1.0) * 100).round()}%',
+          label: 'Course done',
+          color: const Color(0xFF00ACC1),
+          isDark: widget.isDark,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProgress(Color textPrimary) {
+    return AnimatedBuilder(
+      animation: _progressAnim,
+      builder: (_, __) {
+        final v = _progressAnim.value;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Text('Course progress',
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: textPrimary.withOpacity(0.75),
+                        fontWeight: FontWeight.w600)),
+                const Spacer(),
+                Text('${(v * 100).round()}%',
+                    style: const TextStyle(
+                        fontSize: 13,
+                        color: _DT.primary,
+                        fontWeight: FontWeight.w800)),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 10,
+              decoration: BoxDecoration(
+                color: _DT.primary.withOpacity(0.12),
+                borderRadius: _DT.r32,
+              ),
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: v,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: _DT.heroGrad),
+                    borderRadius: _DT.r32,
+                    boxShadow: [
+                      BoxShadow(
+                          color: _DT.primary.withOpacity(0.5), blurRadius: 8),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildUpNext(Color textPrimary) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: _DT.primary.withOpacity(0.08),
+        borderRadius: _DT.r16,
+        border: Border.all(color: _DT.primary.withOpacity(0.25)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: _DT.primary.withOpacity(0.18),
+              borderRadius: _DT.r12,
+            ),
+            child: const Icon(Icons.lock_open_rounded,
+                color: _DT.primary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'UP NEXT · UNLOCKED',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.1,
+                    color: _DT.primary,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  widget.nextChapterName!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.3,
+                    color: textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActions(bool isCourse, bool compact) {
+    final nextNumber = widget.chapterNumber + 1;
+    final primary = ElevatedButton.icon(
+      onPressed: widget.onContinue,
+      icon: Icon(isCourse ? Icons.insights_rounded : Icons.arrow_forward_rounded,
+          size: 20),
+      label: Text(
+        isCourse ? 'View my progress' : 'Continue to Chapter $nextNumber',
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+      ),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isCourse ? _gold.last : _DT.primary,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        elevation: 0,
+      ),
+    );
+    final secondary = OutlinedButton(
+      onPressed: widget.onClose,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: _DT.textSecondary,
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 18),
+        side: BorderSide(
+            color: widget.isDark ? _DT.borderDark : _DT.border, width: 1.2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      child: const Text('Stay here',
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+    );
+
+    // Phones stack the buttons; wider screens put them side by side.
+    if (compact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [primary, const SizedBox(height: 10), secondary],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(child: secondary),
+        const SizedBox(width: 12),
+        Expanded(flex: 2, child: primary),
+      ],
     );
   }
 }
@@ -6618,35 +6853,55 @@ class _DialogStat extends StatelessWidget {
   final String value;
   final String label;
   final Color color;
+  final bool isDark;
   const _DialogStat(
       {required this.icon,
       required this.value,
       required this.label,
-      required this.color});
+      required this.color,
+      required this.isDark});
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: _DT.r12,
-          border: Border.all(color: color.withOpacity(0.2)),
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [color.withOpacity(0.14), color.withOpacity(0.04)],
+          ),
+          borderRadius: _DT.r16,
+          border: Border.all(color: color.withOpacity(0.28)),
         ),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(height: 4),
-            Text(value,
-                style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: color)),
+            Container(
+              padding: const EdgeInsets.all(7),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.18),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 18),
+            ),
+            const SizedBox(height: 8),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(value,
+                  style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: isDark ? Colors.white : _DT.textPrimary)),
+            ),
             const SizedBox(height: 2),
             Text(label,
-                style: const TextStyle(
-                    fontSize: 9, color: _DT.textSecondary),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: color),
                 textAlign: TextAlign.center),
           ],
         ),

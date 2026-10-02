@@ -101,6 +101,7 @@ flutter:
   assets:
     - assets/
     - assets/images/
+    - assets/sounds/
 
 msix_config:
   display_name: excellencecoachinghub

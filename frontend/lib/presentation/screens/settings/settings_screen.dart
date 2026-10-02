@@ -7,6 +7,7 @@ import 'package:excellencecoachinghub/presentation/providers/auth_provider.dart'
 import 'package:excellencecoachinghub/presentation/providers/feedback_provider.dart';
 import 'package:excellencecoachinghub/widgets/modern_dialog.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
+import 'package:excellencecoachinghub/services/achievement_sound_service.dart';
 
 // Providers for settings
 final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);
@@ -67,6 +68,16 @@ class _SettingsDeviceBindingPolicy extends StatelessWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  bool _achievementSounds = AchievementSoundService.instance.isEnabled;
+
+  @override
+  void initState() {
+    super.initState();
+    AchievementSoundService.instance.loadEnabled().then((enabled) {
+      if (mounted) setState(() => _achievementSounds = enabled);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -151,8 +162,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                           ref.read(darkModeProvider.notifier).state = value;
                           ref.read(themeModeProvider.notifier).state = 
                             value ? ThemeMode.dark : ThemeMode.light;
-                          _showSnackbar(context, 
+                          _showSnackbar(context,
                             value ? l10n.darkModeEnabled : l10n.lightModeEnabled);
+                        },
+                      ),
+                      _buildNotificationTile(
+                        context,
+                        icon: Icons.music_note_outlined,
+                        title: 'Achievement sounds',
+                        subtitle: 'Play sounds when you complete lessons, quizzes and chapters',
+                        value: _achievementSounds,
+                        onChanged: (value) async {
+                          setState(() => _achievementSounds = value);
+                          await AchievementSoundService.instance.setEnabled(value);
+                          // Let the learner hear what they just switched on.
+                          if (value) {
+                            AchievementSoundService.instance
+                                .play(AchievementSound.achievementUnlocked);
+                          }
                         },
                       ),
                     ],

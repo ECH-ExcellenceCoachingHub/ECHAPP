@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:go_router/go_router.dart';
 import 'package:excellencecoachinghub/config/app_theme.dart';
 import 'package:excellencecoachinghub/services/api/quiz_service.dart';
+import 'package:excellencecoachinghub/services/achievement_sound_service.dart';
 import 'package:excellencecoachinghub/data/repositories/certificate_repository.dart';
 import 'package:excellencecoachinghub/models/question.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -495,9 +496,12 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
         );
       }
     } finally {
-      setState(() {
-        _isSubmitting = false;
-      });
+      // The screen is usually already replaced by the results page here.
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
     }
   }
 
@@ -1433,6 +1437,17 @@ class ExamResultsScreen extends StatefulWidget {
 
 class _ExamResultsScreenState extends State<ExamResultsScreen> {
   bool _isDownloading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final sounds = AchievementSoundService.instance;
+    if (widget.result['passed'] == true) {
+      sounds.playSequence(AchievementSound.quizPassed, AchievementSound.xpGain);
+    } else {
+      sounds.play(AchievementSound.quizFailed);
+    }
+  }
 
   Future<void> _downloadCertificate() async {
     if (_isDownloading) return;
