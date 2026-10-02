@@ -30,6 +30,10 @@ const enrollmentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Lesson'
   }],
+  completedSections: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Section'
+  }],
   certificateEligible: {
     type: Boolean,
     default: false

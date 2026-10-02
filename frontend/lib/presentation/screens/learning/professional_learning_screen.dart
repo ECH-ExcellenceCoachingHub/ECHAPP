@@ -351,8 +351,8 @@ class _ProfessionalLearningScreenState
 
   // ── Mark chapter complete ─────────────────────
   Future<void> _markChapterComplete(Section chapter, int chapterIndex) async {
-    if (_celebratedChapters.contains(chapter.id)) return;
-    _celebratedChapters.add(chapter.id);
+    if (_celebratedChapters.contains(chapter.id) ||
+        _markingCompleteChapterId != null) return;
     final lessons = _chapterLessons[chapter.id] ?? [];
     final completedLessons = lessons.where((l) => _lessonCompletionStatus[l.id] == true).length;
 
@@ -432,6 +432,7 @@ class _ProfessionalLearningScreenState
       return;
     }
 
+    _celebratedChapters.add(chapter.id);
     setState(() {
       // Mark all lessons in this chapter as complete
       final chapterLessons = _chapterLessons[chapter.id] ?? [];

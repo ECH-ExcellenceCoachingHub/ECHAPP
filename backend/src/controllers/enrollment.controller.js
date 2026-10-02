@@ -342,7 +342,12 @@ const completeSection = async (req, res) => {
         addedCount++;
       }
     });
-    
+
+    // Record the section itself so the next chapter stays unlocked across sessions
+    if (!enrollment.completedSections.some(id => id.toString() === sectionId)) {
+      enrollment.completedSections.push(sectionId);
+    }
+
     // Calculate real progress percentage based on actual completed lessons
     const totalLessons = await Lesson.countDocuments({ courseId: new mongoose.Types.ObjectId(enrollment.courseId) });
     enrollment.progress = totalLessons > 0 
@@ -466,7 +471,32 @@ const checkCourseAccess = async (req, res) => {
     
     // Check if access has expired
     const isExpired = isEnrollmentExpired(enrollment);
-    
+
+    // Sections explicitly completed, plus any whose lessons are all done
+    // (covers enrollments that completed chapters before completedSections existed)
+    const completedSectionIds = new Set(
+      (enrollment.completedSections || []).map(id => id.toString())
+    );
+    const completedLessonIds = new Set(
+      (enrollment.completedLessons || []).map(id => id.toString())
+    );
+    const courseLessons = await Lesson.find(
+      { courseId: enrollment.courseId._id },
+      'sectionId'
+    ).lean();
+    const lessonsBySection = new Map();
+    for (const lesson of courseLessons) {
+      if (!lesson.sectionId) continue;
+      const key = lesson.sectionId.toString();
+      if (!lessonsBySection.has(key)) lessonsBySection.set(key, []);
+      lessonsBySection.get(key).push(lesson._id.toString());
+    }
+    for (const [sectionId, lessonIds] of lessonsBySection) {
+      if (lessonIds.every(id => completedLessonIds.has(id))) {
+        completedSectionIds.add(sectionId);
+      }
+    }
+
     const responseData = {
       hasAccess: !isExpired,
       enrollmentId: enrollment._id,
@@ -476,6 +506,7 @@ const checkCourseAccess = async (req, res) => {
       courseTitle: enrollment.courseId.title,
       accessDurationDays: enrollment.courseId.accessDurationDays,
       completedLessons: enrollment.completedLessons,
+      completedSections: [...completedSectionIds],
       progress: enrollment.progress,
       completionStatus: enrollment.completionStatus,
       rating: enrollment.rating,
