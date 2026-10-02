@@ -340,6 +340,28 @@ class QuizService {
     }
   }
 
+  // Get all of the current student's quiz attempts, newest first
+  static Future<List<Map<String, dynamic>>> getAllMyQuizAttempts() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$_baseUrl/my-attempts'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ${await _getAuthToken()}',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return List<Map<String, dynamic>>.from(data['data'] ?? []);
+      } else {
+        throw Exception('Failed to get quiz attempts: ${response.body}');
+      }
+    } catch (e) {
+      throw Exception('Error getting quiz attempts: $e');
+    }
+  }
+
   // Get student's quiz attempts for a specific quiz
   static Future<List<Map<String, dynamic>>> getStudentQuizAttempts(String examId) async {
     try {

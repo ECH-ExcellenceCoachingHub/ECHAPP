@@ -687,6 +687,43 @@ const getStudentQuizAttempts = async (req, res, next) => {
   }
 };
 
+// Get every quiz attempt of the authenticated student, across all quizzes
+const getAllMyQuizAttempts = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const limit = Math.min(parseInt(req.query.limit, 10) || 200, 500);
+
+    const submissions = await Submission.find({ userId })
+      .sort({ submittedAt: -1 })
+      .limit(limit)
+      .populate({
+        path: 'examId',
+        select: 'title passingScore type courseId',
+        populate: { path: 'courseId', select: 'title' }
+      })
+      .lean();
+
+    // Flatten quiz/course titles so clients don't need to dig into populated docs.
+    // Attempts whose quiz was deleted keep their scores but get a fallback title.
+    const attempts = submissions.map((s) => {
+      const exam = s.examId && typeof s.examId === 'object' ? s.examId : null;
+      const course = exam && exam.courseId && typeof exam.courseId === 'object' ? exam.courseId : null;
+      return {
+        ...s,
+        examTitle: exam ? exam.title : 'Deleted quiz',
+        examType: exam ? exam.type : null,
+        courseId: course ? course._id : (exam ? exam.courseId : null),
+        courseTitle: course ? course.title : null
+      };
+    });
+
+    sendSuccess(res, attempts, 'Quiz attempts retrieved successfully');
+  } catch (error) {
+    console.error('GET ALL STUDENT ATTEMPTS ERROR:', error);
+    sendError(res, 'Failed to retrieve quiz attempts', 500, error.message);
+  }
+};
+
 // Get quiz templates for easy creation
 const getQuizTemplates = async (req, res, next) => {
   try {
@@ -913,6 +950,7 @@ module.exports = {
   deleteQuestion,
   submitQuiz,
   getStudentQuizAttempts,
+  getAllMyQuizAttempts,
   getQuizTemplates,
   duplicateQuiz
 };

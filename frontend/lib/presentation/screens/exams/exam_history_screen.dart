@@ -17,7 +17,10 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen> {
   @override
   void initState() {
     super.initState();
-    _loadExamHistory();
+    // Loading notifies listeners, which must not happen during the first build.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadExamHistory();
+    });
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -186,6 +189,13 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen> {
                           fontSize: 16,
                         ),
                       ),
+                      if (exam.courseTitle != null) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          exam.courseTitle!,
+                          style: TextStyle(color: Colors.grey[700], fontSize: 13),
+                        ),
+                      ],
                       const SizedBox(height: 4),
                       Text(
                         _formatDate(exam.submittedAt),
@@ -346,7 +356,9 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen> {
     final isCorrect = result['isCorrect'] ?? false;
     final score = result['score'] ?? 0;
     final maxScore = result['maxScore'] ?? 1;
-    
+    final userAnswer = result['userAnswer'];
+    final answerText = userAnswer is Map ? userAnswer['answerText'] : result['answerText'];
+
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: Padding(
@@ -381,9 +393,9 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen> {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (result['answerText'] != null && result['answerText'].toString().isNotEmpty)
+                if (answerText != null && answerText.toString().isNotEmpty)
                   Text(
-                    'Your answer: ${result['answerText']}',
+                    'Your answer: $answerText',
                     style: TextStyle(color: Colors.grey[600], fontSize: 12),
                   ),
               ],

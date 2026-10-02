@@ -3632,4 +3632,136 @@ class AppLocalizationsRw extends AppLocalizations {
 
   @override
   String get startAPost => 'Tangira ubutumwa';
+
+  @override
+  String get dashLiveSessions => 'Amasomo Ako Kanya';
+
+  @override
+  String get dashContinueLearning => 'Komeza kwiga';
+
+  @override
+  String get dashJoinParticipate => 'Injira ukurikire';
+
+  @override
+  String get dashLearnTogether => 'Mwigire hamwe';
+
+  @override
+  String get dashYourAchievements => 'Ibyo wagezeho';
+
+  @override
+  String get dashQuickActions => 'Ibikorwa Byihuse';
+
+  @override
+  String get dashQuickActionsSubtitle => 'Jya aho ukeneye ako kanya';
+
+  @override
+  String get dashPickUpWhereLeft => 'Komereza aho wari ugeze';
+
+  @override
+  String get dashReadyToStart => 'Witeguye gutangira';
+
+  @override
+  String get drawerTagline => 'Iga • Kura • Ubaka Ejo Hawe';
+
+  @override
+  String get drawerCareerGuidance => 'Ubujyanama ku Mwuga';
+
+  @override
+  String get drawerGetSupport => 'Bona ubufasha';
+
+  @override
+  String get drawerJobs => 'Akazi';
+
+  @override
+  String get drawerFindOpportunities => 'Shaka amahirwe';
+
+  @override
+  String get drawerSectionProfileProgress => 'Umwirondoro n\'Iterambere';
+
+  @override
+  String get drawerMyProgress => 'Iterambere Ryanjye';
+
+  @override
+  String get drawerTrackGrowth => 'Kurikirana iterambere ryawe';
+
+  @override
+  String get drawerSectionCommunication => 'Itumanaho';
+
+  @override
+  String get drawerStayConnected => 'Komeza kuvugana n\'abandi';
+
+  @override
+  String get drawerNeedHelp => 'Ukeneye Ubufasha?';
+
+  @override
+  String get drawerContactSupport => 'Vugana n\'itsinda ry\'ubufasha';
+
+  @override
+  String get drawerAppPreferences => 'Igenamiterere rya porogaramu';
+
+  @override
+  String get drawerBetterSkills => 'Ubumenyi Bwiza';
+
+  @override
+  String get drawerBrighterFuture => 'Ejo Heza';
+
+  @override
+  String get drawerSoon => 'Vuba';
+
+  @override
+  String get drawerComingSoon => 'Biraza vuba — turimo kubitegura.';
+
+  @override
+  String get drawerAccessAccount => 'Injira muri konti yawe';
+
+  @override
+  String get drawerCreateAccount => 'Fungura konti ku buntu';
+
+  @override
+  String get drawerSectionInsights => 'Isesengura';
+
+  @override
+  String get drawerPlatformInsights => 'Imibare y\'urubuga';
+
+  @override
+  String get drawerPushReport => 'Raporo y\'Ubutumwa';
+
+  @override
+  String get drawerDeliveryStats => 'Imibare y\'ubutumwa bwoherejwe';
+
+  @override
+  String get drawerCreateEditCourses => 'Kora no guhindura amasomo';
+
+  @override
+  String get drawerLearnersAccess => 'Abanyeshuri n\'uburenganzira';
+
+  @override
+  String get drawerRecordings => 'Amashusho Yafashwe';
+
+  @override
+  String get drawerSessionVideos => 'Amashusho y\'amasomo';
+
+  @override
+  String get drawerApproveTrack => 'Emeza kandi ukurikirane';
+
+  @override
+  String get drawerSendAnnouncements => 'Ohereza amatangazo';
+
+  @override
+  String get drawerExploreCatalog => 'Reba urutonde rw\'amasomo';
+
+  @override
+  String get drawerBooksResources => 'Ibitabo n\'imfashanyigisho';
+
+  @override
+  String get drawerYourResults => 'Amanota yawe';
+
+  @override
+  String get drawerOfflineLearning => 'Iga nta murandasi';
+
+  @override
+  String get drawerBillingHistory => 'Amateka y\'ubwishyu';
+
+  @override
+  String get drawerAdministrator => 'Umuyobozi';
 }

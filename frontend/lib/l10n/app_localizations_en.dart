@@ -3622,4 +3622,136 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get startAPost => 'Start a post';
+
+  @override
+  String get dashLiveSessions => 'Live Sessions';
+
+  @override
+  String get dashContinueLearning => 'Continue learning';
+
+  @override
+  String get dashJoinParticipate => 'Join & participate';
+
+  @override
+  String get dashLearnTogether => 'Learn together';
+
+  @override
+  String get dashYourAchievements => 'Your achievements';
+
+  @override
+  String get dashQuickActions => 'Quick Actions';
+
+  @override
+  String get dashQuickActionsSubtitle => 'Jump straight to what you need';
+
+  @override
+  String get dashPickUpWhereLeft => 'Pick up where you left off';
+
+  @override
+  String get dashReadyToStart => 'Ready when you are';
+
+  @override
+  String get drawerTagline => 'Learn • Grow • Build Your Future';
+
+  @override
+  String get drawerCareerGuidance => 'Career Guidance';
+
+  @override
+  String get drawerGetSupport => 'Get support';
+
+  @override
+  String get drawerJobs => 'Jobs';
+
+  @override
+  String get drawerFindOpportunities => 'Find opportunities';
+
+  @override
+  String get drawerSectionProfileProgress => 'Profile & Progress';
+
+  @override
+  String get drawerMyProgress => 'My Progress';
+
+  @override
+  String get drawerTrackGrowth => 'Track your growth';
+
+  @override
+  String get drawerSectionCommunication => 'Communication';
+
+  @override
+  String get drawerStayConnected => 'Stay connected';
+
+  @override
+  String get drawerNeedHelp => 'Need Help?';
+
+  @override
+  String get drawerContactSupport => 'Contact support or get assistance';
+
+  @override
+  String get drawerAppPreferences => 'App preferences';
+
+  @override
+  String get drawerBetterSkills => 'Better Skills';
+
+  @override
+  String get drawerBrighterFuture => 'Brighter Future';
+
+  @override
+  String get drawerSoon => 'Soon';
+
+  @override
+  String get drawerComingSoon => 'Coming soon — we\'re building this for you.';
+
+  @override
+  String get drawerAccessAccount => 'Access your account';
+
+  @override
+  String get drawerCreateAccount => 'Create a free account';
+
+  @override
+  String get drawerSectionInsights => 'Insights';
+
+  @override
+  String get drawerPlatformInsights => 'Platform insights';
+
+  @override
+  String get drawerPushReport => 'Push Report';
+
+  @override
+  String get drawerDeliveryStats => 'Delivery statistics';
+
+  @override
+  String get drawerCreateEditCourses => 'Create & edit courses';
+
+  @override
+  String get drawerLearnersAccess => 'Learners & access';
+
+  @override
+  String get drawerRecordings => 'Recordings';
+
+  @override
+  String get drawerSessionVideos => 'Session videos';
+
+  @override
+  String get drawerApproveTrack => 'Approve & track';
+
+  @override
+  String get drawerSendAnnouncements => 'Send announcements';
+
+  @override
+  String get drawerExploreCatalog => 'Explore the catalog';
+
+  @override
+  String get drawerBooksResources => 'Books & resources';
+
+  @override
+  String get drawerYourResults => 'Your results';
+
+  @override
+  String get drawerOfflineLearning => 'Learn offline';
+
+  @override
+  String get drawerBillingHistory => 'Billing history';
+
+  @override
+  String get drawerAdministrator => 'Administrator';
 }

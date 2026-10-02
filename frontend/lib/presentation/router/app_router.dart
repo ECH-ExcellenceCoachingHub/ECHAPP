@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart' as legacy_provider;
+import 'package:excellencecoachinghub/presentation/providers/exam_provider.dart';
 import 'package:excellencecoachinghub/widgets/admin_layout_wrapper.dart';
 import 'package:excellencecoachinghub/presentation/screens/splash/splash_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/auth/login_screen.dart';
@@ -807,7 +809,12 @@ class AppRouter {
               ),
               GoRoute(
                 path: '/exams/history',
-                builder: (context, state) => const ExamHistoryScreen(),
+                // ExamHistoryScreen reads ExamProvider via package:provider;
+                // nothing above it provides one, so scope it to this route.
+                builder: (context, state) => legacy_provider.ChangeNotifierProvider(
+                  create: (_) => ExamProvider(),
+                  child: const ExamHistoryScreen(),
+                ),
               ),
             ],
           ),

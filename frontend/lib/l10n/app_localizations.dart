@@ -6961,6 +6961,270 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Start a post'**
   String get startAPost;
+
+  /// No description provided for @dashLiveSessions.
+  ///
+  /// In en, this message translates to:
+  /// **'Live Sessions'**
+  String get dashLiveSessions;
+
+  /// No description provided for @dashContinueLearning.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue learning'**
+  String get dashContinueLearning;
+
+  /// No description provided for @dashJoinParticipate.
+  ///
+  /// In en, this message translates to:
+  /// **'Join & participate'**
+  String get dashJoinParticipate;
+
+  /// No description provided for @dashLearnTogether.
+  ///
+  /// In en, this message translates to:
+  /// **'Learn together'**
+  String get dashLearnTogether;
+
+  /// No description provided for @dashYourAchievements.
+  ///
+  /// In en, this message translates to:
+  /// **'Your achievements'**
+  String get dashYourAchievements;
+
+  /// No description provided for @dashQuickActions.
+  ///
+  /// In en, this message translates to:
+  /// **'Quick Actions'**
+  String get dashQuickActions;
+
+  /// No description provided for @dashQuickActionsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Jump straight to what you need'**
+  String get dashQuickActionsSubtitle;
+
+  /// No description provided for @dashPickUpWhereLeft.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick up where you left off'**
+  String get dashPickUpWhereLeft;
+
+  /// No description provided for @dashReadyToStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Ready when you are'**
+  String get dashReadyToStart;
+
+  /// No description provided for @drawerTagline.
+  ///
+  /// In en, this message translates to:
+  /// **'Learn • Grow • Build Your Future'**
+  String get drawerTagline;
+
+  /// No description provided for @drawerCareerGuidance.
+  ///
+  /// In en, this message translates to:
+  /// **'Career Guidance'**
+  String get drawerCareerGuidance;
+
+  /// No description provided for @drawerGetSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Get support'**
+  String get drawerGetSupport;
+
+  /// No description provided for @drawerJobs.
+  ///
+  /// In en, this message translates to:
+  /// **'Jobs'**
+  String get drawerJobs;
+
+  /// No description provided for @drawerFindOpportunities.
+  ///
+  /// In en, this message translates to:
+  /// **'Find opportunities'**
+  String get drawerFindOpportunities;
+
+  /// No description provided for @drawerSectionProfileProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile & Progress'**
+  String get drawerSectionProfileProgress;
+
+  /// No description provided for @drawerMyProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'My Progress'**
+  String get drawerMyProgress;
+
+  /// No description provided for @drawerTrackGrowth.
+  ///
+  /// In en, this message translates to:
+  /// **'Track your growth'**
+  String get drawerTrackGrowth;
+
+  /// No description provided for @drawerSectionCommunication.
+  ///
+  /// In en, this message translates to:
+  /// **'Communication'**
+  String get drawerSectionCommunication;
+
+  /// No description provided for @drawerStayConnected.
+  ///
+  /// In en, this message translates to:
+  /// **'Stay connected'**
+  String get drawerStayConnected;
+
+  /// No description provided for @drawerNeedHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Need Help?'**
+  String get drawerNeedHelp;
+
+  /// No description provided for @drawerContactSupport.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact support or get assistance'**
+  String get drawerContactSupport;
+
+  /// No description provided for @drawerAppPreferences.
+  ///
+  /// In en, this message translates to:
+  /// **'App preferences'**
+  String get drawerAppPreferences;
+
+  /// No description provided for @drawerBetterSkills.
+  ///
+  /// In en, this message translates to:
+  /// **'Better Skills'**
+  String get drawerBetterSkills;
+
+  /// No description provided for @drawerBrighterFuture.
+  ///
+  /// In en, this message translates to:
+  /// **'Brighter Future'**
+  String get drawerBrighterFuture;
+
+  /// No description provided for @drawerSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Soon'**
+  String get drawerSoon;
+
+  /// No description provided for @drawerComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming soon — we\'re building this for you.'**
+  String get drawerComingSoon;
+
+  /// No description provided for @drawerAccessAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Access your account'**
+  String get drawerAccessAccount;
+
+  /// No description provided for @drawerCreateAccount.
+  ///
+  /// In en, this message translates to:
+  /// **'Create a free account'**
+  String get drawerCreateAccount;
+
+  /// No description provided for @drawerSectionInsights.
+  ///
+  /// In en, this message translates to:
+  /// **'Insights'**
+  String get drawerSectionInsights;
+
+  /// No description provided for @drawerPlatformInsights.
+  ///
+  /// In en, this message translates to:
+  /// **'Platform insights'**
+  String get drawerPlatformInsights;
+
+  /// No description provided for @drawerPushReport.
+  ///
+  /// In en, this message translates to:
+  /// **'Push Report'**
+  String get drawerPushReport;
+
+  /// No description provided for @drawerDeliveryStats.
+  ///
+  /// In en, this message translates to:
+  /// **'Delivery statistics'**
+  String get drawerDeliveryStats;
+
+  /// No description provided for @drawerCreateEditCourses.
+  ///
+  /// In en, this message translates to:
+  /// **'Create & edit courses'**
+  String get drawerCreateEditCourses;
+
+  /// No description provided for @drawerLearnersAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Learners & access'**
+  String get drawerLearnersAccess;
+
+  /// No description provided for @drawerRecordings.
+  ///
+  /// In en, this message translates to:
+  /// **'Recordings'**
+  String get drawerRecordings;
+
+  /// No description provided for @drawerSessionVideos.
+  ///
+  /// In en, this message translates to:
+  /// **'Session videos'**
+  String get drawerSessionVideos;
+
+  /// No description provided for @drawerApproveTrack.
+  ///
+  /// In en, this message translates to:
+  /// **'Approve & track'**
+  String get drawerApproveTrack;
+
+  /// No description provided for @drawerSendAnnouncements.
+  ///
+  /// In en, this message translates to:
+  /// **'Send announcements'**
+  String get drawerSendAnnouncements;
+
+  /// No description provided for @drawerExploreCatalog.
+  ///
+  /// In en, this message translates to:
+  /// **'Explore the catalog'**
+  String get drawerExploreCatalog;
+
+  /// No description provided for @drawerBooksResources.
+  ///
+  /// In en, this message translates to:
+  /// **'Books & resources'**
+  String get drawerBooksResources;
+
+  /// No description provided for @drawerYourResults.
+  ///
+  /// In en, this message translates to:
+  /// **'Your results'**
+  String get drawerYourResults;
+
+  /// No description provided for @drawerOfflineLearning.
+  ///
+  /// In en, this message translates to:
+  /// **'Learn offline'**
+  String get drawerOfflineLearning;
+
+  /// No description provided for @drawerBillingHistory.
+  ///
+  /// In en, this message translates to:
+  /// **'Billing history'**
+  String get drawerBillingHistory;
+
+  /// No description provided for @drawerAdministrator.
+  ///
+  /// In en, this message translates to:
+  /// **'Administrator'**
+  String get drawerAdministrator;
 }
 
 class _AppLocalizationsDelegate

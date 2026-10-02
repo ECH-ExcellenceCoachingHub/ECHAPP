@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:excellencecoachinghub/presentation/providers/auth_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/enrollment_provider.dart';
+import 'package:excellencecoachinghub/presentation/router/post_auth_navigation.dart';
 import 'package:excellencecoachinghub/utils/phone_validator.dart';
 import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/presentation/widgets/desktop_brand_panel.dart';
@@ -203,6 +204,7 @@ class _PhoneCollectionScreenState extends ConsumerState<PhoneCollectionScreen> {
   final _phoneController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLoading = false;
+  bool _skipping = false;
   _Country _selectedCountry = _countries.firstWhere((c) => c.code == 'RW');
 
   // Theme-aware getters
@@ -318,6 +320,7 @@ class _PhoneCollectionScreenState extends ConsumerState<PhoneCollectionScreen> {
         phone: formattedPhone,
         hasCompletedOnboarding: true,
       );
+      _skipping = true; // this method handles navigation from here
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -364,24 +367,18 @@ class _PhoneCollectionScreenState extends ConsumerState<PhoneCollectionScreen> {
     final l10n = AppLocalizations.of(context);
     final authState = ref.watch(authProvider);
 
-    // Skip if user already has a phone number (signed up with phone)
-    if (authState.user?.phone != null && authState.user!.phone!.trim().isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (mounted) {
-          // Check if user has enrolled courses
-          try {
-            final enrolledCourses = await ref.read(enrolledCoursesProvider.future);
-            if (enrolledCourses.isEmpty) {
-              context.go('/courses');
-            } else {
-              context.go('/dashboard');
-            }
-          } catch (e) {
-            debugPrint('Error checking enrolled courses: $e');
-            context.go('/dashboard');
-          }
-        }
-      });
+    // Skip if user already has a phone number (given at registration or via
+    // phone sign-in). Not while saving — _savePhoneNumber navigates itself.
+    final user = authState.user;
+    if (user != null && userHasPhone(user) && !_isLoading) {
+      if (!_skipping) {
+        _skipping = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!mounted) return;
+          if (!user.hasCompletedOnboarding) await markOnboardingComplete(ref);
+          if (mounted) await goHome(context, ref);
+        });
+      }
       return const SizedBox.shrink();
     }
 

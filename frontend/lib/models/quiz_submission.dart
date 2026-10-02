@@ -10,6 +10,7 @@ class QuizSubmission {
   final List<Map<String, dynamic>> results;
   final DateTime submittedAt;
   final String? examTitle;
+  final String? courseTitle;
 
   QuizSubmission({
     required this.id,
@@ -23,21 +24,33 @@ class QuizSubmission {
     required this.results,
     required this.submittedAt,
     this.examTitle,
+    this.courseTitle,
   });
 
   factory QuizSubmission.fromJson(Map<String, dynamic> json) {
+    // examId is a plain id, or the populated quiz document.
+    final exam = json['examId'];
+    final examMap = exam is Map ? exam : null;
+    int toInt(dynamic v) => v is num ? v.round() : int.tryParse('$v') ?? 0;
+
     return QuizSubmission(
       id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
-      examId: json['examId']?.toString() ?? '',
+      examId: (examMap != null ? examMap['_id'] : exam)?.toString() ?? '',
       userId: json['userId']?.toString() ?? '',
-      totalScore: json['totalScore'] ?? 0,
-      maxScore: json['maxScore'] ?? 0,
-      percentage: json['percentage'] ?? 0,
-      passed: json['passed'] ?? false,
-      needsManualGrading: json['needsManualGrading'] ?? false,
-      results: List<Map<String, dynamic>>.from(json['results'] ?? []),
-      submittedAt: DateTime.parse(json['submittedAt'] ?? json['createdAt'] ?? DateTime.now().toIso8601String()),
-      examTitle: json['examId']?['title'] ?? json['examTitle'],
+      totalScore: toInt(json['totalScore']),
+      maxScore: toInt(json['maxScore']),
+      percentage: toInt(json['percentage']),
+      passed: json['passed'] == true,
+      needsManualGrading: json['needsManualGrading'] == true,
+      results: (json['results'] as List? ?? const [])
+          .whereType<Map>()
+          .map((r) => Map<String, dynamic>.from(r))
+          .toList(),
+      submittedAt: DateTime.tryParse(
+              (json['submittedAt'] ?? json['createdAt'] ?? '').toString()) ??
+          DateTime.now(),
+      examTitle: json['examTitle']?.toString() ?? examMap?['title']?.toString(),
+      courseTitle: json['courseTitle']?.toString(),
     );
   }
 
@@ -54,6 +67,7 @@ class QuizSubmission {
       'results': results,
       'submittedAt': submittedAt.toIso8601String(),
       'examTitle': examTitle,
+      'courseTitle': courseTitle,
     };
   }
 }

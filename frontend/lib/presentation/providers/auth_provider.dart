@@ -8,6 +8,7 @@ import 'package:excellencecoachinghub/services/firebase_auth_service.dart';
 import 'package:excellencecoachinghub/services/fcm_token_service.dart';
 import 'package:excellencecoachinghub/data/repositories/auth_repository.dart';
 import 'package:excellencecoachinghub/utils/device_id_utils.dart';
+import 'package:excellencecoachinghub/utils/phone_validator.dart';
 import 'package:excellencecoachinghub/config/api_config.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
@@ -578,9 +579,30 @@ class AuthNotifier extends StateNotifier<AuthState> {
         
         // Step 3: Send token to backend for user creation in MongoDB
         debugPrint('AuthProvider: Sending token to backend for authentication');
-        final authResponse = await _authRepository.firebaseLogin(idToken, fullName: fullName, deviceId: deviceId);
+        var authResponse = await _authRepository.firebaseLogin(idToken, fullName: fullName, deviceId: deviceId);
         debugPrint('AuthProvider: Backend authentication successful');
-        
+
+        // Step 3b: firebase-login doesn't carry the phone, so persist the one the
+        // user typed during registration — otherwise onboarding asks for it again.
+        final hasPhone = phone != null && phone.trim().isNotEmpty;
+        final backendHasPhone = authResponse.user.phone?.trim().isNotEmpty ?? false;
+        if (hasPhone && !backendHasPhone) {
+          try {
+            final updatedUser = await _authRepository.updateProfile(
+              authResponse.token,
+              phone: PhoneValidator.formatPhoneNumber(phone.trim()),
+            );
+            authResponse = AuthResponse(
+              user: updatedUser,
+              token: authResponse.token,
+              refreshToken: authResponse.refreshToken,
+            );
+          } catch (e) {
+            // Non-fatal: the phone-collection step will ask for it instead.
+            debugPrint('AuthProvider: Could not save registration phone: $e');
+          }
+        }
+
         // Step 4: Save tokens and user data
         await _storageManager.saveAccessToken(authResponse.token);
         await _storageManager.saveRefreshToken(authResponse.refreshToken);
@@ -661,6 +683,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _storageManager.saveUserShortTermGoal(authResponse.user.shortTermGoal);
       await _storageManager.saveUserMidTermGoal(authResponse.user.midTermGoal);
       await _storageManager.saveUserLongTermGoal(authResponse.user.longTermGoal);
+      await _storageManager.saveHasCompletedOnboarding(authResponse.user.hasCompletedOnboarding);
 
       FCMTokenService.initializeAndSyncToken();
       debugPrint('AuthProvider: Phone registration successful');

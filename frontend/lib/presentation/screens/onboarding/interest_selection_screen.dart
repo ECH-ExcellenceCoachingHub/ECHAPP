@@ -8,6 +8,7 @@ import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/utils/category_utils.dart';
 import 'package:excellencecoachinghub/config/storage_manager.dart';
 import 'package:excellencecoachinghub/presentation/widgets/desktop_brand_panel.dart';
+import 'package:excellencecoachinghub/presentation/router/post_auth_navigation.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
 
 final _storageManager = StorageManager();
@@ -29,6 +30,7 @@ class _InterestSelectionScreenState extends ConsumerState<InterestSelectionScree
     with TickerProviderStateMixin {
   final Set<String> _selectedInterests = {};
   bool _interestsInitialized = false;
+  bool _entryChecked = false;
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
@@ -125,12 +127,18 @@ class _InterestSelectionScreenState extends ConsumerState<InterestSelectionScree
       return const SizedBox.shrink();
     }
 
-    // If user already completed onboarding and NOT in edit mode, skip straight to dashboard
-    if (authState.user!.hasCompletedOnboarding && !widget.isEditMode) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) context.go('/dashboard');
-      });
-      return const SizedBox.shrink();
+    // Outside edit mode, don't ask again for interests the user already gave
+    // (or anything else already collected) — move on to the next missing step.
+    // Checked only on entry so returning here via Back still allows editing.
+    if (!widget.isEditMode && !_entryChecked) {
+      _entryChecked = true;
+      final user = authState.user!;
+      if (user.hasCompletedOnboarding || userHasInterests(user)) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) continueAfterAuth(context, ref);
+        });
+        return const SizedBox.shrink();
+      }
     }
 
     // Pre-populate with previously saved interests (skip + come back, or edit)
@@ -988,17 +996,7 @@ class _InterestSelectionScreenState extends ConsumerState<InterestSelectionScree
           return;
         }
 
-        final authState = ref.read(authProvider);
-        final user = authState.user;
-
-        // Check if user has phone number
-        if (user?.phone == null || user!.phone!.trim().isEmpty) {
-          // Navigate to phone collection screen
-          context.push('/phone-collection');
-        } else {
-          // Complete onboarding and go to dashboard
-          await _completeOnboarding();
-        }
+        await _goToNextStep();
       }
     } catch (e) {
       if (mounted) {
@@ -1025,17 +1023,18 @@ class _InterestSelectionScreenState extends ConsumerState<InterestSelectionScree
         return;
       }
 
-      final authState = ref.read(authProvider);
-      final user = authState.user;
-      
-      // Check if user has phone number
-      if (user?.phone == null || user!.phone!.trim().isEmpty) {
-        // Navigate to phone collection screen
-        context.push('/phone-collection');
-      } else {
-        // Complete onboarding and go to dashboard
-        await _completeOnboarding();
-      }
+      await _goToNextStep();
+    }
+  }
+
+  /// Phone collection only when the user hasn't already given a phone number
+  /// (e.g. at registration or via phone sign-in); otherwise finish onboarding.
+  Future<void> _goToNextStep() async {
+    final user = ref.read(authProvider).user;
+    if (user != null && !userHasPhone(user)) {
+      context.push('/phone-collection');
+    } else {
+      await _completeOnboarding();
     }
   }
 
@@ -1048,9 +1047,7 @@ class _InterestSelectionScreenState extends ConsumerState<InterestSelectionScree
       // Ensure local flag is persisted so the user is not routed back to onboarding
       await _storageManager.saveHasCompletedOnboarding(true);
 
-      if (mounted) {
-        context.go('/dashboard');
-      }
+      if (mounted) await goHome(context, ref);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

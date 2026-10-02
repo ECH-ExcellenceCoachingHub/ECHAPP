@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:excellencecoachinghub/presentation/providers/auth_provider.dart';
+import 'package:excellencecoachinghub/presentation/router/post_auth_navigation.dart';
 import 'package:excellencecoachinghub/presentation/providers/localization_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/enrollment_provider.dart';
 import 'package:excellencecoachinghub/models/enrollment.dart';
@@ -153,15 +154,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     }
 
     if (authState.user != null) {
-      final name = authState.user!.fullName;
-      final needsName = name.isEmpty || name == 'Unknown User';
-      final hasCompletedOnboarding = authState.user!.hasCompletedOnboarding;
-      
-      if (needsName) {
-        context.go('/name-collection');
-      } else if (!hasCompletedOnboarding) {
-        // User hasn't completed onboarding - show interest selection
-        context.go('/interest-selection');
+      final user = authState.user!;
+      final nextStep = nextOnboardingRoute(user);
+
+      if (user.role != 'admin' && user.role != 'instructor' &&
+          (nextStep != null || !user.hasCompletedOnboarding)) {
+        // Only the onboarding steps the user hasn't already answered.
+        await continueAfterAuth(context, ref);
       } else {
         // Check if user has active (non-completed) courses
         try {

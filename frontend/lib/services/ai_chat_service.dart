@@ -114,6 +114,8 @@ class RealAIChatService implements AIChatService {
   static String get _baseUrl => ApiConfig.aiBaseUrl; // Use centralized API config
   static String get _voiceBaseUrl => ApiConfig.voiceBaseUrl; // Use centralized voice API config
   final http.Client _httpClient = http.Client();
+  // Temporary client-side ids ("conversation_...") -> real backend ids.
+  final Map<String, String> _resolvedConversationIds = {};
 
   @override
   Future<List<AIChatMessage>> getConversation(String conversationId) async {
@@ -151,12 +153,14 @@ class RealAIChatService implements AIChatService {
   @override
   Future<AIChatMessage> sendMessage(String conversationId, String message, AIChatContext context) async {
     try {
-      // If conversationId is a temporary string ID, create a real conversation first
+      // If conversationId is a temporary string ID, create a real conversation
+      // once and reuse it for the rest of the chat.
       String actualConversationId = conversationId;
       if (conversationId.startsWith('conversation_')) {
-        actualConversationId = await createConversation(context);
+        actualConversationId = _resolvedConversationIds[conversationId] ??=
+            await createConversation(context);
       }
-      
+
       final requestBody = {
         'conversationId': actualConversationId,
         'message': message,

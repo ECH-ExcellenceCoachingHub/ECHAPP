@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:excellencecoachinghub/presentation/providers/auth_provider.dart';
-import 'package:excellencecoachinghub/presentation/providers/enrollment_provider.dart';
+import 'package:excellencecoachinghub/presentation/router/post_auth_navigation.dart';
 import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
 import 'package:excellencecoachinghub/presentation/widgets/desktop_brand_panel.dart';
@@ -169,30 +169,8 @@ class _PhoneAuthScreenState extends ConsumerState<PhoneAuthScreen> {
       // Navigate on successful login
       if (current.user != null && !current.isLoading && current.error?.contains('successful') == true) {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
-          if (mounted) {
-            if (current.user?.role == 'admin') {
-              context.go('/admin');
-            } else {
-              final userName = current.user?.fullName ?? '';
-              final needsName = userName.isEmpty || userName == 'Unknown User';
-              if (needsName) {
-                context.go('/name-collection');
-              } else {
-                // Check if user has enrolled courses
-                try {
-                  final enrolledCourses = await ref.read(enrolledCoursesProvider.future);
-                  if (enrolledCourses.isEmpty) {
-                    context.go('/courses');
-                  } else {
-                    context.go('/dashboard');
-                  }
-                } catch (e) {
-                  debugPrint('Error checking enrolled courses: $e');
-                  context.go('/dashboard');
-                }
-              }
-            }
-          }
+          // Phone is already verified here, so the phone step is skipped.
+          if (mounted) await continueAfterAuth(context, ref);
         });
       }
     });

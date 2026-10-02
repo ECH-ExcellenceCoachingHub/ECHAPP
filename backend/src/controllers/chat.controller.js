@@ -258,12 +258,17 @@ class ChatController {
         metadata: { ipAddress: req.ip, userAgent: req.get('User-Agent') }
       });
 
-      const [, recentMessages] = await Promise.all([
-        userMessage.save(),
-        ChatMessage.getConversationHistory(conversation._id, 10),
-      ]);
+      // Save before reading history. Running these in parallel let the history
+      // miss the question just asked, so the AI answered the previous one.
+      await userMessage.save();
+      const recentMessages = await ChatMessage.getConversationHistory(conversation._id, 10);
 
       await conversation.incrementMessageCount();
+
+      // Always end with the current question, even if timestamps tie in history.
+      const priorMessages = recentMessages.filter(
+        msg => msg._id.toString() !== userMessage._id.toString()
+      );
 
       const messagesForAI = [
         {
@@ -274,10 +279,11 @@ class ChatController {
             ...safeContext
           })
         },
-        ...recentMessages.map(msg => ({
+        ...priorMessages.map(msg => ({
           role: msg.sender === 'user' ? 'user' : 'assistant',
           content: msg.message
-        }))
+        })),
+        { role: 'user', content: userMessage.message }
       ];
 
       // Generate AI response

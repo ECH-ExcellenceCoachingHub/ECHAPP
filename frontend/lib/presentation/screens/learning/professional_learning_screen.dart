@@ -123,6 +123,8 @@ class _ProfessionalLearningScreenState
   final Map<String, bool> _chapterUnlockedStatus = {};
   final Map<String, bool> _lessonCompletionStatus = {};
   int _currentSectionIndex = 0;
+  // Chapter shown in the desktop detail pane; null follows _currentSectionIndex.
+  String? _selectedChapterId;
   bool _isChatExpanded = false;
   bool _isLoading = false;
   final bool _isLoadingChapterDetails = false;
@@ -364,9 +366,13 @@ class _ProfessionalLearningScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Mark Chapter Complete'),
+        title: Text(_isLastChapter(chapter)
+            ? 'Complete Your Course'
+            : 'Continue to Next Chapter'),
         content: Text(
-          'You have completed $completedLessons of ${lessons.length} lessons. Mark this chapter as complete and proceed to the next one?',
+          _isLastChapter(chapter)
+              ? 'You have completed $completedLessons of ${lessons.length} lessons in this final chapter. Mark your course as complete?'
+              : 'You have completed $completedLessons of ${lessons.length} lessons. Finish this chapter and continue to the next one?',
         ),
         actions: [
           TextButton(
@@ -378,7 +384,7 @@ class _ProfessionalLearningScreenState
             style: ElevatedButton.styleFrom(
               backgroundColor: _DT.primary,
             ),
-            child: const Text('Mark Complete'),
+            child: Text(_isLastChapter(chapter) ? 'Complete Course' : 'Continue'),
           ),
         ],
       ),
@@ -1210,40 +1216,197 @@ class _ProfessionalLearningScreenState
     }
 
     return isDesktop && screenW > 1100
-        ? _buildChaptersGrid(chapters)
+        ? _buildChaptersDesktop(chapters)
         : _buildChaptersList(chapters);
   }
 
-  Widget _buildChaptersGrid(List<Section> chapters) {
+  // Checked against the full list so search filtering doesn't change it.
+  bool _isLastChapter(Section s) =>
+      _chapters != null && _chapters!.isNotEmpty && _chapters!.last.id == s.id;
+
+  Section? _nextChapterOf(Section s) {
+    final i = _chapters?.indexWhere((c) => c.id == s.id) ?? -1;
+    if (i < 0 || i + 1 >= _chapters!.length) return null;
+    return _chapters![i + 1];
+  }
+
+  /// Desktop selects the next chapter in the detail pane; mobile opens its sheet.
+  VoidCallback? _goToNextChapter(Section s, {required bool desktop}) {
+    final next = _nextChapterOf(s);
+    if (next == null) return null;
+    return () {
+      if (desktop) {
+        if (_isSearchActive) {
+          _searchController.clear();
+          setState(() {
+            _filteredChapters = null;
+            _isSearchActive = false;
+          });
+        }
+        setState(() => _selectedChapterId = next.id);
+      } else {
+        _openChapterDetails(next, _chapters!.indexOf(next));
+      }
+    };
+  }
+
+  /// Desktop: chapter outline on the left, the selected chapter's full
+  /// lesson list on the right — every lesson is visible without extra taps.
+  Widget _buildChaptersDesktop(List<Section> chapters) {
+    var selected = chapters.indexWhere((s) => s.id == _selectedChapterId);
+    if (selected < 0) {
+      // Search results use their own indices, so map the "current" chapter by id.
+      final currentId = (_chapters != null &&
+              _currentSectionIndex < _chapters!.length)
+          ? _chapters![_currentSectionIndex].id
+          : null;
+      selected = chapters.indexWhere((s) => s.id == currentId);
+      if (selected < 0) selected = 0;
+    }
+    final s = chapters[selected];
+    // Chapter numbers always come from the full list, not the filtered one.
+    int numberOf(Section sec) {
+      final i = _chapters?.indexWhere((c) => c.id == sec.id) ?? -1;
+      return i < 0 ? chapters.indexOf(sec) : i;
+    }
+
     final screenW = MediaQuery.of(context).size.width;
-    final crossCount = screenW > 1600 ? 3 : 2;
-    return GridView.builder(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 120),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossCount,
-        childAspectRatio: 1.7,
-        crossAxisSpacing: 20,
-        mainAxisSpacing: 20,
+    final sidebarW = screenW > 1600 ? 380.0 : 330.0;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: sidebarW,
+            child: _buildChapterOutline(chapters, selected, numberOf),
+          ),
+          const SizedBox(width: 24),
+          Expanded(
+            child: SingleChildScrollView(
+              // New key per chapter so switching chapters starts at the top.
+              key: ValueKey('chapter-scroll-${s.id}'),
+              padding: const EdgeInsets.only(bottom: 120),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 960),
+                  child: _ChapterCard(
+                    key: ValueKey('chapter-detail-${s.id}'),
+                    section: s,
+                    chapterIndex: numberOf(s),
+                    lessons: _chapterLessons[s.id] ?? [],
+                    isUnlocked: _chapterUnlockedStatus[s.id] ?? false,
+                    isCurrent: numberOf(s) == _currentSectionIndex,
+                    isChapterCompleted: _chapterCompletionStatus[s.id] ?? false,
+                    lessonCompletionStatus: _lessonCompletionStatus,
+                    isDark: _isDark,
+                    isCompact: false,
+                    showLessonNumbers: true,
+                    isLastChapter: _isLastChapter(s),
+                    nextChapterTitle: _nextChapterOf(s)?.title,
+                    onNextChapter: _goToNextChapter(s, desktop: true),
+                    onLessonTap: _openLesson,
+                    onMoreTap: () => _openChapterDetails(s, numberOf(s)),
+                    onMarkComplete: () => _markChapterComplete(s, numberOf(s)),
+                    isLoading: _markingCompleteChapterId == s.id,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
-      itemCount: chapters.length,
-      itemBuilder: (ctx, i) {
-        final s = chapters[i];
-        return _ChapterCard(
-          section: s,
-          chapterIndex: i,
-          lessons: _chapterLessons[s.id] ?? [],
-          isUnlocked: _chapterUnlockedStatus[s.id] ?? false,
-          isCurrent: i == _currentSectionIndex,
-          isChapterCompleted: _chapterCompletionStatus[s.id] ?? false,
-          lessonCompletionStatus: _lessonCompletionStatus,
-          isDark: _isDark,
-          isCompact: true,
-          onLessonTap: _openLesson,
-          onMoreTap: () => _openChapterDetails(s, i),
-          onMarkComplete: () => _markChapterComplete(s, i),
-          isLoading: _markingCompleteChapterId == s.id,
-        );
-      },
+    );
+  }
+
+  Widget _buildChapterOutline(
+    List<Section> chapters,
+    int selected,
+    int Function(Section) numberOf,
+  ) {
+    final total = _totalLessons;
+    final done = _completedLessonsCount;
+    final progress = total == 0 ? 0.0 : (done / total).clamp(0.0, 1.0);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 24),
+      decoration: BoxDecoration(
+        color: _cardBg,
+        borderRadius: _DT.r16,
+        border: Border.all(
+            color: _isDark ? _DT.borderDark : _DT.border, width: 0.8),
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Course content',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: _isDark ? Colors.white : _DT.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${chapters.length} ${chapters.length == 1 ? "chapter" : "chapters"}'
+                  ' · $done/$total lessons done',
+                  style: const TextStyle(
+                      fontSize: 12, color: _DT.textSecondary),
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: _DT.r32,
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 5,
+                    backgroundColor: _isDark ? _DT.surfaceDk : _DT.surface,
+                    valueColor:
+                        const AlwaysStoppedAnimation<Color>(_DT.primary),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(
+              height: 1,
+              color: _isDark ? _DT.borderDark : _DT.border),
+          Flexible(
+            fit: FlexFit.loose,
+            child: ListView.builder(
+              shrinkWrap: true,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: chapters.length,
+              itemBuilder: (ctx, i) {
+                final s = chapters[i];
+                final lessons = _chapterLessons[s.id] ?? const <Lesson>[];
+                return _ChapterOutlineTile(
+                  number: numberOf(s) + 1,
+                  title: s.title,
+                  lessonCount: lessons.length,
+                  completedCount: lessons
+                      .where((l) => _lessonCompletionStatus[l.id] == true)
+                      .length,
+                  isUnlocked: _chapterUnlockedStatus[s.id] ?? false,
+                  isCompleted: _chapterCompletionStatus[s.id] ?? false,
+                  isSelected: i == selected,
+                  isDark: _isDark,
+                  onTap: () => setState(() => _selectedChapterId = s.id),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1269,6 +1432,9 @@ class _ProfessionalLearningScreenState
           lessonCompletionStatus: _lessonCompletionStatus,
           isDark: _isDark,
           isCompact: false,
+          isLastChapter: _isLastChapter(s),
+          nextChapterTitle: _nextChapterOf(s)?.title,
+          onNextChapter: _goToNextChapter(s, desktop: false),
           onLessonTap: _openLesson,
           onMoreTap: () => _openChapterDetails(s, i),
           onMarkComplete: () => _markChapterComplete(s, i),
@@ -4399,12 +4565,19 @@ class _ChapterCard extends StatelessWidget {
   final Map<String, bool> lessonCompletionStatus;
   final bool isDark;
   final bool isCompact;
+  /// Numbered lessons, "next up" highlight and a preview of locked lessons.
+  final bool showLessonNumbers;
+  final bool isLastChapter;
+  /// Shown as an "Up next" button once this chapter is completed.
+  final String? nextChapterTitle;
+  final VoidCallback? onNextChapter;
   final void Function(Lesson) onLessonTap;
   final VoidCallback onMoreTap;
   final Future<void> Function() onMarkComplete;
   final bool isLoading;
 
   const _ChapterCard({
+    super.key,
     required this.section,
     required this.chapterIndex,
     required this.lessons,
@@ -4414,6 +4587,10 @@ class _ChapterCard extends StatelessWidget {
     required this.lessonCompletionStatus,
     required this.isDark,
     required this.isCompact,
+    this.showLessonNumbers = false,
+    this.isLastChapter = false,
+    this.nextChapterTitle,
+    this.onNextChapter,
     required this.onLessonTap,
     required this.onMoreTap,
     required this.onMarkComplete,
@@ -4428,6 +4605,13 @@ class _ChapterCard extends StatelessWidget {
 
   bool get isFullyCompleted =>
       lessons.isNotEmpty && lessons.every((l) => lessonCompletionStatus[l.id] == true);
+
+  String? get _nextUpLessonId {
+    for (final l in lessons) {
+      if (lessonCompletionStatus[l.id] != true) return l.id;
+    }
+    return null;
+  }
 
   Color get _cardBg => isDark ? _DT.cardDark : _DT.card;
   Color get _textPrimary => isDark ? Colors.white : _DT.textPrimary;
@@ -4460,9 +4644,10 @@ class _ChapterCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           _buildHeader(),
-          if (isUnlocked && lessons.isNotEmpty) _buildLessonsSection(),
-          if (isUnlocked) _buildMarkCompleteFooter(),
           if (!isUnlocked) _buildLockedFooter(),
+          if ((isUnlocked || showLessonNumbers) && lessons.isNotEmpty)
+            _buildLessonsSection(),
+          if (isUnlocked) _buildMarkCompleteFooter(),
         ],
       ),
     );
@@ -4573,7 +4758,8 @@ class _ChapterCard extends StatelessWidget {
                 Icon(Icons.list_rounded, size: 15, color: _DT.textSecondary),
                 const SizedBox(width: 6),
                 Text(
-                  '${lessons.length} ${lessons.length == 1 ? "Lesson" : "Lessons"}',
+                  '${lessons.length} ${lessons.length == 1 ? "Lesson" : "Lessons"}'
+                  '${showLessonNumbers ? ' · ${lessons.fold<int>(0, (sum, l) => sum + l.duration)} min total' : ''}',
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -4584,14 +4770,18 @@ class _ChapterCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-          ...displayLessons.map((l) {
+          ...displayLessons.asMap().entries.map((e) {
+            final l = e.value;
             final done = lessonCompletionStatus[l.id] == true;
             return _LessonRow(
               lesson: l,
               isCompleted: done,
               isCompact: isCompact,
               isDark: isDark,
-              onTap: () => onLessonTap(l),
+              number: showLessonNumbers ? e.key + 1 : null,
+              isNextUp: showLessonNumbers && isUnlocked && l.id == _nextUpLessonId,
+              isLocked: !isUnlocked,
+              onTap: isUnlocked ? () => onLessonTap(l) : null,
             );
           }),
           if (isCompact && _shouldShowMoreButton())
@@ -4676,16 +4866,17 @@ class _ChapterCard extends StatelessWidget {
       padding: EdgeInsets.symmetric(
           horizontal: isCompact ? 14 : 16, vertical: isCompact ? 10 : 14),
       decoration: BoxDecoration(
-        color: Colors.grey.shade100,
+        color: isDark ? _surfaceBg : Colors.grey.shade100,
         borderRadius: _DT.r12,
-        border: Border.all(color: Colors.grey.shade300, width: 0.5),
+        border: Border.all(
+            color: isDark ? _borderColor : Colors.grey.shade300, width: 0.5),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: Colors.grey.shade200,
+              color: isDark ? _cardBg : Colors.grey.shade200,
               shape: BoxShape.circle,
             ),
             child: Icon(Icons.lock_outline_rounded,
@@ -4719,9 +4910,83 @@ class _ChapterCard extends StatelessWidget {
     );
   }
 
+  Widget _buildNextChapterButton() {
+    final hPad = isCompact ? 10.0 : 14.0;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(hPad, 0, hPad, isCompact ? 10 : 14),
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onNextChapter,
+          child: Container(
+            padding: EdgeInsets.symmetric(
+                horizontal: isCompact ? 12 : 18, vertical: isCompact ? 10 : 14),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                  colors: _DT.heroGrad,
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight),
+              borderRadius: _DT.r12,
+              boxShadow: [
+                BoxShadow(
+                  color: _DT.primary.withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'UP NEXT',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: isCompact ? 9 : 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Chapter ${chapterIndex + 2}: ${nextChapterTitle ?? ''}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: isCompact ? 12 : 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Next',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isCompact ? 12 : 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.arrow_forward_rounded,
+                    color: Colors.white, size: isCompact ? 16 : 18),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildMarkCompleteFooter() {
     if (isChapterCompleted) {
-      return Container(
+      final banner = Container(
         margin: EdgeInsets.fromLTRB(isCompact ? 10 : 14, 0, isCompact ? 10 : 14, isCompact ? 10 : 14),
         padding: EdgeInsets.symmetric(
             horizontal: isCompact ? 12 : 16, vertical: isCompact ? 10 : 12),
@@ -4742,7 +5007,7 @@ class _ChapterCard extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             Text(
-              'Chapter Completed!',
+              isLastChapter ? 'Course Completed!' : 'Chapter Completed!',
               style: TextStyle(
                 fontSize: isCompact ? 11 : 13,
                 fontWeight: FontWeight.w700,
@@ -4756,6 +5021,14 @@ class _ChapterCard extends StatelessWidget {
             ),
           ],
         ),
+      );
+      if (onNextChapter == null) return banner;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          banner,
+          _buildNextChapterButton(),
+        ],
       );
     }
     // Show "Mark Complete" button when chapter is unlocked but not yet marked complete
@@ -4794,11 +5067,19 @@ class _ChapterCard extends StatelessWidget {
                   ),
                 )
               else
-                Icon(Icons.emoji_events_rounded,
-                    color: Colors.white, size: isCompact ? 14 : 16),
+                Icon(
+                    isLastChapter
+                        ? Icons.emoji_events_rounded
+                        : Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                    size: isCompact ? 14 : 16),
               const SizedBox(width: 8),
               Text(
-                isLoading ? 'Marking Complete...' : 'Mark Chapter Complete',
+                isLoading
+                    ? (isLastChapter ? 'Completing course...' : 'Unlocking next chapter...')
+                    : (isLastChapter
+                        ? 'Click here to mark your course complete'
+                        : 'Click to continue to next chapter'),
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: isCompact ? 11 : 13,
@@ -4833,13 +5114,19 @@ class _LessonRow extends StatelessWidget {
   final bool isCompleted;
   final bool isCompact;
   final bool isDark;
-  final VoidCallback onTap;
+  final int? number;
+  final bool isNextUp;
+  final bool isLocked;
+  final VoidCallback? onTap;
 
   const _LessonRow({
     required this.lesson,
     required this.isCompleted,
     required this.isCompact,
     required this.isDark,
+    this.number,
+    this.isNextUp = false,
+    this.isLocked = false,
     required this.onTap,
   });
 
@@ -4869,24 +5156,41 @@ class _LessonRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: EdgeInsets.only(bottom: isCompact ? 6 : 12),
+    final row = Container(
+        margin: EdgeInsets.only(bottom: isCompact ? 6 : 10),
         padding: EdgeInsets.all(isCompact ? 10 : 14),
         decoration: BoxDecoration(
-          color: isCompleted ? _DT.primary.withOpacity(0.06) : _surface,
+          color: isCompleted
+              ? _DT.primary.withOpacity(0.06)
+              : isNextUp
+                  ? _DT.primary.withOpacity(0.10)
+                  : _surface,
           borderRadius: _DT.r12,
           border: Border.all(
-            color: isCompleted
-                ? _DT.primary.withOpacity(0.3)
+            color: isCompleted || isNextUp
+                ? _DT.primary.withOpacity(isNextUp ? 0.6 : 0.3)
                 : _border,
-            width: isCompleted ? 1.0 : 0.5,
+            width: isNextUp ? 1.5 : isCompleted ? 1.0 : 0.5,
           ),
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            if (number != null) ...[
+              SizedBox(
+                width: 28,
+                child: Text(
+                  number.toString().padLeft(2, '0'),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: isNextUp ? _DT.primary : _DT.textSecondary,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+            ],
             Container(
               padding: EdgeInsets.all(isCompact ? 5 : 8),
               decoration: BoxDecoration(
@@ -4916,14 +5220,20 @@ class _LessonRow extends StatelessWidget {
                     overflow: TextOverflow.visible,
                   ),
                   const SizedBox(height: 4),
-                  Text('${lesson.duration} min',
+                  Text(
+                      number != null && lesson.displayType.isNotEmpty
+                          ? '${lesson.displayType[0].toUpperCase()}${lesson.displayType.substring(1)} · ${lesson.duration} min'
+                          : '${lesson.duration} min',
                       style: TextStyle(
                           fontSize: isCompact ? 10 : 12, color: _DT.textSecondary)),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            if (isCompleted)
+            if (isLocked)
+              const Icon(Icons.lock_outline_rounded,
+                  size: 16, color: _DT.textSecondary)
+            else if (isCompleted)
               Container(
                 padding: const EdgeInsets.all(4),
                 decoration: const BoxDecoration(
@@ -4931,10 +5241,184 @@ class _LessonRow extends StatelessWidget {
                 child: const Icon(Icons.check_rounded,
                     color: Colors.white, size: 11),
               )
+            else if (isNextUp)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: const BoxDecoration(
+                  color: _DT.primary,
+                  borderRadius: _DT.r32,
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.play_arrow_rounded,
+                        color: Colors.white, size: 14),
+                    SizedBox(width: 4),
+                    Text('Start',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700)),
+                  ],
+                ),
+              )
             else
               Icon(Icons.chevron_right_rounded,
                   size: 20, color: _DT.textSecondary),
           ],
+        ),
+      );
+
+    if (isLocked) return Opacity(opacity: 0.55, child: row);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(onTap: onTap, child: row),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════
+//  CHAPTER OUTLINE TILE (desktop sidebar)
+// ═════════════════════════════════════════════
+class _ChapterOutlineTile extends StatelessWidget {
+  final int number;
+  final String title;
+  final int lessonCount;
+  final int completedCount;
+  final bool isUnlocked;
+  final bool isCompleted;
+  final bool isSelected;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _ChapterOutlineTile({
+    required this.number,
+    required this.title,
+    required this.lessonCount,
+    required this.completedCount,
+    required this.isUnlocked,
+    required this.isCompleted,
+    required this.isSelected,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textColor = isDark ? Colors.white : _DT.textPrimary;
+    final progress = lessonCount == 0 ? 0.0 : completedCount / lessonCount;
+
+    final Widget badge;
+    if (isCompleted) {
+      badge = const CircleAvatar(
+        radius: 14,
+        backgroundColor: _DT.primary,
+        child: Icon(Icons.check_rounded, color: Colors.white, size: 16),
+      );
+    } else if (!isUnlocked) {
+      badge = CircleAvatar(
+        radius: 14,
+        backgroundColor: isDark ? _DT.surfaceDk : _DT.surface,
+        child: const Icon(Icons.lock_rounded,
+            color: _DT.textSecondary, size: 14),
+      );
+    } else {
+      badge = CircleAvatar(
+        radius: 14,
+        backgroundColor:
+            isSelected ? _DT.primary : _DT.primary.withOpacity(0.15),
+        child: Text(
+          '$number',
+          style: TextStyle(
+            color: isSelected ? Colors.white : _DT.primary,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      );
+    }
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 12, 16, 12),
+          decoration: BoxDecoration(
+            color: isSelected ? _DT.primary.withOpacity(0.10) : null,
+            border: Border(
+              left: BorderSide(
+                color: isSelected ? _DT.primary : Colors.transparent,
+                width: 3,
+              ),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              badge,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'CHAPTER $number',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.8,
+                        color: _DT.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        height: 1.3,
+                        fontWeight:
+                            isSelected ? FontWeight.w700 : FontWeight.w600,
+                        color: isUnlocked
+                            ? textColor
+                            : textColor.withOpacity(0.55),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: _DT.r32,
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 4,
+                              backgroundColor:
+                                  isDark ? _DT.surfaceDk : _DT.surface,
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                  _DT.primary),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          '$completedCount/$lessonCount',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: _DT.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:excellencecoachinghub/presentation/providers/auth_provider.dart';
-import 'package:excellencecoachinghub/presentation/providers/enrollment_provider.dart';
+import 'package:excellencecoachinghub/presentation/router/post_auth_navigation.dart';
 import 'package:excellencecoachinghub/config/app_theme.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
 
@@ -48,25 +47,7 @@ class _NameCollectionScreenState extends ConsumerState<NameCollectionScreen>
       FocusScope.of(context).unfocus();
       final name = _nameController.text.trim();
       await ref.read(authProvider.notifier).updateProfile(fullName: name);
-      if (mounted) {
-        final user = ref.read(authProvider).user;
-        if (user?.hasCompletedOnboarding == true) {
-          // Check if user has enrolled courses
-          try {
-            final enrolledCourses = await ref.read(enrolledCoursesProvider.future);
-            if (enrolledCourses.isEmpty) {
-              context.go('/courses');
-            } else {
-              context.go('/dashboard');
-            }
-          } catch (e) {
-            debugPrint('Error checking enrolled courses: $e');
-            context.go('/dashboard');
-          }
-        } else {
-          context.go('/interest-selection');
-        }
-      }
+      if (mounted) await continueAfterAuth(context, ref);
     }
   }
 

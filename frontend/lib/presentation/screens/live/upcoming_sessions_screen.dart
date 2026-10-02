@@ -48,18 +48,16 @@ class _UpcomingSessionsScreenState extends ConsumerState<UpcomingSessionsScreen>
     // For teachers, always allow access
     if (_isTeacher) return;
     
-    // For students, check if they have any enrollment with live session access
+    // For students, check if they have any enrollment with live session access.
+    // Access lives on the Enrollment (not the Course), and we only deny once
+    // enrollments have actually loaded — an empty list while loading, or for a
+    // student with no courses yet, is not a "no access" decision.
     if (user != null) {
-      final enrolledCoursesAsync = ref.read(enrolledCoursesProvider);
-      final enrolledCourses = enrolledCoursesAsync.when(
-        data: (courses) => courses,
-        loading: () => [],
-        error: (_, __) => [],
-      );
+      final enrollments =
+          ref.read(userEnrollmentsProvider).valueOrNull ?? const <Enrollment>[];
+      final hasAccess = enrollments.isEmpty ||
+          enrollments.any((enrollment) => enrollment.canAccessLiveSessions);
 
-      // Check if any enrollment allows live session access
-      final hasAccess = enrolledCourses.any((enrollment) => enrollment.canAccessLiveSessions);
-      
       if (!hasAccess) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
@@ -104,12 +102,14 @@ class _UpcomingSessionsScreenState extends ConsumerState<UpcomingSessionsScreen>
         _courses = {};
       } else {
         // Load student's enrolled courses sessions
-        final userEnrollmentsAsync = ref.read(userEnrollmentsProvider);
-        final enrollments = userEnrollmentsAsync.when(
-          data: (enrollments) => enrollments,
-          loading: () => [],
-          error: (_, __) => [],
-        );
+        // Await the provider so a cold open (straight from the dashboard
+        // tile) doesn't see an empty list while enrollments are still loading.
+        List<Enrollment> enrollments;
+        try {
+          enrollments = await ref.read(userEnrollmentsProvider.future);
+        } catch (_) {
+          enrollments = const <Enrollment>[];
+        }
 
         if (enrollments.isEmpty) {
           setState(() {

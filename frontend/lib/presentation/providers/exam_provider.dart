@@ -21,10 +21,8 @@ class ExamProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      // For now, we'll load all attempts from different exams
-      // In a real implementation, you might want a dedicated endpoint for all user's exam history
-      // For now, we'll return empty list since there's no single endpoint for all exam history
-      _examHistory = [];
+      final attempts = await QuizService.getAllMyQuizAttempts();
+      _examHistory = attempts.map(QuizSubmission.fromJson).toList();
       _applyFilter();
       
       debugPrint('Exam history loaded: ${_examHistory.length} exams');
@@ -73,7 +71,8 @@ class ExamProvider with ChangeNotifier {
     } else {
       _filteredExamHistory = _examHistory.where((exam) {
         final title = exam.examTitle?.toLowerCase() ?? '';
-        return title.contains(_searchQuery);
+        final course = exam.courseTitle?.toLowerCase() ?? '';
+        return title.contains(_searchQuery) || course.contains(_searchQuery);
       }).toList();
     }
   }

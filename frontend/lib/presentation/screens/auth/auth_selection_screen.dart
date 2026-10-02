@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:excellencecoachinghub/presentation/providers/auth_provider.dart';
-import 'package:excellencecoachinghub/presentation/providers/enrollment_provider.dart';
+import 'package:excellencecoachinghub/presentation/router/post_auth_navigation.dart';
 import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
 import 'package:excellencecoachinghub/presentation/widgets/desktop_brand_panel.dart';
@@ -722,27 +722,7 @@ class _AuthSelectionScreenState extends ConsumerState<AuthSelectionScreen>
     if (authState.user != null && !authState.isLoading && !_hasNavigated) {
       _hasNavigated = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (authState.user?.role == 'admin') {
-          context.go('/admin');
-        } else if (authState.user?.role != 'admin' && 
-                   (authState.user?.hasCompletedOnboarding ?? false)) {
-          // Students who completed onboarding - check if they have enrolled courses
-          try {
-            final enrolledCourses = await ref.read(enrolledCoursesProvider.future);
-            if (enrolledCourses.isEmpty) {
-              context.go('/courses');
-            } else {
-              context.go('/dashboard');
-            }
-          } catch (e) {
-            debugPrint('Error checking enrolled courses: $e');
-            context.go('/dashboard');
-          }
-        } else if (authState.user?.role != 'admin') {
-          // Students who haven't completed onboarding go through onboarding flow
-          // (onboarding flow will check for phone number)
-          context.go('/interest-selection');
-        }
+        if (mounted) await continueAfterAuth(context, ref);
       });
     }
   }

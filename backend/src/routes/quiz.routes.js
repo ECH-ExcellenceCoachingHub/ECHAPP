@@ -10,6 +10,7 @@ const {
   deleteQuestion,
   submitQuiz,
   getStudentQuizAttempts,
+  getAllMyQuizAttempts,
   getQuizTemplates,
   duplicateQuiz
 } = require('../controllers/quiz.controller');
@@ -20,6 +21,8 @@ const { authorize } = require('../middleware/role.middleware');
 router.get('/templates', protect, getQuizTemplates);
 
 // Student routes
+// Must stay above '/:examId', otherwise "my-attempts" is captured as an examId
+router.get('/my-attempts', protect, getAllMyQuizAttempts);
 router.post('/:examId/submit', protect, submitQuiz);
 router.get('/:examId', protect, getQuiz);
 router.get('/:examId/my-attempts', protect, getStudentQuizAttempts);
