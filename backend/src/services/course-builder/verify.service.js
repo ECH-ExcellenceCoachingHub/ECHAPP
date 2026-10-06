@@ -83,8 +83,14 @@ function scoreItem(item, pages) {
   if (grounding != null && grounding < 0.6) {
     warnings.push('Some key terms were not found in the source pages — check definitions.');
   }
-  if (item.content && item.kind === 'lesson' && (item.content.notes || '').length < 400) {
-    warnings.push('Lesson notes are short — the source section may be thin.');
+  if ((item.kind === 'lesson' || item.kind === 'revision') && item.content) {
+    const c = item.content;
+    if (!c.summary || (c.notes || '').length < 250) {
+      warnings.push('Lesson content is empty or very short — regenerate it.');
+    } else if ((c.notes || '').length < 400) {
+      warnings.push('Lesson notes are short — the source section may be thin.');
+    }
+    if (item.content && !(c.activities || []).length) warnings.push('No interactive activities — regenerate to add some.');
   }
 
   const parts = [];

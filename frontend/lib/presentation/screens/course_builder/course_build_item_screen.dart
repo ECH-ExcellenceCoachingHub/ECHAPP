@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:excellencecoachinghub/models/course_build.dart';
 import 'package:excellencecoachinghub/services/api/course_builder_service.dart';
 import 'package:excellencecoachinghub/presentation/widgets/ai_lesson/ai_study_guide.dart';
+import 'package:excellencecoachinghub/presentation/widgets/ai_lesson/ai_activities.dart';
 import 'widgets/build_options_panel.dart';
 
 /// Review one AI draft: preview it exactly as students will see it, edit the
@@ -626,6 +627,8 @@ class _ContentEditorState extends State<_ContentEditor> {
 
   List<Map<String, dynamic>> _list(String key) {
     final v = c[key];
+    // Reuse the typed list once converted, so editors keep their keys/focus
+    if (v is List<Map<String, dynamic>>) return v;
     if (v is List) {
       final l =
           v.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
@@ -746,6 +749,42 @@ class _ContentEditorState extends State<_ContentEditor> {
                                 color: Colors.red),
                             onPressed: () => setState(() {
                               _list('visuals').removeAt(e.key);
+                              widget.onChanged();
+                            }),
+                          ),
+                        ),
+                      ]),
+                    )),
+                const SizedBox(height: 16),
+                _PicturesEditor(
+                  itemId: widget.item.id,
+                  images: _list('images'),
+                  onChanged: () => setState(widget.onChanged),
+                ),
+                const SizedBox(height: 16),
+                const Text('Practice activities',
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                const SizedBox(height: 4),
+                const Text(
+                    'Drag-and-drop exercises students do after reading. Try them here; remove any that are wrong, or Regenerate for new ones.',
+                    style: TextStyle(color: builderMuted, fontSize: 12.5)),
+                const SizedBox(height: 10),
+                if (_list('activities').isEmpty)
+                  const Text('No activities yet — use Regenerate to add some.',
+                      style: TextStyle(color: Color(0xFFD97706))),
+                ..._list('activities').asMap().entries.map((e) => Padding(
+                      key: ObjectKey(e.value),
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Stack(children: [
+                        AiActivityCard(activity: e.value, palette: AiGuidePalette.of(context)),
+                        Positioned(
+                          top: 6,
+                          right: 6,
+                          child: IconButton(
+                            tooltip: 'Remove activity',
+                            icon: const Icon(Icons.delete_outline, color: Colors.red),
+                            onPressed: () => setState(() {
+                              _list('activities').removeAt(e.key);
                               widget.onChanged();
                             }),
                           ),
@@ -1337,6 +1376,146 @@ class _SourceTabState extends State<_SourceTab>
                           .toList(),
                     ),
         ),
+      ],
+    );
+  }
+}
+
+
+/// Lesson pictures: preview, remove, or find a better one by keywords.
+class _PicturesEditor extends StatefulWidget {
+  final String itemId;
+  final List<Map<String, dynamic>> images;
+  final VoidCallback onChanged;
+  const _PicturesEditor({required this.itemId, required this.images, required this.onChanged});
+
+  @override
+  State<_PicturesEditor> createState() => _PicturesEditorState();
+}
+
+class _PicturesEditorState extends State<_PicturesEditor> {
+  final _service = CourseBuilderService();
+  int? _searching; // index being replaced, -1 = adding
+
+  Future<void> _find(int? index) async {
+    final current = index == null ? null : widget.images[index];
+    final ctrl = TextEditingController(text: current?['query']?.toString() ?? '');
+    final query = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(index == null ? 'Add a picture' : 'Find another picture'),
+        content: SizedBox(
+          width: 440,
+          child: TextField(
+            controller: ctrl,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'What should the picture show?',
+              hintText: 'e.g. compass rose, map of Northern Province Rwanda',
+              border: OutlineInputBorder(),
+            ),
+            onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Search')),
+        ],
+      ),
+    );
+    if (query == null || query.isEmpty) return;
+    setState(() => _searching = index ?? -1);
+    try {
+      final img = await _service.searchImage(widget.itemId, query,
+          exclude: widget.images.map((i) => i['url']?.toString() ?? '').toList());
+      setState(() {
+        if (index == null) {
+          widget.images.add({...img, 'caption': '', 'afterHeading': ''});
+        } else {
+          widget.images[index] = {
+            ...img,
+            'caption': current?['caption'] ?? '',
+            'afterHeading': current?['afterHeading'] ?? '',
+          };
+        }
+      });
+      widget.onChanged();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red[700]));
+      }
+    } finally {
+      if (mounted) setState(() => _searching = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AiGuidePalette.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(children: [
+          const Expanded(child: Text('Pictures', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
+          TextButton.icon(
+            onPressed: _searching != null ? null : () => _find(null),
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            label: const Text('Add picture'),
+          ),
+        ]),
+        const Text(
+          'Free, licensed pictures from Wikimedia Commons, shown under the heading they illustrate. Check each one is correct.',
+          style: TextStyle(color: builderMuted, fontSize: 12.5),
+        ),
+        const SizedBox(height: 10),
+        if (_searching == -1) const LinearProgressIndicator(),
+        for (var i = 0; i < widget.images.length; i++)
+          Container(
+            key: ObjectKey(widget.images[i]),
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: builderBorder)),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              if (_searching == i) const LinearProgressIndicator(),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 260),
+                child: AiImageCard(image: widget.images[i], palette: palette),
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: widget.images[i]['caption']?.toString() ?? '',
+                decoration: const InputDecoration(labelText: 'Caption', isDense: true, border: OutlineInputBorder()),
+                onChanged: (v) {
+                  widget.images[i]['caption'] = v;
+                  widget.onChanged();
+                },
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                initialValue: widget.images[i]['afterHeading']?.toString() ?? '',
+                decoration: const InputDecoration(labelText: 'Show under heading', isDense: true, border: OutlineInputBorder()),
+                onChanged: (v) {
+                  widget.images[i]['afterHeading'] = v;
+                  widget.onChanged();
+                },
+              ),
+              Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                TextButton.icon(
+                  onPressed: _searching != null ? null : () => _find(i),
+                  icon: const Icon(Icons.image_search),
+                  label: const Text('Find another'),
+                ),
+                TextButton.icon(
+                  onPressed: () {
+                    setState(() => widget.images.removeAt(i));
+                    widget.onChanged();
+                  },
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  label: const Text('Remove', style: TextStyle(color: Colors.red)),
+                ),
+              ]),
+            ]),
+          ),
       ],
     );
   }

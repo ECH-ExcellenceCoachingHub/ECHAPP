@@ -7,6 +7,7 @@ const CourseBuildSource = require('../models/CourseBuildSource');
 const runner = require('../services/course-builder/runner.service');
 const { publishApproved, contentToMarkdown, toAppQuestion } = require('../services/course-builder/publisher.service');
 const { gradeOpenAnswers } = require('../services/answer-grading.service');
+const { searchImage } = require('../services/course-builder/images.service');
 const { sendSuccess, sendError, sendNotFound, sendForbidden } = require('../utils/response.utils');
 
 const ALLOWED_EXT = /\.(pdf|docx?|txt|md)$/i;
@@ -302,6 +303,47 @@ const publishJob = async (req, res) => {
   }
 };
 
+/** Find a picture on Wikimedia Commons for the review editor ("find another picture"). */
+const searchItemImage = async (req, res) => {
+  try {
+    const item = await loadItem(req, res);
+    if (!item) return;
+    const query = String(req.body?.query || '').trim().slice(0, 80);
+    if (!query) return sendError(res, 'Type what the picture should show', 400);
+    const exclude = new Set(Array.isArray(req.body?.exclude) ? req.body.exclude : []);
+    const img = await searchImage(query, exclude);
+    if (!img) return sendError(res, `No free picture found for "${query}" — try other words`, 404);
+    sendSuccess(res, { ...img, query });
+  } catch (err) {
+    sendError(res, 'Image search failed', 500, err.message);
+  }
+};
+
+/** Re-queue lessons that came out empty (or failed) and run generation again. */
+const repairJob = async (req, res) => {
+  try {
+    const job = await loadJob(req, res);
+    if (!job) return;
+    if (runner.running.has(String(job._id))) return sendError(res, 'This build is already running', 409);
+    const items = await CourseBuildItem.find({
+      jobId: job._id,
+      status: { $nin: ['rejected', 'pending', 'generating'] },
+    }).select('kind status content.summary content.notes content.activities');
+    const weak = items.filter(i => {
+      if (i.status === 'error') return true;
+      if (i.kind !== 'lesson' && i.kind !== 'revision') return false;
+      if (!i.content) return false; // quiz-only lessons
+      return !i.content.summary || String(i.content.notes || '').length < 250 || !(i.content.activities || []).length;
+    });
+    if (!weak.length) return sendSuccess(res, { requeued: 0 }, 'Every lesson already has content');
+    await CourseBuildItem.updateMany({ _id: { $in: weak.map(i => i._id) } }, { $set: { status: 'pending', attempts: 0, error: null } });
+    runner.startGeneration(job._id);
+    sendSuccess(res, { requeued: weak.length }, `Regenerating ${weak.length} incomplete item(s)`);
+  } catch (err) {
+    sendError(res, 'Failed to repair build', 500, err.message);
+  }
+};
+
 const exportQuestionBank = async (req, res) => {
   try {
     const job = await loadJob(req, res);
@@ -568,6 +610,8 @@ const previewSubmit = async (req, res) => {
 };
 
 module.exports = {
+  searchItemImage,
+  repairJob,
   previewItem,
   previewSubmit,
   listJobs,

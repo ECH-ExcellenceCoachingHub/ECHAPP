@@ -126,6 +126,16 @@ class CourseBuilderService {
 
   Future<void> deleteJob(String jobId) async => _data(await _api.delete('$_base/jobs/$jobId'));
 
+  /// Re-generates lessons that came out empty or without activities.
+  Future<int> repair(String jobId) async {
+    final data = _data(await _api.post('$_base/jobs/$jobId/repair', body: {}));
+    return (data?['requeued'] as num?)?.toInt() ?? 0;
+  }
+
+  /// Finds a freely-licensed picture on Wikimedia Commons for a draft.
+  Future<Map<String, dynamic>> searchImage(String itemId, String query, {List<String> exclude = const []}) async =>
+      Map<String, dynamic>.from(_data(await _api.post('$_base/items/$itemId/images/search', body: {'query': query, 'exclude': exclude})));
+
   Future<int> approve(String jobId, {int? chapterIndex, List<String>? itemIds}) async {
     final data = _data(await _api.post('$_base/jobs/$jobId/approve', body: {
       if (chapterIndex != null) 'chapterIndex': chapterIndex,

@@ -260,12 +260,20 @@ class _CourseBuildJobScreenState extends State<CourseBuildJobScreen> {
           PopupMenuButton<String>(
             onSelected: (v) {
               if (v == 'outline') setState(() => _editingOutline = true);
+              if (v == 'repair') {
+                _run(() async {
+                  final n = await _service.repair(widget.jobId);
+                  if (mounted) _snack(n == 0 ? 'Every lesson already has content and activities' : 'Regenerating $n incomplete item(s)…');
+                });
+              }
               if (v == 'delete') _deleteJob();
               if (v == 'logs') setState(() => _showLogs = !_showLogs);
             },
             itemBuilder: (_) => [
               if (job != null && job.hasOutline && !job.isBusy)
                 const PopupMenuItem(value: 'outline', child: ListTile(leading: Icon(Icons.add_circle_outline), title: Text('Generate more chapters'))),
+              if (job != null && !job.isBusy && _items.isNotEmpty)
+                const PopupMenuItem(value: 'repair', child: ListTile(leading: Icon(Icons.healing_outlined), title: Text('Fix empty / incomplete lessons'))),
               PopupMenuItem(value: 'logs', child: ListTile(leading: const Icon(Icons.list_alt), title: Text(_showLogs ? 'Hide activity log' : 'Show activity log'))),
               const PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete_outline, color: Colors.red), title: Text('Delete draft'))),
             ],

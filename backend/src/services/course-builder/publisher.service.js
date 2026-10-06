@@ -225,6 +225,12 @@ function contentToMarkdown(title, c) {
   if (c.summary) out.push(`> ${c.summary}`);
   if (c.learningObjectives?.length) out.push('## Learning objectives', c.learningObjectives.map(o => `- ${o}`).join('\n'));
   if (c.notes) out.push(c.notes);
+  if (c.images?.length) {
+    out.push(c.images.map(i => {
+      const credit = [i.caption, i.author && `Image: ${i.author}`, i.license].filter(Boolean).join(' · ');
+      return `![${i.caption || i.title || ''}](${i.url})\n*${credit}*`;
+    }).join('\n\n'));
+  }
   if (c.keyPoints?.length) out.push('## Key points', c.keyPoints.map(p => `- ${p}`).join('\n'));
   if (c.keyTerms?.length) out.push('## Key terms', c.keyTerms.map(t => `- **${t.term}** — ${t.definition}`).join('\n'));
   if (c.formulas?.length) {

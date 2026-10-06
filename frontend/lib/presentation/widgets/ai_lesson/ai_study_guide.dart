@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'ai_activities.dart';
 
 /// Colours used by the study guide so it fits the host screen (light/dark).
 class AiGuidePalette {
@@ -112,11 +113,14 @@ class _AiStudyGuideViewState extends State<AiStudyGuideView> {
     final mistakes = _strings(c['commonMistakes']);
     final cards = _maps(c['flashcards']);
     final sources = _maps(c['sources']);
+    final images = _maps(c['images']).where((i) => _s(i['url']).isNotEmpty).toList();
+    final activities = _maps(c['activities']);
 
     final nav = <(String, String, IconData)>[
       if (notes.isNotEmpty) ('notes', 'Notes', Icons.article_outlined),
       if (visuals.isNotEmpty) ('visuals', 'Visuals', Icons.insights_outlined),
       if (keyPoints.isNotEmpty) ('points', 'Key points', Icons.push_pin_outlined),
+      if (activities.isNotEmpty) ('practice', 'Practice', Icons.extension_outlined),
       if (terms.isNotEmpty) ('terms', 'Key terms', Icons.menu_book_outlined),
       if (formulas.isNotEmpty) ('formulas', 'Formulas', Icons.functions),
       if (examples.isNotEmpty) ('examples', 'Examples', Icons.lightbulb_outline),
@@ -178,7 +182,7 @@ class _AiStudyGuideViewState extends State<AiStudyGuideView> {
             palette: p,
             icon: Icons.article_outlined,
             title: 'Lesson notes',
-            child: AiMarkdown(data: notes, palette: p),
+            child: _NotesWithImages(notes: notes, images: images, palette: p),
           ),
         ],
         if (visuals.isNotEmpty) ...[
@@ -200,6 +204,26 @@ class _AiStudyGuideViewState extends State<AiStudyGuideView> {
               children: keyPoints.asMap().entries.map((e) => _NumberedRow(index: e.key + 1, text: e.value, palette: p)).toList(),
             ),
           ),
+        ],
+        if (notes.isEmpty && images.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          ...images.map((i) => Padding(padding: const EdgeInsets.only(bottom: 12), child: AiImageCard(image: i, palette: p))),
+        ],
+        if (activities.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          Container(
+            key: _key('practice'),
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(children: [
+              const Icon(Icons.extension_outlined, color: Color(0xFF7C3AED)),
+              const SizedBox(width: 8),
+              Text('Practice what you learned', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: p.text)),
+            ]),
+          ),
+          ...activities.map((a) => Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: AiActivityCard(activity: a, palette: p),
+              )),
         ],
         if (terms.isNotEmpty) ...[
           const SizedBox(height: 16),
@@ -416,6 +440,137 @@ class _NumberedRow extends StatelessWidget {
           )),
         ],
       ),
+    );
+  }
+}
+
+/// Lesson notes with pictures placed under the heading they illustrate.
+class _NotesWithImages extends StatelessWidget {
+  final String notes;
+  final List<Map<String, dynamic>> images;
+  final AiGuidePalette palette;
+  const _NotesWithImages({required this.notes, required this.images, required this.palette});
+
+  static String _norm(String s) => s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), ' ').trim();
+
+  static bool _matches(String heading, Map<String, dynamic> img) {
+    final h = _norm(heading);
+    final want = _norm(_s(img['afterHeading']));
+    return h.isNotEmpty && want.isNotEmpty && (h.contains(want) || want.contains(h));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (images.isEmpty) return AiMarkdown(data: notes, palette: palette);
+
+    // Split the markdown at ## / ### headings
+    final sections = <(String, String)>[];
+    final buf = StringBuffer();
+    var heading = '';
+    for (final line in notes.split('\n')) {
+      final m = RegExp(r'^#{2,3}\s+(.*)$').firstMatch(line.trim());
+      if (m != null) {
+        if (buf.isNotEmpty || heading.isNotEmpty) sections.add((heading, buf.toString()));
+        buf.clear();
+        heading = m.group(1)!;
+      }
+      buf.writeln(line);
+    }
+    sections.add((heading, buf.toString()));
+
+    final unplaced = [...images];
+    final children = <Widget>[];
+    for (var i = 0; i < sections.length; i++) {
+      children.add(AiMarkdown(data: sections[i].$2, palette: palette));
+      final here = unplaced.where((img) => _matches(sections[i].$1, img)).toList();
+      // Pictures whose heading isn't found go after the first section
+      if (i == 0 && sections.length > 1) {
+        here.addAll(unplaced.where((img) => !sections.any((sec) => _matches(sec.$1, img))));
+      }
+      for (final img in here.toSet()) {
+        unplaced.remove(img);
+        children.add(Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: AiImageCard(image: img, palette: palette)));
+      }
+    }
+    for (final img in unplaced) {
+      children.add(Padding(padding: const EdgeInsets.only(top: 12), child: AiImageCard(image: img, palette: palette)));
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
+  }
+}
+
+/// A lesson picture with caption, credit/licence and tap-to-zoom.
+class AiImageCard extends StatelessWidget {
+  final Map<String, dynamic> image;
+  final AiGuidePalette palette;
+  const AiImageCard({super.key, required this.image, required this.palette});
+
+  void _zoom(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(12),
+        child: Stack(children: [
+          InteractiveViewer(maxScale: 5, child: Center(child: Image.network(_s(image['url']), fit: BoxFit.contain))),
+          Positioned(top: 4, right: 4, child: IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close, color: Colors.white))),
+        ]),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final caption = _s(image['caption']);
+    final credit = [
+      if (_s(image['author']).isNotEmpty) _s(image['author']),
+      if (_s(image['license']).isNotEmpty) _s(image['license']),
+      if (_s(image['url']).contains('wikimedia.org')) 'Wikimedia Commons',
+    ].join(' · ');
+    return Container(
+      decoration: BoxDecoration(color: palette.bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: palette.border)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        GestureDetector(
+          onTap: () => _zoom(context),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.zoomIn,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 360),
+              child: Container(
+                color: Colors.white,
+                alignment: Alignment.center,
+                child: Image.network(
+                  _s(image['url']),
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, progress) => progress == null
+                      ? child
+                      : const SizedBox(height: 200, child: Center(child: CircularProgressIndicator(strokeWidth: 2))),
+                  errorBuilder: (context, _, __) => SizedBox(
+                    height: 120,
+                    child: Center(child: Icon(Icons.broken_image_outlined, color: palette.muted, size: 40)),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            if (caption.isNotEmpty)
+              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Icon(Icons.photo_outlined, size: 16, color: palette.accent),
+                const SizedBox(width: 6),
+                Expanded(child: Text(caption, style: TextStyle(fontSize: 13.5, color: palette.text, fontWeight: FontWeight.w600, height: 1.4))),
+              ]),
+            if (credit.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(credit, style: TextStyle(fontSize: 11, color: palette.muted)),
+            ],
+          ]),
+        ),
+      ]),
     );
   }
 }

@@ -162,6 +162,17 @@ const VISUAL_SPEC = `"visuals": [   // 0-3 items. Only when the source genuinely
     { "type": "chart", "title": "...", "chartType": "bar | pie | line", "labels": ["..."], "series": [ { "name": "...", "values": [1,2] } ], "caption": "..." } // ONLY with numbers stated in the source
   ]`;
 
+const ACTIVITY_SPEC = `"activities": [   // 2-3 short interactive practice activities built ONLY from this lesson's content. Mix the types:
+    { "type": "match", "title": "Match each term to its meaning", "pairs": [ { "left": "term", "right": "meaning" } ] },            // 3-6 pairs
+    { "type": "order", "title": "Put the steps in the right order", "items": ["first", "second", "third"] },                        // 3-7 items IN THE CORRECT ORDER
+    { "type": "categorize", "title": "Sort each item into the right group", "categories": [ { "name": "Group A", "items": ["...", "..."] } ] }, // 2-4 groups, 2-5 items each
+    { "type": "fill_blanks", "title": "Complete the sentences", "text": "The [[north]] is opposite the [[south]].", "distractors": ["east"] } // 2-5 blanks in [[double brackets]]
+  ]`;
+
+const IMAGE_SPEC = `"images": [   // 1-3 real photos/maps/diagrams a student would benefit from seeing. They are searched on Wikimedia Commons.
+    { "query": "2-5 concrete English search words, e.g. compass rose cardinal directions", "caption": "what the student should notice", "afterHeading": "exact ## heading in notes it belongs under" }
+  ]`;
+
 async function generateLessonContent({ job, chapterTitle, lessonTitle, siblingTitles, pages }) {
   const o = job.options || {};
   const unit = job.source?.pageUnit || 'page';
@@ -185,7 +196,9 @@ RULES:
 - Formulas: plain text expression, e.g. "PV = FV / (1 + r)^n".
 - ${o.includeVisuals === false ? 'Return "visuals": [].' : 'Add visuals that make the lesson easier to understand.'}
 - ${o.includeFlashcards === false ? 'Return "flashcards": [].' : 'Add 4-10 flashcards.'}
-- Empty arrays are fine when the source has nothing of that kind.
+- Always add 2-3 "activities" so the student practises what they just read.
+- Empty arrays are fine when the source has nothing of that kind — but "summary", "notes" and "keyPoints" are ALWAYS required.
+- Return the object below at the TOP LEVEL (do not wrap it in another key).
 
 Return JSON:
 {
@@ -198,6 +211,8 @@ Return JSON:
   "formulas": [ { "name": "...", "expression": "...", "variables": [ { "symbol": "r", "meaning": "..." } ], "explanation": "...", "page": 16 } ],
   "flashcards": [ { "front": "...", "back": "..." } ],
   ${VISUAL_SPEC},
+  ${ACTIVITY_SPEC},
+  ${o.includeVisuals === false ? '"images": [],' : IMAGE_SPEC + ','}
   "sources": [ { "page": 14, "section": "1.2 ..." } ],
   "estimatedMinutes": 15
 }
@@ -205,8 +220,43 @@ Return JSON:
 SOURCE:
 ${pagesToSource(pages, LESSON_SOURCE_CHARS, unit)}`;
 
-  const raw = await completeJson(prompt, { maxTokens: 7000, temperature: 0.3 });
-  return normalizeContent(raw);
+  return generateValidContent(prompt, 'lesson');
+}
+
+/**
+ * Ask for content, and make sure it is not empty. Models sometimes wrap the
+ * object in another key or return a skeleton; that must never be saved as a
+ * finished lesson.
+ */
+async function generateValidContent(prompt, what) {
+  let lastProblem = '';
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const extra = attempt === 1 ? '' : `\n\nIMPORTANT: your previous answer was rejected (${lastProblem}). Return the full object at the top level with non-empty "summary", "notes" and "keyPoints".`;
+    const raw = await completeJson(prompt + extra, { maxTokens: 10000, temperature: 0.3 });
+    const content = normalizeContent(unwrapContent(raw));
+    lastProblem = contentProblem(content, what);
+    if (!lastProblem) return content;
+  }
+  throw new Error(`AI returned an incomplete ${what}: ${lastProblem}`);
+}
+
+/** {"lesson": {...}} / {"data": {...}} → the inner object. */
+function unwrapContent(raw) {
+  let obj = raw;
+  for (let depth = 0; depth < 2 && obj && typeof obj === 'object'; depth++) {
+    if (obj.notes || obj.summary || obj.keyPoints) return obj;
+    const inner = Object.values(obj).filter(v => v && typeof v === 'object' && !Array.isArray(v));
+    if (inner.length !== 1) break;
+    obj = inner[0];
+  }
+  return obj || {};
+}
+
+function contentProblem(c, what) {
+  if (!c.summary) return 'summary is empty';
+  if (!c.notes || c.notes.length < (what === 'lesson' ? 250 : 150)) return 'notes are empty or too short';
+  if (!c.keyPoints.length) return 'keyPoints is empty';
+  return '';
 }
 
 async function generateRevisionNotes({ job, chapterTitle, lessonTitles, pages }) {
@@ -236,6 +286,7 @@ Return JSON:
   "examTips": ["..."],
   "commonMistakes": ["..."],
   ${VISUAL_SPEC},
+  ${ACTIVITY_SPEC},
   "sources": [ { "page": 1, "section": "..." } ],
   "estimatedMinutes": 20
 }
@@ -243,8 +294,7 @@ Return JSON:
 SOURCE:
 ${pagesToSource(pages, 18000, unit)}`;
 
-  const raw = await completeJson(prompt, { maxTokens: 7000, temperature: 0.3 });
-  return normalizeContent(raw);
+  return generateValidContent(prompt, 'revision sheet');
 }
 
 function normalizeContent(raw) {
@@ -273,12 +323,50 @@ function normalizeContent(raw) {
       page: num(f.page),
     })),
     flashcards: arr(raw.flashcards).filter(c => c && c.front && c.back).map(c => ({ front: str(c.front), back: str(c.back) })),
+    activities: arr(raw.activities).map(sanitizeActivity).filter(Boolean).slice(0, 4),
+    imageRequests: arr(raw.images)
+      .filter(i => i && i.query)
+      .map(i => ({ query: str(i.query).slice(0, 80), caption: str(i.caption), afterHeading: str(i.afterHeading) }))
+      .slice(0, 3),
     examTips: arr(raw.examTips).map(str).filter(Boolean),
     commonMistakes: arr(raw.commonMistakes).map(str).filter(Boolean),
     visuals,
     sources: arr(raw.sources).filter(s => s && s.page != null).map(s => ({ page: num(s.page), section: str(s.section) })),
     estimatedMinutes: Math.max(5, Math.min(180, num(raw.estimatedMinutes) || 15)),
   };
+}
+
+function sanitizeActivity(a) {
+  const s = (x) => (x == null ? '' : String(x).trim());
+  if (!a || typeof a !== 'object') return null;
+  switch (a.type) {
+    case 'match': {
+      const pairs = (a.pairs || []).filter(p => p && p.left && p.right).map(p => ({ left: s(p.left), right: s(p.right) })).slice(0, 6);
+      const lefts = new Set(pairs.map(p => p.left.toLowerCase()));
+      return pairs.length >= 3 && lefts.size === pairs.length ? { type: 'match', title: s(a.title) || 'Match the pairs', pairs } : null;
+    }
+    case 'order': {
+      const items = [...new Set((a.items || []).map(s).filter(Boolean))].slice(0, 7);
+      return items.length >= 3 ? { type: 'order', title: s(a.title) || 'Put these in order', items } : null;
+    }
+    case 'categorize': {
+      const categories = (a.categories || [])
+        .filter(c => c && c.name)
+        .map(c => ({ name: s(c.name), items: [...new Set((c.items || []).map(s).filter(Boolean))].slice(0, 5) }))
+        .filter(c => c.items.length)
+        .slice(0, 4);
+      return categories.length >= 2 ? { type: 'categorize', title: s(a.title) || 'Sort into groups', categories } : null;
+    }
+    case 'fill_blanks': {
+      const text = s(a.text);
+      const blanks = (text.match(/\[\[([^\]]+)\]\]/g) || []).length;
+      return blanks >= 1 && blanks <= 8
+        ? { type: 'fill_blanks', title: s(a.title) || 'Fill in the blanks', text, distractors: (a.distractors || []).map(s).filter(Boolean).slice(0, 4) }
+        : null;
+    }
+    default:
+      return null;
+  }
 }
 
 function sanitizeVisual(v) {
@@ -434,6 +522,8 @@ function normalizeQuestions(list, chapterTitle) {
 
 module.exports = {
   completeJson,
+  unwrapContent,
+  normalizeContent,
   generateOutline,
   generateLessonContent,
   generateRevisionNotes,

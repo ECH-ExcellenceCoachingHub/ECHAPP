@@ -5,6 +5,7 @@ const { extractBook, ocrPdfWithGemini, runPool } = require('./extraction.service
 const ai = require('./ai.service');
 const { normalizeOutline, heuristicOutline } = require('./structure.service');
 const { verifyQuestions, scoreItem } = require('./verify.service');
+const { resolveImages } = require('./images.service');
 
 /**
  * In-process pipeline for AI course building.
@@ -342,6 +343,9 @@ class CourseBuilderRunner {
       const chapter = (job.outline?.chapters || []).find(c => c.index === item.chapterIndex);
       const chapterTitle = chapter?.title || '';
       const itemPages = this.pagesInRange(pages, item.pageStart, item.pageEnd);
+      // Very short sections (one page, half a page) give the AI too little to
+      // teach from — add the neighbouring pages of the same chapter as context.
+      const contextPages = this.withContext(pages, itemPages, chapter);
       const o = job.options || {};
       let content = item.content;
       let questions = (item.questions || []).map(q => (q.toObject ? q.toObject() : q));
@@ -351,14 +355,14 @@ class CourseBuilderRunner {
         const wantQuestions = ['full', 'selected', 'quizzes_only'].includes(o.mode) && o.questionsPerLesson > 0 && part !== 'content';
         const siblings = (chapter?.lessons || []).map(l => l.title).filter(t => t !== item.title);
         const [c, q] = await Promise.all([
-          wantContent ? ai.generateLessonContent({ job: jobForPrompt, chapterTitle, lessonTitle: item.title, siblingTitles: siblings, pages: itemPages }) : null,
+          wantContent ? ai.generateLessonContent({ job: jobForPrompt, chapterTitle, lessonTitle: item.title, siblingTitles: siblings, pages: contextPages }) : null,
           wantQuestions ? this.questionsForRange(jobForPrompt, item.title, chapterTitle, itemPages, o.questionsPerLesson, 'end-of-lesson quiz') : null,
         ]);
-        if (c) content = c;
+        if (c) content = await this.attachImages(c);
         if (q) questions = q;
       } else if (item.kind === 'revision') {
         if (part !== 'questions') {
-          content = await ai.generateRevisionNotes({ job: jobForPrompt, chapterTitle, lessonTitles: (chapter?.lessons || []).map(l => l.title), pages: itemPages });
+          content = await this.attachImages(await ai.generateRevisionNotes({ job: jobForPrompt, chapterTitle, lessonTitles: (chapter?.lessons || []).map(l => l.title), pages: itemPages }));
         }
       } else if (item.kind === 'chapter_test') {
         if (part !== 'content') {
@@ -384,6 +388,24 @@ class CourseBuilderRunner {
       await CourseBuildItem.updateOne({ _id: item._id }, { $set: { status: 'error', error: err.message } });
       await this.log(job._id, `"${item.title}" failed: ${err.message}`, 'error');
     }
+  }
+
+  withContext(pages, itemPages, chapter) {
+    const chars = itemPages.reduce((n, p) => n + (p.text || '').length, 0);
+    if (chars >= 2500 || !itemPages.length) return itemPages;
+    const first = itemPages[0].n;
+    const last = itemPages[itemPages.length - 1].n;
+    const lo = Math.max(chapter?.pageStart ?? 1, first - 1);
+    const hi = Math.min(chapter?.pageEnd ?? last + 2, last + 2);
+    return this.pagesInRange(pages, lo, hi);
+  }
+
+  /** Turn the AI's picture requests into real, licensed images. */
+  async attachImages(content) {
+    const { imageRequests = [], ...rest } = content;
+    if (!imageRequests.length) return { ...rest, images: content.images || [] };
+    const images = await resolveImages(imageRequests);
+    return { ...rest, images };
   }
 
   /** Split a question request into batches, each grounded in its own slice of pages. */
