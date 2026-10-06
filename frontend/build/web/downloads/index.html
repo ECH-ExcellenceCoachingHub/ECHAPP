@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excellence Coaching Hub Downloads</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            padding: 40px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+
+        p {
+            margin-bottom: 15px;
+            color: #555;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 25px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .terminal {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+
+        .terminal .command {
+            color: #4ec9b0;
+        }
+
+        .terminal .comment {
+            color: #6a9955;
+        }
+
+        ul {
+            padding-left: 20px;
+            margin: 15px 0;
+        }
+
+        li {
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        .back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .back-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Excellence Coaching Hub Downloads</h1>
+            <p class="subtitle">Build and install instructions for Android and iOS</p>
+        </header>
+
+        <div class="card">
+            <h2>Prerequisites</h2>
+            <ul>
+                <li>Flutter SDK (3.0.0 or higher)</li>
+                <li>Android Studio or VS Code with Flutter extensions</li>
+                <li>Android SDK for Android builds</li>
+                <li>Xcode for iOS builds (macOS only)</li>
+                <li>Git for cloning the repository</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h2>Getting Started</h2>
+            <p>First, clone the repository and navigate to the frontend directory:</p>
+            <div class="terminal">
+                <div class="comment"># Clone the repository (replace with actual repo URL)</div>
+                <div class="command">git clone https://github.com/your-username/excellence-coaching-hub.git</div>
+                <div class="comment"># Navigate to frontend</div>
+                <div class="command">cd excellence-coaching-hub/frontend</div>
+                <div class="comment"># Get dependencies</div>
+                <div class="command">flutter pub get</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Building for Android</h2>
+            <p>Generate code and build the Android APK:</p>
+            <div class="terminal">
+                <div class="comment"># Generate code (for Freezed models)</div>
+                <div class="command">flutter pub run build_runner build</div>
+                <div class="comment"># Build the release APK</div>
+                <div class="command">flutter build apk --release</div>
+                <div class="comment"># For a universal APK (recommended)</div>
+                <div class="command">flutter build apk --split-per-abi --release</div>
+            </div>
+            <p>The APK file will be located at: <code>build/app/outputs/flutter-apk/app-release.apk</code></p>
+        </div>
+
+        <div class="card">
+            <h2>Building for iOS</h2>
+            <p>Build the iOS IPA (requires macOS and Xcode):</p>
+            <div class="terminal">
+                <div class="comment"># Generate code (for Freezed models)</div>
+                <div class="command">flutter pub run build_runner build</div>
+                <div class="comment"># Open iOS project in Xcode (macOS only)</div>
+                <div class="command">cd ios && open Runner.xcworkspace</div>
+                <div class="comment"># In Xcode: select your development team and update bundle identifier</div>
+                <div class="comment"># Build the release IPA</div>
+                <div class="command">flutter build ios --release</div>
+            </div>
+            <p>The IPA file will be located in: <code>build/ios/ipa/</code></p>
+        </div>
+
+        <div class="card">
+            <h2>Configuration</h2>
+            <p>Make sure to set up your environment variables before building:</p>
+            <ol>
+                <li>Create a <code>.env</code> file in the frontend directory</li>
+                <li>Add the API base URL:</li>
+            </ol>
+            <div class="terminal">
+                <div class="comment"># Content of .env file</div>
+                <div class="command">API_BASE_URL=https://your-backend-api.com/api</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Documentation</h2>
+            <p>For more detailed instructions, view the full README:</p>
+            <a href="README.md" class="btn">View Full Build Guide</a>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="../download.html" class="back-link">← Back to Download Page</a>
+        </div>
+    </div>
+</body>
+</html>
