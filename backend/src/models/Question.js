@@ -120,6 +120,19 @@ const questionSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // Where an AI-generated question came from in the source book
+  source: {
+    chapter: { type: String },
+    section: { type: String },
+    page: { type: Number }
+  },
+  aiGenerated: {
+    type: Boolean,
+    default: false
+  },
+  aiConfidence: {
+    type: Number
+  },
   createdAt: {
     type: Date,
     default: Date.now

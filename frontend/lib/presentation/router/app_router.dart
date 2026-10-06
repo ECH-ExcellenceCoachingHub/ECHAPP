@@ -82,6 +82,9 @@ import 'package:excellencecoachinghub/utils/navigation_performance_monitor.dart'
 import 'package:excellencecoachinghub/config/app_theme.dart';
 import 'package:excellencecoachinghub/presentation/router/offline_route_policy.dart';
 import 'package:excellencecoachinghub/services/connectivity_service.dart';
+import 'package:excellencecoachinghub/presentation/screens/course_builder/course_builder_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/course_builder/course_build_job_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/course_builder/course_build_item_screen.dart';
 
 /// Custom page transition for smooth navigation with performance monitoring
 class _FadeTransitionPage extends CustomTransitionPage<void> {
@@ -325,6 +328,28 @@ class AppRouter {
               );
             },
           ),
+          // AI Course Builder (book → course draft → review → publish)
+          GoRoute(
+            path: '/admin/courses/:courseId/ai-builder',
+            builder: (context, state) => AdminLayoutWrapper(
+              screenName: 'AI Course Builder',
+              child: CourseBuilderScreen(courseId: state.pathParameters['courseId'] ?? ''),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/ai-builds/:jobId',
+            builder: (context, state) => AdminLayoutWrapper(
+              screenName: 'AI Course Build',
+              child: CourseBuildJobScreen(jobId: state.pathParameters['jobId'] ?? ''),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/ai-build-items/:itemId',
+            builder: (context, state) => AdminLayoutWrapper(
+              screenName: 'Review AI Draft',
+              child: CourseBuildItemScreen(itemId: state.pathParameters['itemId'] ?? ''),
+            ),
+          ),
           GoRoute(
             path: '/admin/courses/:courseId/videos',
             builder: (context, state) {
@@ -523,6 +548,18 @@ class AppRouter {
               final courseId = state.pathParameters['courseId'] ?? '';
               return TeacherCourseDetailScreen(courseId: courseId);
             },
+          ),
+          GoRoute(
+            path: '/teacher/courses/:courseId/ai-builder',
+            builder: (context, state) => CourseBuilderScreen(courseId: state.pathParameters['courseId'] ?? '', isTeacher: true),
+          ),
+          GoRoute(
+            path: '/teacher/ai-builds/:jobId',
+            builder: (context, state) => CourseBuildJobScreen(jobId: state.pathParameters['jobId'] ?? '', isTeacher: true),
+          ),
+          GoRoute(
+            path: '/teacher/ai-build-items/:itemId',
+            builder: (context, state) => CourseBuildItemScreen(itemId: state.pathParameters['itemId'] ?? ''),
           ),
           GoRoute(
             path: '/teacher/sessions',

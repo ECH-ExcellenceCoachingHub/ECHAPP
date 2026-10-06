@@ -1,7 +1,7 @@
 name: excellencecoachinghub
 description: ExcellenceCoachingHub e-learning platform
 publish_to: 'none'
-version: 1.2.8+29
+version: 1.2.9+30
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -108,7 +108,7 @@ msix_config:
   publisher_display_name: ECH
   publisher: CN=6B4466E8-E27C-410F-804C-21877F7B22F6
   identity_name: ECH.excellencecoachinghub
-  msix_version: 1.2.8.0
+  msix_version: 1.2.9.0
   logo_path: windows/runner/resources/app_icon.ico
   store: true
   store_id: 9NW5V60BNHNN

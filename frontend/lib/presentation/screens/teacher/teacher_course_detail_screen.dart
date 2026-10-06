@@ -244,6 +244,11 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
                 // Teachers reach their course community from here — these
                 // screens sit outside MainLayout, so there is no sidebar.
                 IconButton(
+                  icon: const Icon(Icons.auto_awesome, color: Colors.white),
+                  tooltip: 'Build lessons from a book with AI',
+                  onPressed: () => context.push('/teacher/courses/${widget.courseId}/ai-builder').then((_) => _loadCourseData()),
+                ),
+                IconButton(
                   icon: const Icon(Icons.groups_rounded, color: Colors.white),
                   tooltip: 'Course community',
                   onPressed: () => context.push('/community/${widget.courseId}'),
@@ -324,18 +329,38 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
         if (_courseContent != null)
           Container(
             margin: const EdgeInsets.all(16),
-            child: ElevatedButton.icon(
-              onPressed: _createSection,
-              icon: const Icon(Icons.add_circle_outline),
-              label: const Text('Create New Section'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryGreen,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+            child: Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _createSection,
+                  icon: const Icon(Icons.add_circle_outline),
+                  label: const Text('Create New Section'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
                 ),
-              ),
+                ElevatedButton.icon(
+                  onPressed: () => context.push('/teacher/courses/${widget.courseId}/ai-builder').then((_) => _loadCourseData()),
+                  icon: const Icon(Icons.auto_awesome),
+                  label: const Text('Build from a book with AI'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.accent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         

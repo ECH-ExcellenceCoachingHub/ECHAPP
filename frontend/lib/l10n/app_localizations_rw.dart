@@ -479,8 +479,7 @@ class AppLocalizationsRw extends AppLocalizations {
   String get onboardingInterestTitle => 'Ni iki wifuza kwiga?';
 
   @override
-  String get onboardingInterestSubtitle =>
-      'Hitamo amasomo cyangwa ingingo ushaka kwiga';
+  String get onboardingInterestSubtitle => 'Hitamo ibyo wifuza kwigaho';
 
   @override
   String get onboardingPersonalizationTitle => 'Shyiraho Intego zawe';
@@ -1628,7 +1627,7 @@ class AppLocalizationsRw extends AppLocalizations {
   String get updateYourInterests => 'Hindura ibyo ushaka kwiga';
 
   @override
-  String get selectInterests => 'Hitamo amasomo cyangwa ingingo ushaka kwiga';
+  String get selectInterests => 'Hitamo ibyo wifuza kwigaho';
 
   @override
   String get progress => 'Iterambere';

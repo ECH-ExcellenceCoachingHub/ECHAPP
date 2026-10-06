@@ -15,6 +15,10 @@ class Lesson {
   final List<String>? materials; // Additional materials (PDFs, etc.)
   final String? lessonType; // video, text, quiz, mixed
   final bool? isPublished;
+  /// Structured study guide from the AI Course Builder (summary, objectives,
+  /// notes, visuals, key terms, formulas, examples, flashcards, sources).
+  final Map<String, dynamic>? aiContent;
+  final bool aiGenerated;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -35,6 +39,8 @@ class Lesson {
     this.materials,
     this.lessonType,
     this.isPublished,
+    this.aiContent,
+    this.aiGenerated = false,
     this.createdAt,
     this.updatedAt,
   });
@@ -57,6 +63,8 @@ class Lesson {
       materials: (json['materials'] as List<dynamic>?)?.cast<String>(),
       lessonType: json['lessonType'] as String?,
       isPublished: json['isPublished'] as bool?,
+      aiContent: json['aiContent'] is Map ? Map<String, dynamic>.from(json['aiContent'] as Map) : null,
+      aiGenerated: json['aiGenerated'] == true,
       createdAt: _parseDateTime(json['createdAt']),
       updatedAt: _parseDateTime(json['updatedAt']),
     );
@@ -105,6 +113,8 @@ class Lesson {
       'materials': materials,
       'lessonType': lessonType,
       'isPublished': isPublished,
+      'aiContent': aiContent,
+      'aiGenerated': aiGenerated,
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -126,6 +136,8 @@ class Lesson {
     List<String>? materials,
     String? lessonType,
     bool? isPublished,
+    Map<String, dynamic>? aiContent,
+    bool? aiGenerated,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -145,6 +157,8 @@ class Lesson {
       materials: materials ?? this.materials,
       lessonType: lessonType ?? this.lessonType,
       isPublished: isPublished ?? this.isPublished,
+      aiContent: aiContent ?? this.aiContent,
+      aiGenerated: aiGenerated ?? this.aiGenerated,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -152,7 +166,8 @@ class Lesson {
 
   // Helper methods for lesson content
   bool get hasVideo => videoId != null && videoId!.isNotEmpty;
-  bool get hasNotes => (notes != null && notes!.isNotEmpty) || (notesPdfUrl != null && notesPdfUrl!.isNotEmpty);
+  bool get hasAiGuide => aiContent != null && aiContent!.isNotEmpty;
+  bool get hasNotes => hasAiGuide || (notes != null && notes!.isNotEmpty) || (notesPdfUrl != null && notesPdfUrl!.isNotEmpty);
   bool get hasQuiz => quizId != null && quizId!.isNotEmpty;
   bool get hasMaterials => materials != null && materials!.isNotEmpty;
   

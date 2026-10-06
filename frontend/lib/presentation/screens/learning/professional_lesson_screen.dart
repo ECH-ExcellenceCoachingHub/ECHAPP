@@ -35,6 +35,7 @@ import 'package:excellencecoachinghub/models/certificate.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:excellencecoachinghub/utils/screen_wakelock.dart';
+import 'package:excellencecoachinghub/presentation/widgets/ai_lesson/ai_study_guide.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 class _T {
@@ -63,7 +64,7 @@ class _T {
   static const darkMuted = Color(0xFF94A3B8);
 }
 
-enum _NotesView { pdf, text }
+enum _NotesView { guide, pdf, text }
 enum _Tab { video, notes, quiz, feedback, ai }
 
 class ProfessionalLessonScreen extends ConsumerStatefulWidget {
@@ -114,6 +115,7 @@ class _ProfessionalLessonScreenState
   _Tab _activeTab = _Tab.video;
   _NotesView _notesTab = _NotesView.pdf;
   bool _isChatOpen = false;
+  String? _chatPrompt; // question handed to the AI tutor from the study guide
   bool _sidebarCollapsed = false;
   double _downloadProgress = 0.0;
 
@@ -242,6 +244,7 @@ class _ProfessionalLessonScreenState
 
       setState(() {
         _lesson = lesson;
+        _notesTab = lesson.hasAiGuide ? _NotesView.guide : _NotesView.pdf;
         _video = video;
         _exam = exam;
         _previousLesson = prev;
@@ -1080,7 +1083,7 @@ class _ProfessionalLessonScreenState
         // Sidebar
         AnimatedContainer(
           duration: const Duration(milliseconds: 250),
-          width: _sidebarCollapsed ? 0 : 240,
+          width: _sidebarCollapsed ? 0 : 260,
           child: _sidebarCollapsed ? const SizedBox() : _buildSidebar(),
         ),
         // Main
@@ -1103,8 +1106,14 @@ class _ProfessionalLessonScreenState
   Widget _buildSidebar() {
     return Container(
       decoration: BoxDecoration(
-        color: _surfaceColor,
-        border: Border(right: BorderSide(color: _borderColor)),
+        color: _isDark ? const Color(0xFF0F1A24) : Colors.white,
+        border: Border(
+          right: BorderSide(
+            color: _isDark
+                ? Colors.white.withOpacity(0.06)
+                : const Color(0xFFE7ECEF),
+          ),
+        ),
       ),
       child: Column(
         children: [
@@ -1116,7 +1125,7 @@ class _ProfessionalLessonScreenState
                 children: [
                   const SizedBox(height: 12),
                   _buildSidebarSection('Navigation', [
-                    _SidebarItem(Icons.home_outlined, 'Home', false,
+                    _SidebarItem(Icons.home_rounded, 'Home', false,
                         () => context.pop()),
                     _SidebarItem(Icons.play_circle_outline, 'Video',
                         _activeTab == _Tab.video,
@@ -1126,7 +1135,7 @@ class _ProfessionalLessonScreenState
                           } else {
                             setState(() => _activeTab = _Tab.video);
                           }
-                        }),
+                        }, color: _T.blue),
                     _SidebarItem(Icons.description_outlined, 'Notes',
                         _activeTab == _Tab.notes,
                         () {
@@ -1135,10 +1144,11 @@ class _ProfessionalLessonScreenState
                           } else {
                             _setActiveTab(_Tab.notes);
                           }
-                        }),
+                        }, color: const Color(0xFF0D9488)),
                     _SidebarItem(Icons.quiz_outlined, 'Quiz',
                         _activeTab == _Tab.quiz,
-                        () => setState(() => _activeTab = _Tab.quiz)),
+                        () => setState(() => _activeTab = _Tab.quiz),
+                        color: _T.orange),
                     _SidebarItem(Icons.rate_review_outlined, 'Feedback',
                         _activeTab == _Tab.feedback,
                         () {
@@ -1147,7 +1157,7 @@ class _ProfessionalLessonScreenState
                           } else {
                             setState(() => _activeTab = _Tab.feedback);
                           }
-                        }),
+                        }, color: const Color(0xFFE11D48)),
                     _SidebarItem(Icons.psychology_outlined, 'AI Help',
                         _activeTab == _Tab.ai,
                         () {
@@ -1156,7 +1166,7 @@ class _ProfessionalLessonScreenState
                           } else {
                             setState(() => _activeTab = _Tab.ai);
                           }
-                        }),
+                        }, color: const Color(0xFF7C3AED)),
                   ]),
                   _buildSidebarSection('This section', [
                     _SidebarLesson('Introduction', true, false),
@@ -1175,41 +1185,93 @@ class _ProfessionalLessonScreenState
     );
   }
 
+  // Mirrors the header card of the app's main sidebar
+  // (ResponsiveNavigationDrawer) so the lesson page carries the same brand.
   Widget _buildSidebarBrand() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-          border: Border(bottom: BorderSide(color: _borderColor))),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: _T.green,
-              borderRadius: BorderRadius.circular(10),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF0A6A4B), Color(0xFF0F7A56), Color(0xFF0B6347)],
             ),
-            child: const Icon(Icons.school, color: Colors.white, size: 20),
           ),
-          const SizedBox(width: 10),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Excellence Hub',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: _textColor)),
-              Text('Learning Platform',
-                  style: TextStyle(fontSize: 11, color: _mutedColor)),
-            ],
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 6, 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.18),
+                        blurRadius: 9,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Image.asset(
+                    'assets/logo.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) =>
+                        const Icon(Icons.school, color: _T.green),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        l10n?.appName ?? 'Excellence Coaching Hub',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.18,
+                          letterSpacing: -0.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        l10n?.drawerTagline ??
+                            'Learn • Grow • Build Your Future',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.85),
+                          fontSize: 10,
+                          height: 1.3,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => setState(() => _sidebarCollapsed = true),
+                  icon: const Icon(Icons.chevron_left_rounded,
+                      color: Colors.white, size: 22),
+                  tooltip: 'Collapse sidebar',
+                  visualDensity: VisualDensity.compact,
+                  splashRadius: 18,
+                ),
+              ],
+            ),
           ),
-          const Spacer(),
-          GestureDetector(
-            onTap: () => setState(() => _sidebarCollapsed = true),
-            child: Icon(Icons.chevron_left, color: _mutedColor, size: 20),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -1220,14 +1282,16 @@ class _ProfessionalLessonScreenState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          padding: const EdgeInsets.fromLTRB(22, 16, 16, 6),
           child: Text(
             label.toUpperCase(),
             style: TextStyle(
-                fontSize: 10,
+                fontSize: 10.5,
                 fontWeight: FontWeight.w600,
-                color: _T.subtle,
-                letterSpacing: .08),
+                color: _isDark
+                    ? Colors.white.withOpacity(0.5)
+                    : const Color(0xFF5B7083),
+                letterSpacing: 1.6),
           ),
         ),
         ...items,
@@ -1762,7 +1826,11 @@ class _ProfessionalLessonScreenState
                     chatService: _aiChatService,
                     conversationId: _conversationId,
                     guideKey: _guideKey,
-                    onClose: () => setState(() => _isChatOpen = false),
+                    initialPrompt: _chatPrompt,
+                    onClose: () => setState(() {
+                      _isChatOpen = false;
+                      _chatPrompt = null;
+                    }),
                   ),
                 ),
               ),
@@ -2443,6 +2511,8 @@ final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
     final hasPdf =
         _lesson!.notesPdfUrl?.isNotEmpty == true;
     final hasText = _lesson!.notes?.isNotEmpty == true;
+    final hasGuide = _lesson!.hasAiGuide;
+    final viewCount = [hasGuide, hasPdf, hasText && !hasGuide].where((v) => v).length;
 
     return SingleChildScrollView(
       padding: EdgeInsets.all(isDesktop ? 24 : 16),
@@ -2454,12 +2524,13 @@ final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
             Row(
               children: [
                 Expanded(
-                  child: Text('Lesson Notes',
+                  child: Text(hasGuide ? 'Study Guide' : 'Lesson Notes',
                       style: TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.w700,
                           color: _textColor)),
                 ),
+                if (hasPdf || !hasGuide)
                 _OutlineBtn(
                   _isNotesDownloaded() ? Icons.folder_open_outlined : Icons.download_outlined,
                   _isNotesDownloaded() ? 'View in Downloads' : 'Download PDF',
@@ -2484,14 +2555,20 @@ final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
               ],
             ),
             const SizedBox(height: 16),
-            if (hasPdf && hasText) ...[
-              _buildNotesSwitcher(),
+            if (viewCount > 1) ...[
+              _buildNotesSwitcher(hasGuide: hasGuide, hasPdf: hasPdf, hasText: hasText && !hasGuide),
               const SizedBox(height: 16),
             ],
-            if (_notesTab == _NotesView.pdf && hasPdf)
+            if (_notesTab == _NotesView.guide && hasGuide)
+              _buildStudyGuide()
+            else if (_notesTab == _NotesView.pdf && hasPdf)
               _buildPdfViewer()
+            else if (hasGuide)
+              _buildStudyGuide()
             else if (hasText)
               _buildTextNotes()
+            else if (hasPdf)
+              _buildPdfViewer()
             else
               _buildNoNotes(),
             const SizedBox(height: 16),
@@ -2503,7 +2580,29 @@ final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
     );
   }
 
-  Widget _buildNotesSwitcher() {
+  Widget _buildStudyGuide() {
+    return AiStudyGuideView(
+      content: _lesson!.aiContent!,
+      palette: AiGuidePalette(
+        text: _textColor,
+        muted: _mutedColor,
+        surface: _surfaceColor,
+        bg: _bgColor,
+        border: _borderColor,
+        accent: _T.green,
+        accentSoft: _isDark ? _T.greenDark : _T.greenLight,
+        isDark: _isDark,
+      ),
+      onAskAi: widget.isAdminPreview
+          ? null
+          : (prompt) => setState(() {
+                _chatPrompt = prompt;
+                _isChatOpen = true;
+              }),
+    );
+  }
+
+  Widget _buildNotesSwitcher({bool hasGuide = false, bool hasPdf = true, bool hasText = true}) {
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -2513,14 +2612,21 @@ final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
       ),
       child: Row(
         children: [
-          _NotesTabBtn('PDF View', Icons.picture_as_pdf_outlined,
-              _notesTab == _NotesView.pdf, () {
-            setState(() => _notesTab = _NotesView.pdf);
-          }),
-          _NotesTabBtn('Text View', Icons.text_snippet_outlined,
-              _notesTab == _NotesView.text, () {
-            setState(() => _notesTab = _NotesView.text);
-          }),
+          if (hasGuide)
+            _NotesTabBtn('Study Guide', Icons.auto_awesome,
+                _notesTab == _NotesView.guide, () {
+              setState(() => _notesTab = _NotesView.guide);
+            }),
+          if (hasPdf)
+            _NotesTabBtn('PDF View', Icons.picture_as_pdf_outlined,
+                _notesTab == _NotesView.pdf, () {
+              setState(() => _notesTab = _NotesView.pdf);
+            }),
+          if (hasText)
+            _NotesTabBtn('Text View', Icons.text_snippet_outlined,
+                _notesTab == _NotesView.text, () {
+              setState(() => _notesTab = _NotesView.text);
+            }),
         ],
       ),
     );
@@ -5296,50 +5402,85 @@ class _FloatingAIButton extends StatelessWidget {
 
 // ── Sidebar helpers ───────────────────────────────────────────────────────────
 
+// Same palette as the main sidebar (ResponsiveNavigationDrawer).
+const Color _kSidebarForest = Color(0xFF0B6E4F);
+const Color _kSidebarGreen = Color(0xFF0E8A5F);
+
+Color _sidebarActiveFill(bool isDark) =>
+    isDark ? const Color(0xFF12352A) : const Color(0xFFE8F5EE);
+
+Color _sidebarActiveText(bool isDark) =>
+    isDark ? const Color(0xFF6EE7B7) : _kSidebarForest;
+
+Color _sidebarTint(Color c, bool isDark) =>
+    isDark ? Color.lerp(c, Colors.white, 0.3)! : c;
+
 class _SidebarItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool active;
   final VoidCallback onTap;
+  final Color color;
 
-  const _SidebarItem(this.icon, this.label, this.active, this.onTap);
+  const _SidebarItem(this.icon, this.label, this.active, this.onTap,
+      {this.color = _kSidebarGreen});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: active ? _T.greenLight : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            Icon(icon,
-                size: 18,
-                color: active ? _T.green : _T.muted),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(label,
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight:
-                          active ? FontWeight.w600 : FontWeight.w500,
-                      color: active ? _T.greenDark : _T.muted)),
-            ),
-            if (active)
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: _T.green,
-                  borderRadius: BorderRadius.circular(3),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      child: Material(
+        color: active ? _sidebarActiveFill(isDark) : Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(0, 6, 8, 6),
+            child: Row(
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 3.5,
+                  height: active ? 28 : 0,
+                  decoration: BoxDecoration(
+                    color: _kSidebarForest,
+                    borderRadius: BorderRadius.circular(3),
+                  ),
                 ),
-              ),
-          ],
+                SizedBox(width: active ? 6.5 : 10),
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(11),
+                    color: color.withOpacity(active
+                        ? (isDark ? 0.28 : 0.16)
+                        : (isDark ? 0.18 : 0.09)),
+                  ),
+                  child: Icon(icon,
+                      size: 18, color: _sidebarTint(color, isDark)),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      letterSpacing: -0.2,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w600,
+                      color: active
+                          ? _sidebarActiveText(isDark)
+                          : (isDark ? Colors.white : const Color(0xFF0F2233)),
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -5357,37 +5498,44 @@ class _SidebarLesson extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final dimmed =
+        isDark ? Colors.white.withOpacity(0.4) : const Color(0xFF94A3B8);
+    final normal =
+        isDark ? Colors.white.withOpacity(0.75) : const Color(0xFF334155);
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: current ? _T.greenLight : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
+        color: current ? _sidebarActiveFill(isDark) : Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
           Icon(
             locked
-                ? Icons.lock_outline
-                : (done ? Icons.check_circle : Icons.play_circle_outline),
-            size: 16,
-            color: locked
-                ? _T.subtle
+                ? Icons.lock_outline_rounded
                 : (done
-                    ? _T.green
-                    : (current ? _T.green : _T.subtle)),
+                    ? Icons.check_circle_rounded
+                    : Icons.play_circle_outline_rounded),
+            size: 17,
+            color: locked
+                ? dimmed
+                : (done || current
+                    ? _sidebarTint(_kSidebarGreen, isDark)
+                    : dimmed),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Expanded(
             child: Text(
               title,
               style: TextStyle(
-                fontSize: 12,
-                fontWeight:
-                    current ? FontWeight.w600 : FontWeight.w400,
+                fontSize: 12.5,
+                fontWeight: current ? FontWeight.w700 : FontWeight.w500,
                 color: locked
-                    ? _T.subtle
-                    : (current ? _T.greenDark : _T.muted),
+                    ? dimmed
+                    : (current ? _sidebarActiveText(isDark) : normal),
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

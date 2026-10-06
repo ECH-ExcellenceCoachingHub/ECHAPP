@@ -126,6 +126,8 @@ class _ProfessionalLearningScreenState
   int _currentSectionIndex = 0;
   // Chapter shown in the desktop detail pane; null follows _currentSectionIndex.
   String? _selectedChapterId;
+  // Desktop chapter outline, so its scrollbar can stay visible.
+  final ScrollController _chapterOutlineScroll = ScrollController();
   // Mobile chapter cards, so "next chapter" can scroll one into view.
   final Map<String, GlobalKey> _chapterCardKeys = {};
   bool _isChatExpanded = false;
@@ -168,6 +170,8 @@ class _ProfessionalLearningScreenState
   int _courseDownloadFailed = 0;
 
   late TabController _tabController;
+  // Order matches the TabBar: Chapters, Live, Progress, Community, Lessons, Library.
+  static const int _progressTabIndex = 2;
   late AnimationController _heroAnimCtrl;
   late AnimationController _fabAnimCtrl;
   late AnimationController _fabPulseCtrl;
@@ -236,6 +240,7 @@ class _ProfessionalLearningScreenState
 
   @override
   void dispose() {
+    _chapterOutlineScroll.dispose();
     _tabController.dispose();
     _liveSessionsTabController.dispose();
     _heroAnimCtrl.dispose();
@@ -510,8 +515,11 @@ class _ProfessionalLearningScreenState
         onClose: () => Navigator.of(ctx).pop(),
         onContinue: () {
           Navigator.of(ctx).pop();
-          // "Continue Learning →" goes straight to the newly unlocked chapter.
-          if (!isLastChapter && _chapters != null) {
+          // "Continue to Chapter N" goes straight to the newly unlocked chapter;
+          // on the last chapter "View my progress" opens the Progress tab.
+          if (isLastChapter) {
+            _tabController.animateTo(_progressTabIndex);
+          } else if (_chapters != null) {
             _goToChapter(_chapters![chapterIndex + 1]);
           }
         },
@@ -1418,9 +1426,19 @@ class _ProfessionalLearningScreenState
               color: _isDark ? _DT.borderDark : _DT.border),
           Flexible(
             fit: FlexFit.loose,
-            child: ListView.builder(
+            child: RawScrollbar(
+              controller: _chapterOutlineScroll,
+              thumbVisibility: true,
+              thickness: 6,
+              radius: const Radius.circular(8),
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 3),
+              thumbColor: _isDark
+                  ? Colors.white.withOpacity(0.28)
+                  : Colors.black.withOpacity(0.22),
+              child: ListView.builder(
+              controller: _chapterOutlineScroll,
               shrinkWrap: true,
-              padding: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.fromLTRB(0, 8, 8, 8),
               itemCount: chapters.length,
               itemBuilder: (ctx, i) {
                 final s = chapters[i];
@@ -1439,6 +1457,7 @@ class _ProfessionalLearningScreenState
                   onTap: () => setState(() => _selectedChapterId = s.id),
                 );
               },
+            ),
             ),
           ),
         ],
@@ -2032,17 +2051,44 @@ class _ProfessionalLearningScreenState
   //  PROGRESS TAB
   // ─────────────────────────────────────────────
   Widget _buildProgressTab() {
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final width = MediaQuery.of(context).size.width;
+    final isMobile = width < 600;
+    final isWide = width >= 960;
     return ListView(
-      padding: EdgeInsets.fromLTRB(isMobile ? 12 : 20, 16, isMobile ? 12 : 20, 100),
+      padding: EdgeInsets.fromLTRB(
+          isMobile ? 12 : 24, isWide ? 24 : 16, isMobile ? 12 : 24, 100),
       children: [
-        _buildXpLevelBanner(),
-        const SizedBox(height: 16),
-        _buildProgressHeroCard(),
-        const SizedBox(height: 16),
-        _buildChapterProgressList(),
-        const SizedBox(height: 16),
-        _buildAchievementsGrid(),
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1180),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Desktop: level and stats side by side, same height.
+                if (isWide)
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(flex: 2, child: _buildXpLevelBanner()),
+                        const SizedBox(width: 20),
+                        Expanded(flex: 3, child: _buildProgressHeroCard()),
+                      ],
+                    ),
+                  )
+                else ...[
+                  _buildXpLevelBanner(),
+                  const SizedBox(height: 16),
+                  _buildProgressHeroCard(),
+                ],
+                SizedBox(height: isWide ? 20 : 16),
+                _buildChapterProgressList(),
+                SizedBox(height: isWide ? 20 : 16),
+                _buildAchievementsGrid(),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -2055,8 +2101,10 @@ class _ProfessionalLearningScreenState
     final levelTitles = ['Beginner', 'Explorer', 'Learner', 'Achiever', 'Expert', 'Master'];
     final levelTitle = levelTitles[(level - 1).clamp(0, levelTitles.length - 1)];
 
+    final isWide = MediaQuery.of(context).size.width >= 960;
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isWide ? 24 : 16),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           colors: [Color(0xFF7C4DFF), Color(0xFF5C35E0)],
@@ -2072,6 +2120,7 @@ class _ProfessionalLearningScreenState
         ],
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -2188,16 +2237,18 @@ class _ProfessionalLearningScreenState
     final totalChapters = _chapters?.length ?? 0;
     final screenW = MediaQuery.of(context).size.width;
     final isNarrow = screenW < 380;
-    final ringSize = isNarrow ? 80.0 : 96.0;
+    final isWide = screenW >= 960;
+    final ringSize = isNarrow ? 80.0 : (isWide ? 116.0 : 96.0);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isWide ? 24 : 16),
       decoration: BoxDecoration(
         color: _cardBg,
         borderRadius: _DT.r20,
         boxShadow: _DT.cardShadow,
       ),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -2227,7 +2278,7 @@ class _ProfessionalLearningScreenState
                         Text(
                           '${(_progress * 100).toInt()}%',
                           style: TextStyle(
-                            fontSize: isNarrow ? 18 : 20,
+                            fontSize: isNarrow ? 18 : (isWide ? 24 : 20),
                             fontWeight: FontWeight.w800,
                             color: _DT.primary,
                           ),
@@ -2241,7 +2292,7 @@ class _ProfessionalLearningScreenState
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: isWide ? 28 : 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2491,16 +2542,17 @@ class _ProfessionalLearningScreenState
           LayoutBuilder(
             builder: (context, constraints) {
               final w = constraints.maxWidth;
-              final crossCount = w < 300 ? 1 : (w < 500 ? 2 : 3);
-              final aspectRatio = w < 300 ? 3.5 : (w < 500 ? 1.55 : 1.7);
+              final crossCount = w < 300 ? 1 : (w < 560 ? 2 : 3);
+              final spacing = w >= 900 ? 16.0 : 10.0;
               return GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: crossCount,
-                  crossAxisSpacing: 10,
-                  mainAxisSpacing: 10,
-                  childAspectRatio: aspectRatio,
+                  crossAxisSpacing: spacing,
+                  mainAxisSpacing: spacing,
+                  // Fixed height so cards don't balloon on wide screens.
+                  mainAxisExtent: w >= 900 ? 132 : 124,
                 ),
                 itemCount: achievements.length,
                 itemBuilder: (context, index) {
@@ -6038,6 +6090,115 @@ class _ChapterProgressRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final textPrimary = isDark ? Colors.white : _DT.textPrimary;
     final border = isDark ? _DT.borderDark : _DT.border;
+    final isWide = MediaQuery.of(context).size.width >= 960;
+
+    final String statusLabel;
+    final Color statusColor;
+    if (isCompleted) {
+      statusLabel = 'Completed';
+      statusColor = _DT.primary;
+    } else if (done > 0) {
+      statusLabel = 'In progress';
+      statusColor = const Color(0xFFFFB300);
+    } else {
+      statusLabel = 'Not started';
+      statusColor = _DT.textHint;
+    }
+
+    if (isWide) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
+        decoration: BoxDecoration(
+          border: !isLast
+              ? Border(bottom: BorderSide(color: border, width: 0.5))
+              : null,
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: isCompleted
+                    ? _DT.primary
+                    : _DT.primary.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: isCompleted
+                    ? const Icon(Icons.check_rounded,
+                        color: Colors.white, size: 18)
+                    : Text('$index',
+                        style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: _DT.primary)),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              flex: 4,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: textPrimary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  Text('$done of $total lessons',
+                      style: const TextStyle(
+                          fontSize: 12, color: _DT.textSecondary)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 24),
+            Expanded(
+              flex: 5,
+              child: ClipRRect(
+                borderRadius: _DT.r32,
+                child: LinearProgressIndicator(
+                  value: pct,
+                  minHeight: 8,
+                  backgroundColor: _DT.primary.withOpacity(0.1),
+                  valueColor: AlwaysStoppedAnimation<Color>(isCompleted
+                      ? _DT.primary
+                      : _DT.primary.withOpacity(0.6)),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            SizedBox(
+              width: 44,
+              child: Text('${(pct * 100).round()}%',
+                  textAlign: TextAlign.end,
+                  style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                      color: textPrimary)),
+            ),
+            const SizedBox(width: 16),
+            Container(
+              width: 104,
+              padding: const EdgeInsets.symmetric(vertical: 5),
+              decoration: BoxDecoration(
+                color: statusColor.withOpacity(0.12),
+                borderRadius: _DT.r32,
+              ),
+              child: Text(statusLabel,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: statusColor)),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
@@ -6254,96 +6415,172 @@ class _AchievementCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = isDark ? _DT.surfaceDk : _DT.surface;
-    final textPrimary = isDark ? Colors.white : _DT.textPrimary;
+    final lockedText = isDark ? _DT.textLight : _DT.textSecondary;
 
-    return Stack(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-          decoration: BoxDecoration(
-            color: a.unlocked ? a.color.withOpacity(0.09) : bg,
-            borderRadius: _DT.r16,
-            border: Border.all(
+    return LayoutBuilder(builder: (context, constraints) {
+      // Roomy cells (desktop) get icon-beside-text; narrow cells stack it.
+      final horizontal = constraints.maxWidth >= 240;
+
+      final icon = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: horizontal ? 52 : 40,
+            height: horizontal ? 52 : 40,
+            decoration: BoxDecoration(
               color: a.unlocked
-                  ? a.color.withOpacity(0.35)
-                  : (isDark ? _DT.borderDark : _DT.border),
-              width: a.unlocked ? 1.5 : 0.5,
+                  ? a.color.withOpacity(0.16)
+                  : Colors.grey.withOpacity(0.12),
+              shape: BoxShape.circle,
             ),
-            boxShadow: a.unlocked
-                ? [BoxShadow(color: a.color.withOpacity(0.15), blurRadius: 12, offset: const Offset(0, 4))]
-                : null,
+            child: Icon(a.icon,
+                color: a.unlocked ? a.color : _DT.textHint,
+                size: horizontal ? 26 : 20),
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                alignment: Alignment.bottomRight,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(7),
-                    decoration: BoxDecoration(
-                      color: a.unlocked ? a.color.withOpacity(0.15) : Colors.grey.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(a.icon,
-                        color: a.unlocked ? a.color : _DT.textHint,
-                        size: 20),
-                  ),
-                  if (!a.unlocked)
-                    Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: const BoxDecoration(
-                          color: _DT.textSecondary, shape: BoxShape.circle),
-                      child: const Icon(Icons.lock_rounded,
-                          color: Colors.white, size: 7),
-                    ),
-                ],
+          if (!a.unlocked)
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: _DT.textSecondary,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: bg, width: 2),
+                ),
+                child: const Icon(Icons.lock_rounded,
+                    color: Colors.white, size: 9),
               ),
-              const SizedBox(height: 5),
-              Text(a.title,
-                  style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 11,
-                      color: a.unlocked ? a.color : _DT.textSecondary),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 2),
-              Text(a.desc,
-                  style: TextStyle(
-                      fontSize: 9,
-                      color: a.unlocked
-                          ? a.color.withOpacity(0.75)
-                          : _DT.textHint),
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis),
-            ],
+            ),
+        ],
+      );
+
+      final title = Text(a.title,
+          style: TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: horizontal ? 15 : 12,
+              color: a.unlocked ? a.color : lockedText),
+          textAlign: horizontal ? TextAlign.start : TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis);
+      final desc = Text(a.desc,
+          style: TextStyle(
+              fontSize: horizontal ? 12.5 : 10,
+              height: 1.3,
+              color: a.unlocked ? a.color.withOpacity(0.8) : _DT.textHint),
+          textAlign: horizontal ? TextAlign.start : TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis);
+      final status = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+              a.unlocked
+                  ? Icons.check_circle_rounded
+                  : Icons.lock_outline_rounded,
+              size: 13,
+              color: a.unlocked ? a.color : _DT.textHint),
+          const SizedBox(width: 4),
+          Text(a.unlocked ? 'Unlocked' : 'Locked',
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: a.unlocked ? a.color : _DT.textHint)),
+        ],
+      );
+
+      return Container(
+        width: double.infinity,
+        height: double.infinity,
+        padding: horizontal
+            ? const EdgeInsets.fromLTRB(18, 16, 16, 16)
+            : const EdgeInsets.fromLTRB(10, 12, 10, 10),
+        decoration: BoxDecoration(
+          color: a.unlocked ? a.color.withOpacity(0.09) : bg,
+          borderRadius: _DT.r16,
+          border: Border.all(
+            color: a.unlocked
+                ? a.color.withOpacity(0.4)
+                : (isDark ? _DT.borderDark : _DT.border),
+            width: a.unlocked ? 1.5 : 1,
           ),
+          boxShadow: a.unlocked
+              ? [
+                  BoxShadow(
+                      color: a.color.withOpacity(0.15),
+                      blurRadius: 16,
+                      offset: const Offset(0, 6))
+                ]
+              : null,
         ),
-        if (a.xp > 0)
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(
-                color: a.unlocked ? a.color : Colors.grey.shade300,
-                borderRadius: _DT.r32,
-              ),
-              child: Text(
-                '+${a.xp} XP',
-                style: TextStyle(
-                  color: a.unlocked ? Colors.white : Colors.grey.shade500,
-                  fontSize: 8,
-                  fontWeight: FontWeight.w800,
+        child: Stack(
+          children: [
+            if (horizontal)
+              Row(
+                children: [
+                  icon,
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Leave room for the XP badge in the corner.
+                        Padding(
+                          padding: const EdgeInsets.only(right: 64),
+                          child: title,
+                        ),
+                        const SizedBox(height: 4),
+                        desc,
+                        const SizedBox(height: 8),
+                        status,
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            else
+              Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    icon,
+                    const SizedBox(height: 8),
+                    title,
+                    const SizedBox(height: 2),
+                    desc,
+                  ],
                 ),
               ),
-            ),
-          ),
-      ],
-    );
+            if (a.xp > 0)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: a.unlocked
+                        ? a.color
+                        : (isDark
+                            ? Colors.white.withOpacity(0.08)
+                            : Colors.grey.shade200),
+                    borderRadius: _DT.r32,
+                  ),
+                  child: Text(
+                    '+${a.xp} XP',
+                    style: TextStyle(
+                      color: a.unlocked ? Colors.white : _DT.textHint,
+                      fontSize: horizontal ? 10.5 : 9,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    });
   }
 }
 

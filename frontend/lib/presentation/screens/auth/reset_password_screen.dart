@@ -218,7 +218,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
               const SizedBox(height: 6),
               const Text(
                 'This reset link is invalid or has expired',
-                style: TextStyle(color: Colors.white70, fontSize: 13),
+                style: TextStyle(color: Color(0xEBFFFFFF), fontSize: 14, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 20),
               Expanded(
@@ -353,7 +353,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
 
             const Text(
               'Enter a strong new password for your account',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+              style: TextStyle(color: Color(0xEBFFFFFF), fontSize: 14, fontWeight: FontWeight.w500),
             ),
 
             const SizedBox(height: 20),

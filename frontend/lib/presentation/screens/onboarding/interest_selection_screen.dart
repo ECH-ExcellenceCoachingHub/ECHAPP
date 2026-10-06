@@ -10,12 +10,15 @@ import 'package:excellencecoachinghub/config/storage_manager.dart';
 import 'package:excellencecoachinghub/presentation/widgets/desktop_brand_panel.dart';
 import 'package:excellencecoachinghub/presentation/router/post_auth_navigation.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
+import 'package:excellencecoachinghub/models/category.dart' as models;
 
 final _storageManager = StorageManager();
 
 // ─── Shared design tokens ─────────────────────────────────────────────────────
 const _kAccent      = Color(0xFF10B981);
 const _kAccentDark  = Color(0xFF059669);
+// Cards shown before "View more interests" expands the rest.
+const _kCollapsedCount = 8;
 
 class InterestSelectionScreen extends ConsumerStatefulWidget {
   final bool isEditMode;
@@ -36,9 +39,8 @@ class _InterestSelectionScreenState extends ConsumerState<InterestSelectionScree
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
   late AnimationController _animController;
-  int _hoveredIndex = -1;
-  final ScrollController _desktopScrollController = ScrollController();
-  bool _desktopCanScrollMore = false;
+  String? _hoveredId;
+  bool _showAllInterests = false;
 
   // ─── Fixed dark theme to match language screen ─────────────────────────────
   Color get _backgroundColor => const Color(0xFF071810);
@@ -83,22 +85,6 @@ class _InterestSelectionScreenState extends ConsumerState<InterestSelectionScree
       vsync: this,
       duration: const Duration(seconds: 15),
     )..repeat();
-
-    _desktopScrollController.addListener(_updateDesktopScrollHint);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateDesktopScrollHint());
-  }
-
-  // Shows a "scroll to continue" hint on desktop whenever the interests list
-  // is taller than the visible panel, so the Continue/Skip buttons below it
-  // aren't missed. Re-evaluated on every scroll/content-size change.
-  void _updateDesktopScrollHint() {
-    if (!mounted || !_desktopScrollController.hasClients) return;
-    final position = _desktopScrollController.position;
-    final canScrollMore = position.maxScrollExtent > 0 &&
-        _desktopScrollController.offset < position.maxScrollExtent - 12;
-    if (canScrollMore != _desktopCanScrollMore) {
-      setState(() => _desktopCanScrollMore = canScrollMore);
-    }
   }
 
   @override
@@ -106,8 +92,6 @@ class _InterestSelectionScreenState extends ConsumerState<InterestSelectionScree
     _fadeController.dispose();
     _slideController.dispose();
     _animController.dispose();
-    _desktopScrollController.removeListener(_updateDesktopScrollHint);
-    _desktopScrollController.dispose();
     super.dispose();
   }
 
@@ -262,81 +246,18 @@ class _InterestSelectionScreenState extends ConsumerState<InterestSelectionScree
           flex: 55,
           child: Container(
             color: const Color(0xFF0A2415),
-            child: Stack(
-              children: [
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 420),
-                    child: SingleChildScrollView(
-                      controller: _desktopScrollController,
-                      padding: const EdgeInsets.fromLTRB(48, 40, 48, 64),
-                      child: _buildContent(l10n, isDesktop: true),
-                    ),
-                  ),
-                ),
-                _buildDesktopScrollHint(),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDesktopScrollHint() {
-    return Positioned(
-      left: 0,
-      right: 0,
-      bottom: 20,
-      child: IgnorePointer(
-        ignoring: !_desktopCanScrollMore,
-        child: AnimatedOpacity(
-          opacity: _desktopCanScrollMore ? 1 : 0,
-          duration: const Duration(milliseconds: 200),
-          child: Center(
-            child: GestureDetector(
-              onTap: () {
-                if (!_desktopScrollController.hasClients) return;
-                _desktopScrollController.animateTo(
-                  _desktopScrollController.position.maxScrollExtent,
-                  duration: const Duration(milliseconds: 400),
-                  curve: Curves.easeOutCubic,
-                );
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                decoration: BoxDecoration(
-                  color: _kAccent.withOpacity(0.18),
-                  borderRadius: BorderRadius.circular(30),
-                  border: Border.all(color: _kAccent.withOpacity(0.4), width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.25),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Scroll to continue',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    SizedBox(width: 6),
-                    Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 18),
-                  ],
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 540),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(40, 40, 40, 32),
+                  child: _buildContent(l10n, isDesktop: true),
                 ),
               ),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 
@@ -562,63 +483,14 @@ class _InterestSelectionScreenState extends ConsumerState<InterestSelectionScree
             ),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: isTablet ? 18 : (isSmall ? 12 : (isVerySmall ? 8 : 14))),
-          if (!isTablet)
-            SizedBox(
-              height: isVerySmall ? 80 : (isSmall ? 100 : 120),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: isVerySmall ? 4 : 8),
-                child: Image.asset(
-                  'assets/Course app-bro.png',
-                  fit: BoxFit.contain,
-                  alignment: Alignment.bottomCenter,
-                  errorBuilder: (c, e, s) => const SizedBox.shrink(),
-                ),
-              ),
-            ),
-          if (!isTablet)
-            SizedBox(height: isSmall ? 12 : (isVerySmall ? 8 : 16)),
+          SizedBox(height: isTablet ? 18 : (isSmall ? 10 : 14)),
         ] else ...[
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF00C896).withOpacity(0.3),
-                  const Color(0xFF00C896).withOpacity(0.1),
-                ],
-              ),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.3),
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF00C896).withOpacity(0.4),
-                  blurRadius: 40,
-                  spreadRadius: 8,
-                ),
-              ],
-            ),
-            child: ClipOval(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Image.asset(
-                  'assets/logo.png',
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 32),
+          // The brand panel on the left already shows the logo, so the form
+          // column starts straight with the question.
           Text(
             l10n?.onboardingInterestTitle ?? 'What are you interested in?',
             style: const TextStyle(
-              fontSize: 32,
+              fontSize: 30,
               fontWeight: FontWeight.w700,
               color: Colors.white,
               letterSpacing: -0.5,
@@ -639,31 +511,84 @@ class _InterestSelectionScreenState extends ConsumerState<InterestSelectionScree
           const SizedBox(height: 24),
         ],
 
-        // Interests grid - scrollable for long lists.
         // Desktop content already sits inside a SingleChildScrollView (unbounded
-        // height), so it can't use Expanded here - that requires a bounded parent
-        // and throws a RenderFlex layout error. Let the grid size itself instead.
+        // height), so it can't use Expanded here - that requires a bounded parent.
         if (isDesktop)
-          _buildInterestsGrid(l10n, isDesktop: isDesktop, isTablet: isTablet, isMobile: !isDesktop && !isTablet)
+          _buildInterestsGrid(l10n, isDesktop: true)
         else
           Expanded(
-            child: _buildInterestsGrid(l10n, isDesktop: isDesktop, isTablet: isTablet, isMobile: !isDesktop && !isTablet),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: _buildInterestsGrid(l10n, isDesktop: false, isTablet: isTablet),
+            ),
           ),
 
-        SizedBox(height: isDesktop ? 40 : (isTablet ? 28 : (isSmall ? 16 : (isVerySmall ? 12 : 24)))),
+        SizedBox(height: isDesktop ? 28 : (isTablet ? 20 : (isVerySmall ? 10 : 14))),
 
         // Continue button
         _buildModernContinueButton(isDesktop: isDesktop, isTablet: isTablet, l10n: l10n),
 
         // Skip button - always visible
-        const SizedBox(height: 16),
+        SizedBox(height: isDesktop ? 8 : 4),
         _buildModernSkipButton(l10n),
       ],
     );
   }
 
-  Widget _buildInterestsGrid(AppLocalizations? l10n, {required bool isDesktop, required bool isTablet, required bool isMobile}) {
+  // ─── Interest grouping ───────────────────────────────────────────────────────
+  // Categories come from the backend, so they are grouped by keywords in their
+  // names. Anything unmatched falls into a trailing "other" group.
+  static const _groupOrder = ['career', 'education', 'personal', 'other'];
+
+  String _groupFor(String name) {
+    final n = name.toLowerCase();
+    bool has(List<String> keys) => keys.any(n.contains);
+    if (has(['mental', 'parent', 'leader', 'manage', 'personal', 'wellbeing', 'health'])) {
+      return 'personal';
+    }
+    if (has(['primary', 'school', 'academic', 'language', 'laguange', 'exam', 'student', 'university'])) {
+      return 'education';
+    }
+    if (has(['digital', 'tech', 'business', 'entrepreneur', 'job', 'career', 'account', 'finance', 'professional'])) {
+      return 'career';
+    }
+    return 'other';
+  }
+
+  String _groupLabel(String group, bool isRw) {
+    switch (group) {
+      case 'career':
+        return isRw ? 'UMWUGA N\'AKAZI' : 'CAREER & PROFESSIONAL';
+      case 'education':
+        return isRw ? 'UBUREZI' : 'EDUCATION';
+      case 'personal':
+        return isRw ? 'ITERAMBERE RYAWE BWITE' : 'PERSONAL DEVELOPMENT';
+      default:
+        return isRw ? 'IBINDI' : 'MORE';
+    }
+  }
+
+  /// Short "what's inside" line shown under each interest name.
+  String? _taglineFor(String name) {
+    final n = name.toLowerCase();
+    bool has(List<String> keys) => keys.any(n.contains);
+    if (has(['digital', 'tech'])) return 'AI • Coding • Digital skills';
+    if (has(['entrepreneur', 'business'])) return 'Startups • Innovation • Growth';
+    if (has(['job', 'career'])) return 'CVs • Interviews • Careers';
+    if (has(['account', 'finance'])) return 'Bookkeeping • Finance • Tax';
+    if (has(['language', 'laguange'])) return 'English • French • Kiswahili';
+    if (has(['mental', 'parent'])) return 'Wellbeing • Family • Parenting';
+    if (has(['leader', 'manage'])) return 'Teams • Leadership • Strategy';
+    if (has(['primary'])) return 'Primary pupils • Homework help';
+    if (has(['academic', 'school', 'exam'])) return 'Exams • Study skills';
+    return null;
+  }
+
+  String _displayName(String name) => name.replaceAll(RegExp(r'\s+and\s+', caseSensitive: false), ' & ');
+
+  Widget _buildInterestsGrid(AppLocalizations? l10n, {required bool isDesktop, bool isTablet = false}) {
     final categoriesAsync = ref.watch(backendCategoriesProvider);
+    final isRw = Localizations.localeOf(context).languageCode == 'rw';
 
     return categoriesAsync.when(
       data: (categories) {
@@ -686,152 +611,63 @@ class _InterestSelectionScreenState extends ConsumerState<InterestSelectionScree
           );
         }
 
-        // Use GridView for better organization and scrollability
-        return GridView.builder(
-          padding: EdgeInsets.symmetric(
-            horizontal: isDesktop ? 0 : (isTablet ? 16 : (isMobile ? 12 : 0)),
-            vertical: isDesktop ? 0 : 8,
-          ),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            // Desktop content sits in a narrow (420px max) column, so 2 columns
-            // there leaves too little width for icon + name + checkbox per card
-            // (the category name gets squeezed down to a single visible letter).
-            crossAxisCount: isDesktop ? 1 : (isTablet ? 2 : 1),
-            crossAxisSpacing: isDesktop ? 12 : (isTablet ? 10 : 8),
-            mainAxisSpacing: isDesktop ? 16 : (isTablet ? 10 : 8),
-            childAspectRatio: isDesktop ? 3.6 : (isTablet ? 3.0 : 4.0),
-          ),
-          itemCount: categories.length,
-          shrinkWrap: true,
-          // Desktop nests this grid inside the outer SingleChildScrollView, so it
-          // must defer scrolling to that ancestor instead of fighting it for gestures.
-          physics: isDesktop ? const NeverScrollableScrollPhysics() : const AlwaysScrollableScrollPhysics(),
-          itemBuilder: (context, index) {
-            final category = categories[index];
-            final interest = category.name;
-            final isSelected = _selectedInterests.contains(interest);
-            final isHovered = _hoveredIndex == index;
-            final color = CategoryUtils.getCategoryColor(category.id, name: category.name);
+        // Order categories by group, then collapse to the first few unless the
+        // user asked to see everything. Selected interests always stay visible.
+        final ordered = [
+          for (final g in _groupOrder) ...categories.where((c) => _groupFor(c.name) == g),
+        ];
+        final canCollapse = ordered.length > _kCollapsedCount;
+        final visible = (!canCollapse || _showAllInterests)
+            ? ordered
+            : [
+                for (var i = 0; i < ordered.length; i++)
+                  if (i < _kCollapsedCount || _selectedInterests.contains(ordered[i].name)) ordered[i],
+              ];
 
-            return MouseRegion(
-              key: ValueKey(category.id),
-              onEnter: (_) => setState(() => _hoveredIndex = index),
-              onExit: (_) => setState(() => _hoveredIndex = -1),
-              child: GestureDetector(
-                onTap: () => setState(() {
-                  isSelected
-                      ? _selectedInterests.remove(interest)
-                      : _selectedInterests.add(interest);
-                }),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOutCubic,
-                  padding: EdgeInsets.all(isDesktop ? 18 : (isTablet ? 14 : (isMobile ? 10 : 12))),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? color.withOpacity(0.15)
-                        : isHovered
-                            ? Colors.white.withOpacity(0.1)
-                            : _unselectedCardBg,
-                    borderRadius: BorderRadius.circular(isDesktop ? 16 : (isTablet ? 14 : 12)),
-                    border: Border.all(
-                      color: isSelected
-                          ? color
-                          : isHovered
-                              ? Colors.white.withOpacity(0.2)
-                              : _borderColor,
-                      width: isSelected ? 2 : 1,
-                    ),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: color.withOpacity(0.25),
-                              blurRadius: isDesktop ? 16 : 12,
-                              offset: const Offset(0, 6),
-                            ),
-                          ]
-                        : isHovered
-                            ? [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: isDesktop ? 12 : 8,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ]
-                            : null,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Icon
-                      Container(
-                        width: isDesktop ? 48 : (isTablet ? 42 : (isMobile ? 36 : 40)),
-                        height: isDesktop ? 48 : (isTablet ? 42 : (isMobile ? 36 : 40)),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? color.withOpacity(0.12)
-                              : const Color(0xFF1E293B),
-                          borderRadius: BorderRadius.circular(isDesktop ? 12 : (isTablet ? 10 : 8)),
-                          border: Border.all(
-                            color: isSelected
-                                ? color.withOpacity(0.3)
-                                : Colors.transparent,
-                            width: 1,
-                          ),
-                        ),
-                        child: Center(
-                          child: Icon(
-                            CategoryUtils.getCategoryIcon(category.id, name: category.name),
-                            color: isSelected ? color : _subtitleColor,
-                            size: isDesktop ? 24 : (isTablet ? 20 : (isMobile ? 16 : 18)),
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: isDesktop ? 12 : (isTablet ? 10 : (isMobile ? 6 : 8))),
-
-                      // Interest name
-                      Expanded(
-                        child: Text(
-                          interest,
-                          style: TextStyle(
-                            fontSize: isDesktop ? 17 : (isTablet ? 15 : (isMobile ? 13 : 14)),
-                            fontWeight: FontWeight.w600,
-                            color: _textColor,
-                            letterSpacing: -0.2,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-
-                      // Check indicator
-                      SizedBox(width: isDesktop ? 12 : (isTablet ? 10 : (isMobile ? 6 : 8))),
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: isDesktop ? 22 : (isTablet ? 20 : (isMobile ? 18 : 20)),
-                        height: isDesktop ? 22 : (isTablet ? 20 : (isMobile ? 18 : 20)),
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isSelected ? color : Colors.transparent,
-                          border: Border.all(
-                            color: isSelected ? color : const Color(0xFF64748B),
-                            width: 2,
-                          ),
-                        ),
-                        child: isSelected
-                            ? Icon(
-                                Icons.check_rounded,
-                                color: Colors.white,
-                                size: isDesktop ? 14 : (isTablet ? 12 : (isMobile ? 10 : 11)),
-                              )
-                            : null,
-                      ),
-                    ],
-                  ),
-                ),
+        final compact = !isDesktop && !isTablet;
+        final sections = <Widget>[];
+        for (final g in _groupOrder) {
+          final items = visible.where((c) => _groupFor(c.name) == g).toList();
+          if (items.isEmpty) continue;
+          if (sections.isNotEmpty) sections.add(SizedBox(height: compact ? 14 : 18));
+          sections.add(Padding(
+            padding: const EdgeInsets.only(left: 2, bottom: 8),
+            child: Text(
+              _groupLabel(g, isRw),
+              style: const TextStyle(
+                color: _kAccent,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.2,
               ),
-            );
-          },
+            ),
+          ));
+          sections.add(_buildCardRows(items, compact: compact));
+        }
+
+        if (canCollapse) {
+          sections.add(const SizedBox(height: 10));
+          sections.add(Center(
+            child: TextButton.icon(
+              onPressed: () => setState(() => _showAllInterests = !_showAllInterests),
+              style: TextButton.styleFrom(foregroundColor: _kAccent),
+              icon: Icon(
+                _showAllInterests ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                size: 18,
+              ),
+              label: Text(
+                _showAllInterests
+                    ? (isRw ? 'Erekana bike' : 'Show fewer')
+                    : (isRw ? 'Reba ibindi' : 'View more interests'),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ));
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: sections,
         );
       },
       loading: () => Center(
@@ -889,6 +725,149 @@ class _InterestSelectionScreenState extends ConsumerState<InterestSelectionScree
       ),
     );
   }
+
+  /// Lays cards out two per row; each row takes the height of its taller card.
+  Widget _buildCardRows(List<models.Category> items, {required bool compact}) {
+    final gap = compact ? 10.0 : 12.0;
+    final rows = <Widget>[];
+    for (var i = 0; i < items.length; i += 2) {
+      if (i > 0) rows.add(SizedBox(height: gap));
+      rows.add(IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: _buildInterestCard(items[i], compact: compact)),
+            SizedBox(width: gap),
+            Expanded(
+              child: i + 1 < items.length
+                  ? _buildInterestCard(items[i + 1], compact: compact)
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        ),
+      ));
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: rows);
+  }
+
+  Widget _buildInterestCard(models.Category category, {required bool compact}) {
+    final interest = category.name;
+    final isSelected = _selectedInterests.contains(interest);
+    final isHovered = _hoveredId == category.id;
+    final color = CategoryUtils.getCategoryColor(category.id, name: category.name);
+    final tagline = _taglineFor(interest);
+
+    return MouseRegion(
+      key: ValueKey(category.id),
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hoveredId = category.id),
+      onExit: (_) => setState(() => _hoveredId = null),
+      child: GestureDetector(
+        onTap: () => setState(() {
+          isSelected
+              ? _selectedInterests.remove(interest)
+              : _selectedInterests.add(interest);
+        }),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          padding: EdgeInsets.all(compact ? 12 : 14),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? color.withOpacity(0.14)
+                : isHovered
+                    ? Colors.white.withOpacity(0.1)
+                    : _unselectedCardBg,
+            borderRadius: BorderRadius.circular(compact ? 14 : 16),
+            border: Border.all(
+              color: isSelected
+                  ? color.withOpacity(0.9)
+                  : isHovered
+                      ? Colors.white.withOpacity(0.2)
+                      : _borderColor,
+              width: isSelected ? 1.5 : 1,
+            ),
+            boxShadow: isSelected
+                ? [
+                    BoxShadow(
+                      color: color.withOpacity(0.28),
+                      blurRadius: 18,
+                      spreadRadius: 1,
+                    ),
+                  ]
+                : null,
+          ),
+          child: Stack(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: compact ? 34 : 38,
+                    height: compact ? 34 : 38,
+                    decoration: BoxDecoration(
+                      color: isSelected ? color.withOpacity(0.18) : const Color(0xFF1E293B),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      CategoryUtils.getCategoryIcon(category.id, name: category.name),
+                      color: isSelected ? color : _subtitleColor,
+                      size: compact ? 18 : 20,
+                    ),
+                  ),
+                  SizedBox(height: compact ? 10 : 12),
+                  Text(
+                    _displayName(interest),
+                    style: TextStyle(
+                      fontSize: compact ? 13.5 : 15,
+                      fontWeight: FontWeight.w700,
+                      color: _textColor,
+                      letterSpacing: -0.2,
+                      height: 1.25,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (tagline != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      tagline,
+                      style: TextStyle(
+                        fontSize: compact ? 10.5 : 11.5,
+                        color: _subtitleColor,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+              // Selected tick - the whole card is the tap target, so there is
+              // no radio; the tick only appears once chosen.
+              Positioned(
+                top: 0,
+                right: 0,
+                child: AnimatedScale(
+                  scale: isSelected ? 1 : 0,
+                  duration: const Duration(milliseconds: 180),
+                  curve: Curves.easeOutBack,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+                    child: const Icon(Icons.check_rounded, color: Colors.white, size: 14),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
 
   Widget _buildModernContinueButton({required bool isDesktop, required bool isTablet, AppLocalizations? l10n}) {
     final hasSelection = _selectedInterests.isNotEmpty;

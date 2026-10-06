@@ -65,6 +65,22 @@ const lessonSchema = new mongoose.Schema({
   isPublished: {
     type: Boolean,
     default: true
+  },
+  // Structured study content produced by the AI Course Builder (summary,
+  // objectives, key terms, examples, formulas, flashcards, visuals, sources).
+  // `notes` still carries a markdown rendering for older app versions.
+  aiContent: {
+    type: mongoose.Schema.Types.Mixed,
+    default: null
+  },
+  aiGenerated: {
+    type: Boolean,
+    default: false
+  },
+  buildItemId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'CourseBuildItem',
+    default: null
   }
 }, {
   timestamps: true

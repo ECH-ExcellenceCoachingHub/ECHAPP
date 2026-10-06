@@ -362,7 +362,7 @@ class _ExamQuestionDetailsScreenState extends State<ExamQuestionDetailsScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    isCorrect ? 'Correct' : 'Incorrect',
+                                    isCorrect ? 'Correct' : ((score is num && score > 0) ? 'Partly correct' : 'Incorrect'),
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.bold,
@@ -477,6 +477,34 @@ class _ExamQuestionDetailsScreenState extends State<ExamQuestionDetailsScreen> {
                                 ],
                               ),
                             ),
+                            if ((result['feedback'] ?? '').toString().isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.blue.shade200),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      result['gradedBy'] == 'ai' ? Icons.auto_awesome : Icons.rate_review_outlined,
+                                      size: 16,
+                                      color: Colors.blue.shade700,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        result['feedback'].toString(),
+                                        style: TextStyle(fontSize: 13.5, color: Colors.blue.shade900, height: 1.4),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

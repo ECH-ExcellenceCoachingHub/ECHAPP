@@ -23,7 +23,7 @@ class _EmailAuthOptionScreenState extends State<EmailAuthOptionScreen>
   Color get _backgroundColor => _isDark ? const Color(0xFF0F172A) : const Color(0xFFF9FAFB);
   Color get _cardColor => _isDark ? const Color(0xFF1E293B) : Colors.white;
   Color get _textColor => _isDark ? Colors.white : const Color(0xFF1F2937);
-  Color get _secondaryTextColor => _isDark ? Colors.white70 : const Color(0xFF6B7280);
+  Color get _secondaryTextColor => _isDark ? const Color(0xFFCBD5E1) : const Color(0xFF4B5563);
   Color get _tertiaryTextColor => _isDark ? const Color(0xFF94A3B8) : const Color(0xFF4A5568);
 
   @override
@@ -328,8 +328,16 @@ class _EmailAuthOptionScreenState extends State<EmailAuthOptionScreen>
                     width: 70, height: 70,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _isDark ? const Color(0xFF10B981).withOpacity(0.2) : const Color(0xFFECFDF5),
-                      border: Border.all(color: const Color(0xFF10B981).withOpacity(_isDark ? 0.5 : 0.3), width: 2),
+                      // White backdrop keeps the logo's own colours legible on the dark theme.
+                      color: Colors.white,
+                      border: Border.all(color: const Color(0xFF10B981).withOpacity(0.6), width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10B981).withOpacity(_isDark ? 0.35 : 0.15),
+                          blurRadius: 18,
+                          spreadRadius: 2,
+                        ),
+                      ],
                     ),
                     child: ClipOval(
                       child: Padding(
@@ -344,7 +352,7 @@ class _EmailAuthOptionScreenState extends State<EmailAuthOptionScreen>
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: _textColor,
-                      fontSize: 22,
+                      fontSize: 24,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -354,7 +362,7 @@ class _EmailAuthOptionScreenState extends State<EmailAuthOptionScreen>
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: _secondaryTextColor,
-                      fontSize: 13,
+                      fontSize: 14,
                       height: 1.4,
                     ),
                   ),

@@ -66,8 +66,8 @@ class _PhoneAuthScreenState extends ConsumerState<PhoneAuthScreen> {
       ? Colors.white
       : const Color(0xFF0F172A);
   Color get _secondaryTextColor => _isDark
-      ? Colors.white70
-      : const Color(0xFF64748B);
+      ? const Color(0xFFCBD5E1)
+      : const Color(0xFF4B5563);
   Color get _inputTextColor => _isDark
       ? Colors.white
       : const Color(0xFF1A2433);
@@ -547,8 +547,16 @@ class _PhoneAuthScreenState extends ConsumerState<PhoneAuthScreen> {
                     width: 70, height: 70,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: _isDark ? const Color(0xFF10B981).withOpacity(0.2) : const Color(0xFFECFDF5),
-                      border: Border.all(color: const Color(0xFF10B981).withOpacity(_isDark ? 0.5 : 0.3), width: 2),
+                      // White backdrop keeps the logo's own colours legible on the dark theme.
+                      color: Colors.white,
+                      border: Border.all(color: const Color(0xFF10B981).withOpacity(0.6), width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10B981).withOpacity(_isDark ? 0.35 : 0.15),
+                          blurRadius: 18,
+                          spreadRadius: 2,
+                        ),
+                      ],
                     ),
                     child: ClipOval(
                       child: Padding(
@@ -563,7 +571,7 @@ class _PhoneAuthScreenState extends ConsumerState<PhoneAuthScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: _textColor,
-                      fontSize: 22,
+                      fontSize: 24,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -573,7 +581,7 @@ class _PhoneAuthScreenState extends ConsumerState<PhoneAuthScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: _secondaryTextColor,
-                      fontSize: 13,
+                      fontSize: 14,
                       height: 1.4,
                     ),
                   ),

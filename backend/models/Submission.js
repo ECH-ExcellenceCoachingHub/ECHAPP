@@ -70,7 +70,10 @@ const submissionSchema = new mongoose.Schema({
       type: Number,
       required: true,
       min: 0
-    }
+    },
+    // Marker's comment for written answers and how they were marked (auto | ai | fallback)
+    feedback: String,
+    gradedBy: String
   }],
   submittedAt: {
     type: Date,

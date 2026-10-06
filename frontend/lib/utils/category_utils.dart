@@ -5,6 +5,26 @@ class CategoryUtils {
     final id = categoryId?.toLowerCase() ?? '';
     final categoryName = name?.toLowerCase() ?? '';
 
+    // Specific coaching areas first, before the broader keyword matches below
+    if (categoryName.contains('mental') || categoryName.contains('parent')) {
+      return Icons.family_restroom_rounded;
+    }
+    if (categoryName.contains('entrepreneur')) {
+      return Icons.rocket_launch_rounded;
+    }
+    if (categoryName.contains('laguange')) {
+      return Icons.translate_rounded;
+    }
+    if (categoryName.contains('account') || categoryName.contains('finance')) {
+      return Icons.account_balance_rounded;
+    }
+    if (categoryName.contains('leader') || categoryName.contains('manage')) {
+      return Icons.groups_rounded;
+    }
+    if (categoryName.contains('primary')) {
+      return Icons.backpack_rounded;
+    }
+
     // Match by ID first
     if (id.contains('academic') || id.contains('school') || categoryName.contains('academic')) {
       return Icons.school_rounded;
@@ -39,6 +59,27 @@ class CategoryUtils {
     final id = categoryId?.toLowerCase() ?? '';
     final categoryName = name?.toLowerCase() ?? '';
 
+    if (categoryName.contains('mental') || categoryName.contains('parent')) {
+      return const Color(0xFFEC4899); // Pink
+    }
+    if (categoryName.contains('entrepreneur')) {
+      return const Color(0xFFEF4444); // Red
+    }
+    if (categoryName.contains('laguange')) {
+      return const Color(0xFF8B5CF6); // Purple
+    }
+    if (categoryName.contains('digital') || categoryName.contains('tech')) {
+      return const Color(0xFF06B6D4); // Cyan
+    }
+    if (categoryName.contains('account') || categoryName.contains('finance')) {
+      return const Color(0xFF14B8A6); // Teal
+    }
+    if (categoryName.contains('leader') || categoryName.contains('manage')) {
+      return const Color(0xFFF59E0B); // Amber
+    }
+    if (categoryName.contains('job') || categoryName.contains('career')) {
+      return const Color(0xFF3B82F6); // Blue
+    }
     if (id.contains('academic') || categoryName.contains('academic')) {
       return const Color(0xFF10B981); // Emerald
     }

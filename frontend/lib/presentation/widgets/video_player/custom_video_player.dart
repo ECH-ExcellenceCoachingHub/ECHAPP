@@ -42,6 +42,8 @@ class _CustomVideoPlayerState extends State<CustomVideoPlayer> {
   // Media Kit (Desktop)
   mk.Player? _mkPlayer;
   mkv.VideoController? _mkVideoController;
+  // Gives access to media_kit's built-in fullscreen (route + native window).
+  final GlobalKey<mkv.VideoState> _mkVideoKey = GlobalKey<mkv.VideoState>();
   
   // Chewie / Video Player (Mobile/Android)
   VideoPlayerController? _vpController;
@@ -676,6 +678,7 @@ class _CustomVideoPlayerState extends State<CustomVideoPlayer> {
           children: [
             Center(
               child: mkv.Video(
+                key: _mkVideoKey,
                 controller: _mkVideoController!,
                 fit: BoxFit.contain,
                 fill: Colors.black,
@@ -852,5 +855,12 @@ class _CustomVideoPlayerState extends State<CustomVideoPlayer> {
       widget.onFullScreen!();
       return;
     }
+    if (_isMobile || kIsWeb) {
+      _chewieController?.toggleFullScreen();
+      return;
+    }
+    // Pushes a fullscreen route and puts the desktop window into native
+    // fullscreen; Esc or the controls' button exits it.
+    _mkVideoKey.currentState?.toggleFullscreen();
   }
 }

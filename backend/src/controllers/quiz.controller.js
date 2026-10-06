@@ -1,6 +1,7 @@
 const Question = require('../models/Question');
 const Quiz = require('../models/Quiz');
 const Submission = require('../../models/Submission');
+const { gradeOpenAnswers } = require('../services/answer-grading.service');
 const Certificate = require('../models/Certificate');
 const Course = require('../models/Course');
 const User = require('../models/User');
@@ -375,6 +376,8 @@ const submitQuiz = async (req, res, next) => {
     let totalScore = 0;
     let maxScore = 0;
     let needsManualGrading = false;
+    // Written answers that need judgement are collected here and marked by AI after the loop
+    const pendingOpen = [];
 
     for (const question of questions) {
       const userAnswerData = answers.find(a => a.questionId === question._id.toString());
@@ -404,12 +407,14 @@ const submitQuiz = async (req, res, next) => {
         const correctText = question.correctAnswer?.toString().trim().toLowerCase();
         isCorrect = userText === correctText;
         score = isCorrect ? points : 0;
-        console.log('Fill blank grading - userText:', userText, 'correctText:', correctText, 'isCorrect:', isCorrect, 'score:', score);
-      } else if (question.type === 'essay') {
-        // Essays need manual grading
-        needsManualGrading = true;
-        score = 0; // Will be graded manually
-        console.log('Essay - needs manual grading');
+        // Not an exact match: let the AI judge spelling, synonyms and rounding
+        if (!isCorrect && userText) {
+          pendingOpen.push({ index: results.length, question, answerText, points });
+        }
+      } else if (question.type === 'essay' || question.type === 'programming') {
+        // Marked automatically by AI against the model answer (see below)
+        score = 0;
+        pendingOpen.push({ index: results.length, question, answerText, points });
       } else if (question.type === 'drag_drop') {
         // Grade drag-drop questions
         const userDragAnswers = userAnswerData?.dragAnswers || [];
@@ -561,6 +566,28 @@ const submitQuiz = async (req, res, next) => {
 
       totalScore += score;
       maxScore += points;
+    }
+
+    if (pendingOpen.length) {
+      const graded = await gradeOpenAnswers(pendingOpen.map(p => ({
+        id: String(p.index),
+        question: p.question.text,
+        type: p.question.type,
+        modelAnswer: p.question.correctAnswer,
+        guidance: p.question.explanation,
+        studentAnswer: p.answerText,
+        points: p.points,
+      })));
+      for (const p of pendingOpen) {
+        const g = graded.get(String(p.index));
+        if (!g) continue;
+        const r = results[p.index];
+        totalScore += g.earnedPoints - r.score;
+        r.score = g.earnedPoints;
+        r.isCorrect = g.isCorrect;
+        r.feedback = g.feedback;
+        r.gradedBy = g.gradedBy;
+      }
     }
 
     const percentage = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;

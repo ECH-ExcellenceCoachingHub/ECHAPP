@@ -25,6 +25,9 @@ class ModernAIChatDialog extends StatefulWidget {
   final GlobalKey<StudentGuideWidgetState>? guideKey;
   final AIChatContext? context;
 
+  /// Sent automatically once the chat opens (e.g. "Explain this term").
+  final String? initialPrompt;
+
   const ModernAIChatDialog({
     super.key,
     this.currentCourse,
@@ -36,6 +39,7 @@ class ModernAIChatDialog extends StatefulWidget {
     required this.onClose,
     this.guideKey,
     this.context,
+    this.initialPrompt,
   });
 
   @override
@@ -201,6 +205,10 @@ class _ModernAIChatDialogState extends State<ModernAIChatDialog> with TickerProv
       
       if (messages.isEmpty) {
         await _sendWelcomeMessage();
+      }
+      final prompt = widget.initialPrompt?.trim();
+      if (prompt != null && prompt.isNotEmpty && mounted) {
+        await _handleSendMessage(prompt);
       }
     } catch (e) {
       print('Error loading initial messages: $e');

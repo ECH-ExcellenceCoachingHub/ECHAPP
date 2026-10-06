@@ -642,7 +642,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                           context, 0, _buildOfflineBanner(context)),
                     ),
                   ),
-                SliverToBoxAdapter(child: SizedBox(height: isMobile ? 18 : 26)),
+                SliverToBoxAdapter(child: SizedBox(height: isMobile ? 14 : 22)),
                 SliverToBoxAdapter(
                   child: _heroConstrained(
                     context,
@@ -716,7 +716,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     required List<Course> popularCourses,
   }) {
     final hasEnrollments = enrollments.isNotEmpty;
-    const sectionGap = SizedBox(height: 28);
+    final sectionGap =
+        SizedBox(height: ResponsiveBreakpoints.isMobile(context) ? 18 : 24);
     // Started (or enrolled) students get their current course as the hero;
     // the generic "Build Skills" banner is only for those with nothing to resume.
     final current = _currentEnrollment(enrollments);
@@ -1575,7 +1576,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           onSeeAll: () => context.push('/my-courses'),
           seeAllLabel: 'View All',
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
         for (var i = 0; i < visible.length; i++) ...[
           if (i > 0) const SizedBox(height: 12),
           _buildLearningCard(context, visible[i]),
@@ -2180,7 +2181,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           icon: Icons.insights_rounded,
           color: _Dx.jade,
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
         Row(
           children: [
             for (var i = 0; i < items.length; i++) ...[

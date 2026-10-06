@@ -212,7 +212,7 @@ class _PhoneCollectionScreenState extends ConsumerState<PhoneCollectionScreen> {
   Color get _backgroundColor => _isDark ? const Color(0xFF0F172A) : const Color(0xFF00C896);
   Color get _cardColor => _isDark ? const Color(0xFF1E293B) : Colors.white;
   Color get _textColor => _isDark ? Colors.white : const Color(0xFF1A2433);
-  Color get _secondaryTextColor => _isDark ? Colors.white70 : const Color(0xFF8899AA);
+  Color get _secondaryTextColor => _isDark ? const Color(0xFFCBD5E1) : const Color(0xFF4B5563);
   Color get _borderColor => _isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0);
   Color get _inputBgColor => _isDark ? const Color(0xFF0F172A) : Colors.white;
 
@@ -449,7 +449,7 @@ class _PhoneCollectionScreenState extends ConsumerState<PhoneCollectionScreen> {
 
             Text(
               l10n?.phoneCollectionSubtitle ?? 'Stay connected for important updates',
-              style: TextStyle(color: _isDark ? Colors.white70 : Colors.white70, fontSize: 13),
+              style: TextStyle(color: Color(0xEBFFFFFF), fontSize: 14, fontWeight: FontWeight.w500),
             ),
 
             const SizedBox(height: 20),

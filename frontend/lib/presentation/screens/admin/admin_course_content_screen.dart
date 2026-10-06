@@ -132,6 +132,11 @@ class _AdminCourseContentScreenState
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
+          TextButton.icon(
+            onPressed: () => context.push('/admin/courses/${widget.courseId}/ai-builder').then((_) => _loadCourseContent()),
+            icon: const Icon(Icons.auto_awesome, color: Colors.white),
+            label: const Text('Build with AI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+          ),
           IconButton(
             icon: Icon(_isReordering ? Icons.check_circle : Icons.reorder),
             tooltip: _isReordering ? 'Done reordering' : 'Reorder sections',
@@ -215,6 +220,18 @@ class _AdminCourseContentScreenState
             style: TextStyle(fontSize: 15, color: Colors.grey[500]),
           ),
           const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => context.push('/admin/courses/${widget.courseId}/ai-builder').then((_) => _loadCourseContent()),
+            icon: const Icon(Icons.auto_awesome),
+            label: const Text('Build from a book with AI'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.accent,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+          const SizedBox(height: 12),
           ElevatedButton.icon(
             onPressed: _showAddSectionDialog,
             icon: const Icon(Icons.add),

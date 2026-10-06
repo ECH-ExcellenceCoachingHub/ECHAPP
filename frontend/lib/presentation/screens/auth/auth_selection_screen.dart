@@ -10,13 +10,13 @@ import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
 import 'package:excellencecoachinghub/presentation/widgets/desktop_brand_panel.dart';
 
-const _kAccent     = Color(0xFF10B981);
-const _kAccentLight= Color(0xFF34D399);
-const _kSurface    = Color(0xFFF5F7FA);
-const _kText2      = Color(0xFF4A5568);
-const _kAmber      = Color(0xFFF59E0B);
-const _kAmberBg    = Color(0xFFFFFBEB);
-const _kAmberBorder= Color(0xFFFDE68A);
+const _kAccent = Color(0xFF10B981);
+const _kAccentLight = Color(0xFF34D399);
+const _kSurface = Color(0xFFF5F7FA);
+const _kText2 = Color(0xFF4A5568);
+const _kAmber = Color(0xFFF59E0B);
+const _kAmberBg = Color(0xFFFFFBEB);
+const _kAmberBorder = Color(0xFFFDE68A);
 
 // ─── Floating shapes background ─────────────────────────────────────────────
 
@@ -30,21 +30,24 @@ class _FloatingBackground extends StatefulWidget {
 class _FloatingBackgroundState extends State<_FloatingBackground>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
-  final List<Offset> _particles = List.generate(15, (i) => 
-      Offset(Random().nextDouble(), Random().nextDouble()));
-  final List<double> _particleSizes = List.generate(15, (i) => 
-      Random().nextDouble() * 40 + 10);
+  final List<Offset> _particles = List.generate(
+      15, (i) => Offset(Random().nextDouble(), Random().nextDouble()));
+  final List<double> _particleSizes =
+      List.generate(15, (i) => Random().nextDouble() * 40 + 10);
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-        vsync: this, duration: const Duration(seconds: 15))
-      ..repeat();
+    _ctrl =
+        AnimationController(vsync: this, duration: const Duration(seconds: 15))
+          ..repeat();
   }
 
   @override
-  void dispose() { _ctrl.dispose(); super.dispose(); }
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +87,8 @@ class _FloatingBackgroundState extends State<_FloatingBackground>
                 child: Opacity(
                   opacity: 0.15 + (0.1 * sin(t * 2 * pi + i)),
                   child: Container(
-                    width: s, height: s,
+                    width: s,
+                    height: s,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: RadialGradient(
@@ -114,21 +118,23 @@ class _GlowCircle extends StatelessWidget {
   const _GlowCircle({required this.size, required this.color, this.blur = 0});
   @override
   Widget build(BuildContext context) => Container(
-        width: size, height: size,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
-          shape: BoxShape.circle, 
+          shape: BoxShape.circle,
           color: blur > 0 ? null : color,
-          boxShadow: blur > 0 ? [
-            BoxShadow(
-              color: color,
-              blurRadius: blur,
-              spreadRadius: blur / 2,
-            )
-          ] : null,
+          boxShadow: blur > 0
+              ? [
+                  BoxShadow(
+                    color: color,
+                    blurRadius: blur,
+                    spreadRadius: blur / 2,
+                  )
+                ]
+              : null,
         ),
       );
 }
-
 
 // ─── Minimal Branding section (mobile-optimized) ────────────────────────────────────────────────────────
 
@@ -140,7 +146,10 @@ class _MinimalBrandingSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final textColor = isDark ? Colors.white : const Color(0xFF1F2937);
-    final secondaryTextColor = isDark ? Colors.white70 : const Color(0xFF6B7280);
+    final secondaryTextColor =
+        isDark ? const Color(0xFFE2E8F0) : const Color(0xFF4B5563);
+    final brandGreen =
+        isDark ? const Color(0xFF34D399) : const Color(0xFF059669);
 
     // Responsive sizing based on screen width
     final screenWidth = MediaQuery.of(context).size.width;
@@ -148,9 +157,9 @@ class _MinimalBrandingSection extends StatelessWidget {
     final isMobile = screenWidth <= 768;
 
     final logoSize = isSmallMobile ? 60.0 : (isMobile ? 72.0 : 80.0);
-    final titleFontSize = isSmallMobile ? 22.0 : (isMobile ? 24.0 : 26.0);
-    final subtitleFontSize = isSmallMobile ? 13.0 : (isMobile ? 14.0 : 15.0);
-    final taglineFontSize = isSmallMobile ? 11.0 : (isMobile ? 12.0 : 13.0);
+    final titleFontSize = isSmallMobile ? 24.0 : (isMobile ? 27.0 : 28.0);
+    final subtitleFontSize = isSmallMobile ? 15.0 : (isMobile ? 16.0 : 17.0);
+    final taglineFontSize = isSmallMobile ? 12.5 : (isMobile ? 13.5 : 14.0);
     final verticalSpacing = isSmallMobile ? 12.0 : (isMobile ? 14.0 : 16.0);
     final smallSpacing = isSmallMobile ? 6.0 : 8.0;
 
@@ -164,29 +173,32 @@ class _MinimalBrandingSection extends StatelessWidget {
           height: logoSize,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            // White backdrop keeps the logo's own colours legible on the dark theme.
+            color: Colors.white,
             border: Border.all(
-              color: const Color(0xFF10B981).withOpacity(0.3),
+              color: const Color(0xFF10B981).withOpacity(0.6),
               width: 2,
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF10B981).withOpacity(0.15),
+                color:
+                    const Color(0xFF10B981).withOpacity(isDark ? 0.35 : 0.15),
                 blurRadius: isSmallMobile ? 15 : 20,
                 spreadRadius: isSmallMobile ? 1 : 2,
               ),
             ],
           ),
           child: ClipOval(
-            child: Image.asset(
-              'assets/logo.png',
-              width: logoSize * 0.9,
-              height: logoSize * 0.9,
-              fit: BoxFit.cover,
-              errorBuilder: (c, e, s) => Icon(
-                Icons.school_rounded,
-                color: const Color(0xFF10B981),
-                size: logoSize * 0.45,
+            child: Padding(
+              padding: EdgeInsets.all(logoSize * 0.1),
+              child: Image.asset(
+                'assets/logo.png',
+                fit: BoxFit.contain,
+                errorBuilder: (c, e, s) => Icon(
+                  Icons.school_rounded,
+                  color: const Color(0xFF10B981),
+                  size: logoSize * 0.45,
+                ),
               ),
             ),
           ),
@@ -200,17 +212,17 @@ class _MinimalBrandingSection extends StatelessWidget {
           style: TextStyle(
             color: textColor,
             fontSize: titleFontSize,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
             letterSpacing: -0.5,
-            height: 1.1,
+            height: 1.15,
           ),
         ),
         Text(
           'Coaching Hub',
           style: TextStyle(
-            color: const Color(0xFF10B981),
+            color: brandGreen,
             fontSize: subtitleFontSize,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
             letterSpacing: 0.5,
           ),
         ),
@@ -221,7 +233,8 @@ class _MinimalBrandingSection extends StatelessWidget {
           style: TextStyle(
             color: secondaryTextColor,
             fontSize: taglineFontSize,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.3,
           ),
         ),
       ],
@@ -258,17 +271,20 @@ class _MinimalAuthCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
     final textColor = isDark ? Colors.white : const Color(0xFF1F2937);
-    final secondaryTextColor = isDark ? Colors.white70 : const Color(0xFF6B7280);
-    final dividerColor = isDark ? const Color(0xFF334155) : const Color(0xFFE5E7EB);
-    final orTextColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF9CA3AF);
+    final secondaryTextColor =
+        isDark ? const Color(0xFFCBD5E1) : const Color(0xFF4B5563);
+    final dividerColor =
+        isDark ? const Color(0xFF334155) : const Color(0xFFE5E7EB);
+    final orTextColor =
+        isDark ? const Color(0xFF94A3B8) : const Color(0xFF9CA3AF);
 
     // Responsive sizing based on screen width
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallMobile = screenWidth <= 360;
     final isMobile = screenWidth <= 768;
 
-    final headerFontSize = isSmallMobile ? 20.0 : (isMobile ? 21.0 : 22.0);
-    final subtitleFontSize = isSmallMobile ? 12.0 : (isMobile ? 13.0 : 14.0);
+    final headerFontSize = isSmallMobile ? 22.0 : (isMobile ? 23.0 : 24.0);
+    final subtitleFontSize = isSmallMobile ? 13.5 : (isMobile ? 14.0 : 15.0);
     final sectionSpacing = isSmallMobile ? 20.0 : (isMobile ? 22.0 : 24.0);
     final smallSpacing = isSmallMobile ? 4.0 : 6.0;
 
@@ -282,13 +298,14 @@ class _MinimalAuthCard extends StatelessWidget {
           style: TextStyle(
             color: textColor,
             fontSize: headerFontSize,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w800,
             letterSpacing: -0.3,
           ),
         ),
         SizedBox(height: smallSpacing),
         Text(
-          l10n?.authSelectionSubtitle ?? 'Hitamo uburyo ushaka gukoresha ukomeze',
+          l10n?.authSelectionSubtitle ??
+              'Hitamo uburyo ushaka gukoresha ukomeze',
           style: TextStyle(
             color: secondaryTextColor,
             fontSize: subtitleFontSize,
@@ -308,7 +325,8 @@ class _MinimalAuthCard extends StatelessWidget {
               color: isDark ? const Color(0xFF450A0A) : const Color(0xFFFEF2F2),
               borderRadius: BorderRadius.circular(isSmallMobile ? 8 : 10),
               border: Border.all(
-                color: isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFCA5A5),
+                color:
+                    isDark ? const Color(0xFF7F1D1D) : const Color(0xFFFCA5A5),
                 width: 1,
               ),
             ),
@@ -325,8 +343,10 @@ class _MinimalAuthCard extends StatelessWidget {
                   child: Text(
                     error!,
                     style: TextStyle(
-                      color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFF991B1B),
-                      fontSize: isSmallMobile ? 11 : 12,
+                      color: isDark
+                          ? const Color(0xFFFCA5A5)
+                          : const Color(0xFF991B1B),
+                      fontSize: isSmallMobile ? 12.5 : 13.5,
                       fontWeight: FontWeight.w500,
                       height: 1.4,
                     ),
@@ -344,7 +364,9 @@ class _MinimalAuthCard extends StatelessWidget {
           onPressed: isLoading ? null : onPhone,
           isDark: isDark,
           accentColor: const Color(0xFF10B981),
-          iconBgColor: isDark ? const Color(0xFF10B981).withOpacity(0.2) : const Color(0xFFD1FAE5),
+          iconBgColor: isDark
+              ? const Color(0xFF10B981).withOpacity(0.2)
+              : const Color(0xFFD1FAE5),
         ),
 
         SizedBox(height: isSmallMobile ? 8 : 10),
@@ -358,7 +380,9 @@ class _MinimalAuthCard extends StatelessWidget {
             onPressed: !isLoading ? onGoogle : null,
             isDark: isDark,
             accentColor: const Color(0xFF4285F4),
-            iconBgColor: isDark ? const Color(0xFF4285F4).withOpacity(0.2) : const Color(0xFFDBEAFE),
+            iconBgColor: isDark
+                ? const Color(0xFF4285F4).withOpacity(0.2)
+                : const Color(0xFFDBEAFE),
             customIcon: const _GoogleGIcon(size: 20),
           ),
           SizedBox(height: isSmallMobile ? 8 : 10),
@@ -369,20 +393,22 @@ class _MinimalAuthCard extends StatelessWidget {
           padding: EdgeInsets.symmetric(vertical: isSmallMobile ? 2 : 4),
           child: Row(
             children: [
-              Expanded(child: Divider(color: dividerColor, thickness: 1, height: 1)),
+              Expanded(
+                  child: Divider(color: dividerColor, thickness: 1, height: 1)),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Text(
                   l10n?.or ?? 'OR',
                   style: TextStyle(
                     color: orTextColor,
-                    fontSize: 11,
+                    fontSize: 12.5,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.5,
                   ),
                 ),
               ),
-              Expanded(child: Divider(color: dividerColor, thickness: 1, height: 1)),
+              Expanded(
+                  child: Divider(color: dividerColor, thickness: 1, height: 1)),
             ],
           ),
         ),
@@ -396,45 +422,46 @@ class _MinimalAuthCard extends StatelessWidget {
           onPressed: isLoading ? null : onEmail,
           isDark: isDark,
           accentColor: const Color(0xFF3B82F6),
-          iconBgColor: isDark ? const Color(0xFF3B82F6).withOpacity(0.2) : const Color(0xFFDBEAFE),
+          iconBgColor: isDark
+              ? const Color(0xFF3B82F6).withOpacity(0.2)
+              : const Color(0xFFDBEAFE),
         ),
 
         SizedBox(height: sectionSpacing),
 
         // Simple privacy note - compact and overflow-safe
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isVeryNarrow = constraints.maxWidth < 320;
-            final fontSize = isVeryNarrow ? 9.0 : (isSmallMobile ? 10.0 : 12.0);
-            final iconSize = isVeryNarrow ? 10.0 : (isSmallMobile ? 12.0 : 14.0);
+        LayoutBuilder(builder: (context, constraints) {
+          final isVeryNarrow = constraints.maxWidth < 320;
+          final fontSize = isVeryNarrow ? 10.5 : (isSmallMobile ? 11.5 : 13.0);
+          final iconSize = isVeryNarrow ? 10.0 : (isSmallMobile ? 12.0 : 14.0);
 
-            return Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.lock_outline_rounded,
-                  size: iconSize,
-                  color: isDark ? const Color(0xFF10B981) : const Color(0xFF059669),
-                ),
-                SizedBox(width: isVeryNarrow ? 3 : (isSmallMobile ? 4 : 6)),
-                Flexible(
-                  child: Text(
-                    l10n?.accountBoundToDevice ?? 'Account bound to this device',
-                    style: TextStyle(
-                      color: secondaryTextColor,
-                      fontSize: fontSize,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    softWrap: false,
+          return Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.lock_outline_rounded,
+                size: iconSize,
+                color:
+                    isDark ? const Color(0xFF10B981) : const Color(0xFF059669),
+              ),
+              SizedBox(width: isVeryNarrow ? 3 : (isSmallMobile ? 4 : 6)),
+              Flexible(
+                child: Text(
+                  l10n?.accountBoundToDevice ?? 'Account bound to this device',
+                  style: TextStyle(
+                    color: secondaryTextColor,
+                    fontSize: fontSize,
+                    fontWeight: FontWeight.w500,
                   ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  softWrap: false,
                 ),
-              ],
-            );
-          }
-        ),
+              ),
+            ],
+          );
+        }),
       ],
     );
   }
@@ -552,8 +579,8 @@ class _ModernAuthButtonState extends State<_ModernAuthButton>
     super.initState();
     _ctrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 120));
-    _scale = Tween<double>(begin: 1, end: 0.96).animate(
-        CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
+    _scale = Tween<double>(begin: 1, end: 0.96)
+        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOut));
   }
 
   @override
@@ -575,13 +602,13 @@ class _ModernAuthButtonState extends State<_ModernAuthButton>
     final isSmallMobile = screenWidth <= 360;
     final isMobile = screenWidth <= 768;
 
-    final buttonHeight = isSmallMobile ? 44.0 : (isMobile ? 48.0 : 50.0);
-    final iconSize = isSmallMobile ? 28.0 : (isMobile ? 32.0 : 34.0);
-    final iconInnerSize = isSmallMobile ? 14.0 : (isMobile ? 16.0 : 18.0);
-    final fontSize = isSmallMobile ? 12.0 : (isMobile ? 12.5 : 13.5);
+    final buttonHeight = isSmallMobile ? 48.0 : (isMobile ? 52.0 : 54.0);
+    final iconSize = isSmallMobile ? 30.0 : (isMobile ? 34.0 : 36.0);
+    final iconInnerSize = isSmallMobile ? 16.0 : (isMobile ? 18.0 : 19.0);
+    final fontSize = isSmallMobile ? 14.0 : (isMobile ? 15.0 : 15.5);
     final horizontalPadding = isSmallMobile ? 10.0 : 14.0;
     final iconSpacing = isSmallMobile ? 8.0 : 12.0;
-    final arrowSize = isSmallMobile ? 12.0 : 14.0;
+    final arrowSize = isSmallMobile ? 14.0 : 16.0;
     final loaderSize = isSmallMobile ? 16.0 : 18.0;
 
     return GestureDetector(
@@ -619,7 +646,8 @@ class _ModernAuthButtonState extends State<_ModernAuthButton>
                     height: iconSize,
                     decoration: BoxDecoration(
                       color: widget.iconBgColor,
-                      borderRadius: BorderRadius.circular(isSmallMobile ? 8 : 10),
+                      borderRadius:
+                          BorderRadius.circular(isSmallMobile ? 8 : 10),
                     ),
                     child: widget.customIcon ??
                         Icon(widget.icon,
@@ -682,10 +710,8 @@ class _AuthSelectionScreenState extends ConsumerState<AuthSelectionScreen>
     super.initState();
     _fadeCtrl = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 520));
-    _fadeAnim =
-        CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _fadeCtrl.forward());
+    _fadeAnim = CurvedAnimation(parent: _fadeCtrl, curve: Curves.easeOut);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fadeCtrl.forward());
   }
 
   @override
@@ -746,9 +772,7 @@ class _AuthSelectionScreenState extends ConsumerState<AuthSelectionScreen>
       backgroundColor: _backgroundColor,
       body: FadeTransition(
         opacity: _fadeAnim,
-        child: isDesktop
-            ? _desktopLayout(authState)
-            : _mobileLayout(authState),
+        child: isDesktop ? _desktopLayout(authState) : _mobileLayout(authState),
       ),
     );
   }
@@ -888,7 +912,9 @@ class _AuthSelectionScreenState extends ConsumerState<AuthSelectionScreen>
                       color: _cardColor,
                       borderRadius: BorderRadius.circular(cardBorderRadius),
                       border: _isDark
-                          ? Border.all(color: const Color(0xFF334155).withOpacity(0.5), width: 1)
+                          ? Border.all(
+                              color: const Color(0xFF334155).withOpacity(0.5),
+                              width: 1)
                           : Border.all(color: Colors.white, width: 1),
                       boxShadow: _isDark
                           ? [
@@ -900,7 +926,8 @@ class _AuthSelectionScreenState extends ConsumerState<AuthSelectionScreen>
                             ]
                           : [
                               BoxShadow(
-                                color: const Color(0xFF10B981).withOpacity(0.08),
+                                color:
+                                    const Color(0xFF10B981).withOpacity(0.08),
                                 blurRadius: 30,
                                 spreadRadius: 0,
                                 offset: const Offset(0, 8),
@@ -945,7 +972,7 @@ class _AuthSelectionScreenState extends ConsumerState<AuthSelectionScreen>
     // Responsive font sizing
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallMobile = screenWidth <= 360;
-    final fontSize = isSmallMobile ? 9.0 : 11.0;
+    final fontSize = isSmallMobile ? 11.0 : 12.5;
 
     return Text.rich(
       TextSpan(
@@ -962,20 +989,20 @@ class _AuthSelectionScreenState extends ConsumerState<AuthSelectionScreen>
             text: AppLocalizations.of(context)?.termsOfService ??
                 'Amategeko ya Serivisi',
             style: TextStyle(
-              color: _isDark ? const Color(0xFF10B981) : const Color(0xFF059669),
+              color:
+                  _isDark ? const Color(0xFF10B981) : const Color(0xFF059669),
               fontWeight: FontWeight.w600,
             ),
             recognizer: TapGestureRecognizer()
               ..onTap = () => context.push('/terms'),
           ),
-          TextSpan(
-              text:
-                  ' ${AppLocalizations.of(context)?.and ?? "na"} '),
+          TextSpan(text: ' ${AppLocalizations.of(context)?.and ?? "na"} '),
           TextSpan(
             text: AppLocalizations.of(context)?.privacyPolicy ??
                 'Ibihishwe Bwite',
             style: TextStyle(
-              color: _isDark ? const Color(0xFF10B981) : const Color(0xFF059669),
+              color:
+                  _isDark ? const Color(0xFF10B981) : const Color(0xFF059669),
               fontWeight: FontWeight.w600,
             ),
             recognizer: TapGestureRecognizer()

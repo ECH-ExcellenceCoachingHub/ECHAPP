@@ -91,9 +91,9 @@ class _EnterResetCodeScreenState extends ConsumerState<EnterResetCodeScreen> {
 
             const SizedBox(height: 6),
 
-            const Text(
+            Text(
               'Enter the code sent to your email',
-              style: TextStyle(color: Colors.white70, fontSize: 13),
+              style: TextStyle(color: Color(0xEBFFFFFF), fontSize: 14, fontWeight: FontWeight.w500),
             ),
 
             const SizedBox(height: 20),

@@ -84,6 +84,7 @@ const videoCleanupRoutes = require('./src/routes/videoCleanup.routes'); // Orpha
 const mediaRoutes = require('./src/routes/media.routes'); // Media proxy for CORS-safe image/video serving on web
 const communityRoutes = require('./src/routes/community.routes'); // Course Community (students, groups, discussions, assignments)
 const messagingRoutes = require('./src/routes/messaging.routes'); // One-to-one messaging between students, teachers and admins
+const courseBuilderRoutes = require('./src/routes/courseBuilder.routes'); // AI Course Builder (book → course draft → review → publish)
 
 app.use('/api/auth', authRoutes);
 app.use('/api/courses', courseRoutes);
@@ -112,6 +113,7 @@ app.use('/api/teacher', teacherRoutes); // Teacher routes
 app.use('/api/live', liveSessionRoutes); // Live Session routes
 app.use('/api/community', communityRoutes); // Course Community routes
 app.use('/api/messages', messagingRoutes); // Direct messaging routes
+app.use('/api/course-builder', courseBuilderRoutes); // AI Course Builder routes
 
 // Handle undefined routes
 app.use((req, res) => {
@@ -155,6 +157,10 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
     // Schedule database backups (daily at 2am server time, low-traffic hour)
     const BackupService = require('./src/services/backup.service');
     BackupService.schedule(parseInt(process.env.BACKUP_HOUR || '2', 10));
+
+    // Continue AI course builds interrupted by a restart/deploy
+    require('./src/services/course-builder/runner.service').resumeInterrupted()
+      .catch(err => console.error('⚠️  Course builder resume failed:', err.message));
 
     // Initialize BBB config from environment variables (if not already in database)
     const BBBConfig = require('./src/models/BBBConfig');
