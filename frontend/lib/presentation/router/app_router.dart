@@ -638,7 +638,20 @@ class AppRouter {
               return ProfessionalLearningScreen(courseId: courseId);
             },
           ),
-                    GoRoute(
+                    // AI Course Builder draft shown in the real lesson viewer (teacher/admin preview)
+          GoRoute(
+            path: '/ai-preview/:itemId',
+            builder: (context, state) {
+              final itemId = state.pathParameters['itemId'] ?? '';
+              return ProfessionalLessonScreen(
+                key: ValueKey('ai-preview-$itemId'),
+                lessonId: itemId,
+                draftItemId: itemId,
+                isAdminPreview: true,
+              );
+            },
+          ),
+          GoRoute(
             path: '/lesson/:lessonId',
             builder: (context, state) {
               final lessonId = state.pathParameters['lessonId'] ?? '';

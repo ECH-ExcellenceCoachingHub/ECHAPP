@@ -29,5 +29,8 @@ router.post('/items/:itemId/status', c.setItemStatus);
 router.post('/items/:itemId/regenerate', c.regenerateItem);
 router.post('/items/:itemId/questions/:questionId/regenerate', c.regenerateQuestion);
 router.get('/items/:itemId/source', c.getSourcePages);
+// See a draft exactly as students will, including taking its quiz (nothing is saved)
+router.get('/items/:itemId/preview', c.previewItem);
+router.post('/items/:itemId/preview-submit', c.previewSubmit);
 
 module.exports = router;

@@ -36,6 +36,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:excellencecoachinghub/utils/screen_wakelock.dart';
 import 'package:excellencecoachinghub/presentation/widgets/ai_lesson/ai_study_guide.dart';
+import 'package:excellencecoachinghub/services/api/course_builder_service.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 class _T {
@@ -75,11 +76,16 @@ class ProfessionalLessonScreen extends ConsumerStatefulWidget {
   /// Ignored when the lesson has no content of that kind.
   final String? initialTab;
 
+  /// AI Course Builder draft to show exactly as students will see it once
+  /// published. Nothing (progress, feedback, quiz attempts) is saved.
+  final String? draftItemId;
+
   const ProfessionalLessonScreen({
     super.key,
     required this.lessonId,
     this.isAdminPreview = false,
     this.initialTab,
+    this.draftItemId,
   });
 
   @override
@@ -204,8 +210,46 @@ class _ProfessionalLessonScreenState
 
   }
 
+  bool get _isDraftPreview => widget.draftItemId != null;
+
+  /// Loads an AI draft shaped like a published lesson (see /course-builder/items/:id/preview).
+  Future<void> _loadDraftPreview() async {
+    try {
+      final data = await CourseBuilderService().previewItem(widget.draftItemId!);
+      final lesson = Lesson.fromJson(Map<String, dynamic>.from(data['lesson']));
+      final siblings = ((data['siblings'] as List?) ?? [])
+          .map((s) => Lesson(
+                id: s['_id'].toString(),
+                sectionId: lesson.sectionId,
+                courseId: lesson.courseId,
+                title: s['title']?.toString() ?? '',
+                order: 0,
+                duration: 0,
+              ))
+          .toList();
+      final index = siblings.indexWhere((l) => l.id == lesson.id);
+      setState(() {
+        _lesson = lesson;
+        _notesTab = lesson.hasAiGuide ? _NotesView.guide : _NotesView.pdf;
+        _exam = data['quiz'] is Map ? Map<String, dynamic>.from(data['quiz']) : null;
+        _previousLesson = index > 0 ? siblings[index - 1] : null;
+        _nextLesson = index >= 0 && index < siblings.length - 1 ? siblings[index + 1] : null;
+        _currentLessonIndex = index + 1;
+        _totalLessonsInSection = siblings.length;
+        _activeTab = _resolveInitialTab(lesson);
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) _showSnack('Could not load the draft preview: $e', isError: true);
+    }
+  }
+
+  void _previewOnly() => _showSnack('Preview mode — nothing is saved until the lesson is published');
+
   Future<void> _loadLessonData() async {
     setState(() => _isLoading = true);
+    if (_isDraftPreview) return _loadDraftPreview();
     try {
       final lessonRepo = LessonRepository();
       final lesson = await lessonRepo.getLessonById(widget.lessonId);
@@ -1009,9 +1053,37 @@ class _ProfessionalLessonScreenState
     if (_lesson == null) return _buildNotFoundScreen();
 
     final isDesktop = ResponsiveBreakpoints.isDesktop(context);
+    final body = isDesktop ? _buildDesktop() : _buildMobile();
     return Scaffold(
       backgroundColor: _bgColor,
-      body: isDesktop ? _buildDesktop() : _buildMobile(),
+      body: _isDraftPreview ? Column(children: [_buildDraftBanner(), Expanded(child: body)]) : body,
+    );
+  }
+
+  Widget _buildDraftBanner() {
+    return Material(
+      color: const Color(0xFF4F46E5),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(children: [
+            const Icon(Icons.visibility_outlined, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Student view preview — this AI draft is not published yet. Nothing you do here is saved.',
+                style: TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.close, color: Colors.white, size: 18),
+              label: const Text('Exit preview', style: TextStyle(color: Colors.white)),
+            ),
+          ]),
+        ),
+      ),
     );
   }
 
@@ -3897,6 +3969,7 @@ final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
   
   Future<void> _submitFeedback() async {
     if (_userRating == 0 || _lesson == null) return;
+    if (_isDraftPreview) return _previewOnly();
 
     setState(() => _isSubmittingFeedback = true);
     
@@ -3951,6 +4024,7 @@ final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
 
   Future<void> _markComplete() async {
     if (_isLessonCompleted || _isCompletingLesson || _lesson == null) return;
+    if (_isDraftPreview) return _previewOnly();
     setState(() => _isCompletingLesson = true);
     try {
       final enrollmentNotifier = ref.read(enrollmentNotifierProvider.notifier);
@@ -4228,6 +4302,17 @@ final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
   }
 
   void _startQuiz() async {
+    if (_isDraftPreview && _exam != null) {
+      // Take the draft quiz like a student; it is graded but not saved
+      final seconds = (_exam!['timeLimit'] as num?)?.toInt() ?? 600;
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => ExamTakingScreen(
+          exam: {'id': _exam!['_id'], 'title': _exam!['title'] ?? 'Quiz', 'timeLimit': (seconds / 60).ceil(), 'questions': []},
+          previewItemId: widget.draftItemId,
+        ),
+      ));
+      return;
+    }
     if (_exam != null && _lesson?.quizId != null) {
       // Check if this is a final exam and user already has a certificate
       final isFinalExam = (_exam!['type']?.toString().toLowerCase() == 'final' ||
@@ -4635,6 +4720,10 @@ final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
   }
 
   Future<void> _navigateTo(Lesson lesson) async {
+    if (_isDraftPreview) {
+      context.pushReplacement('/ai-preview/${lesson.id}');
+      return;
+    }
     // Mark current lesson as complete before navigating to next
     if (!_isLessonCompleted && _lesson != null) {
       await _markComplete();

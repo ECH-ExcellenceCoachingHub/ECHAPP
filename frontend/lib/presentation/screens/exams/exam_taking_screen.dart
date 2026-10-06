@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:excellencecoachinghub/services/api/course_builder_service.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:go_router/go_router.dart';
@@ -14,9 +15,14 @@ import 'package:excellencecoachinghub/widgets/quiz/drag_drop_question_widget.dar
 class ExamTakingScreen extends StatefulWidget {
   final Map<String, dynamic> exam;
 
+  /// When set, the quiz is an AI Course Builder draft: questions come from the
+  /// draft and the attempt is graded without being saved (teacher preview).
+  final String? previewItemId;
+
   const ExamTakingScreen({
     super.key,
     required this.exam,
+    this.previewItemId,
   });
 
   @override
@@ -200,9 +206,15 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
     );
   }
 
+  /// Questions answered by typing (kept in a persistent text controller).
+  bool _isTextType(dynamic type) =>
+      type == 'fill_blank' || type == 'open' || type == 'essay' || type == 'programming';
+
   Future<Map<String, dynamic>> _loadExamData() async {
     try {
-      final quizData = await QuizService.getQuiz(widget.exam['id']);
+      final quizData = widget.previewItemId != null
+          ? {'data': {'questions': (await CourseBuilderService().previewItem(widget.previewItemId!))['questions']}}
+          : await QuizService.getQuiz(widget.exam['id']);
       
       final questions = (quizData['data']?['questions'] as List<dynamic>? ?? [])
           .cast<Map<String, dynamic>>();
@@ -215,7 +227,7 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
         // Initialize text controllers for text input questions
         for (int i = 0; i < _questions.length; i++) {
           final question = _questions[i];
-          if (question['type'] == 'fill_blank' || question['type'] == 'open') {
+          if (_isTextType(question['type'])) {
             if (!_textControllers.containsKey(i)) {
               // Initialize with existing answer if available
               String initialText = '';
@@ -304,7 +316,7 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
           'dragAnswers': answer,
           'answerText': '', // Not used for drag-drop
         };
-      } else if (currentQuestion['type'] == 'fill_blank' || currentQuestion['type'] == 'open') {
+      } else if (_isTextType(currentQuestion['type'])) {
         // For fill-in-blank and open questions, store text answer
         _answers[_currentQuestionIndex] = {
           'selectedOption': answer,
@@ -321,7 +333,7 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
 
   void _updateAnswer(int questionIndex, String text) {
     final question = _questions[questionIndex];
-    if (question['type'] == 'fill_blank' || question['type'] == 'open') {
+    if (_isTextType(question['type'])) {
       setState(() {
         _answers[questionIndex] = {
           'selectedOption': text,
@@ -335,7 +347,7 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
     if (_currentQuestionIndex < _questions.length - 1) {
       // Ensure text controller exists for the next question if it's a text input type
       final nextQuestion = _questions[_currentQuestionIndex + 1];
-      if (nextQuestion['type'] == 'fill_blank' || nextQuestion['type'] == 'open') {
+      if (_isTextType(nextQuestion['type'])) {
         if (!_textControllers.containsKey(_currentQuestionIndex + 1)) {
           String initialText = '';
           if (_answers[_currentQuestionIndex + 1] != null) {
@@ -364,7 +376,7 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
     if (_currentQuestionIndex > 0) {
       // Ensure text controller exists for the previous question if it's a text input type
       final prevQuestion = _questions[_currentQuestionIndex - 1];
-      if (prevQuestion['type'] == 'fill_blank' || prevQuestion['type'] == 'open') {
+      if (_isTextType(prevQuestion['type'])) {
         if (!_textControllers.containsKey(_currentQuestionIndex - 1)) {
           String initialText = '';
           if (_answers[_currentQuestionIndex - 1] != null) {
@@ -395,7 +407,7 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
     // Ensure all text field values are synced to answers before submitting
     for (int i = 0; i < _questions.length; i++) {
       final question = _questions[i];
-      if ((question['type'] == 'fill_blank' || question['type'] == 'open') && _textControllers.containsKey(i)) {
+      if ((_isTextType(question['type'])) && _textControllers.containsKey(i)) {
         final textValue = _textControllers[i]!.text;
         if (textValue.isNotEmpty) {
           _answers[i] = {
@@ -467,10 +479,12 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
           })
           .toList();
 
-      final result = await QuizService.submitQuiz(
-        widget.exam['id'],
-        answers,
-      );
+      final result = widget.previewItemId != null
+          ? await CourseBuilderService().previewSubmit(widget.previewItemId!, answers)
+          : await QuizService.submitQuiz(
+              widget.exam['id'],
+              answers,
+            );
 
       _disableSecureMode();
 

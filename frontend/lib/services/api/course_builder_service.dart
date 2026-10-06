@@ -183,6 +183,14 @@ class CourseBuilderService {
     return data.map((e) => (n: (e['n'] as num).toInt(), text: e['text']?.toString() ?? '')).toList();
   }
 
+  /// A draft shaped like a published lesson: {lesson, quiz, questions, siblings}.
+  Future<Map<String, dynamic>> previewItem(String itemId) async =>
+      Map<String, dynamic>.from(_data(await _api.get('$_base/items/$itemId/preview')));
+
+  /// Grades a preview attempt like a real submission (nothing is saved).
+  Future<Map<String, dynamic>> previewSubmit(String itemId, List<Map<String, dynamic>> answers) async =>
+      Map<String, dynamic>.from(_data(await _api.post('$_base/items/$itemId/preview-submit', body: {'answers': answers})));
+
   // ─── Helpers ───────────────────────────────────────────────────────────────
 
   // Same options as ApiClient so we read the same stored token.

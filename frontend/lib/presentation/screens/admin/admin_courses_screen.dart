@@ -704,6 +704,13 @@ class _AdminCoursesScreenState extends ConsumerState<AdminCoursesScreen> {
           },
         ),
         IconButton(
+          icon: const Icon(Icons.auto_awesome, size: 20, color: AppTheme.accent),
+          tooltip: 'Build content from a book with AI',
+          onPressed: () {
+            context.push('/admin/courses/${course.id}/ai-builder');
+          },
+        ),
+        IconButton(
           icon: const Icon(Icons.analytics, size: 20, color: AppTheme.primaryGreen),
           tooltip: 'Course Analytics',
           onPressed: () {
@@ -733,6 +740,9 @@ class _AdminCoursesScreenState extends ConsumerState<AdminCoursesScreen> {
           case 'content':
             context.push('/admin/courses/${course.id}/content');
             break;
+          case 'ai':
+            context.push('/admin/courses/${course.id}/ai-builder');
+            break;
           case 'analytics':
             context.push('/admin/courses/${course.id}/analytics');
             break;
@@ -759,6 +769,16 @@ class _AdminCoursesScreenState extends ConsumerState<AdminCoursesScreen> {
               Icon(Icons.visibility, size: 20),
               SizedBox(width: 10),
               Text('View Content'),
+            ],
+          ),
+        ),
+        const PopupMenuItem(
+          value: 'ai',
+          child: Row(
+            children: [
+              Icon(Icons.auto_awesome, size: 20, color: AppTheme.accent),
+              SizedBox(width: 10),
+              Text('Build with AI'),
             ],
           ),
         ),

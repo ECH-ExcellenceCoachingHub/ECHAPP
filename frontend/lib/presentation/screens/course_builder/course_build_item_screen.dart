@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:excellencecoachinghub/models/course_build.dart';
 import 'package:excellencecoachinghub/services/api/course_builder_service.dart';
 import 'package:excellencecoachinghub/presentation/widgets/ai_lesson/ai_study_guide.dart';
@@ -221,6 +222,16 @@ class _CourseBuildItemScreenState extends State<CourseBuildItemScreen>
               style: const TextStyle(fontWeight: FontWeight.w700)),
           actions: [
             if (item != null && !item.isWorking) ...[
+              TextButton.icon(
+                onPressed: () async {
+                  // The viewer reads the saved draft, so save edits first
+                  if (_dirty && !await _save(quiet: true)) return;
+                  if (context.mounted) context.push('/ai-preview/${item.id}');
+                },
+                icon: const Icon(Icons.visibility_outlined, color: Colors.white),
+                label: const Text('View as student',
+                    style: TextStyle(color: Colors.white)),
+              ),
               IconButton(
                   tooltip: 'Regenerate with AI',
                   onPressed: _regenerate,

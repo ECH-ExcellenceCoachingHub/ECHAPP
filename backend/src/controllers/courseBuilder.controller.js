@@ -5,7 +5,8 @@ const CourseBuildJob = require('../models/CourseBuildJob');
 const CourseBuildItem = require('../models/CourseBuildItem');
 const CourseBuildSource = require('../models/CourseBuildSource');
 const runner = require('../services/course-builder/runner.service');
-const { publishApproved } = require('../services/course-builder/publisher.service');
+const { publishApproved, contentToMarkdown, toAppQuestion } = require('../services/course-builder/publisher.service');
+const { gradeOpenAnswers } = require('../services/answer-grading.service');
 const { sendSuccess, sendError, sendNotFound, sendForbidden } = require('../utils/response.utils');
 
 const ALLOWED_EXT = /\.(pdf|docx?|txt|md)$/i;
@@ -434,7 +435,141 @@ const getSourcePages = async (req, res) => {
   }
 };
 
+// ─── Student-view preview of a draft ─────────────────────────────────────────
+
+const PREVIEW_SECONDS_PER_QUESTION = 90;
+const LESSON_TYPE_BY_KIND = { revision: 'Notes', chapter_test: 'Quiz', mock_exam: 'Quiz' };
+
+/** The draft as the lesson viewer sees a published lesson: lesson + quiz + questions. */
+function draftAsLesson(item) {
+  const id = String(item._id);
+  const content = item.content || null;
+  const hasQuestions = (item.questions || []).length > 0;
+  const quizType = item.kind === 'mock_exam' ? 'exam' : item.kind === 'chapter_test' ? 'test' : 'quiz';
+  return {
+    lesson: {
+      _id: id,
+      sectionId: `draft-${item.jobId}-${item.chapterIndex}`,
+      courseId: String(item.courseId),
+      title: item.title,
+      description: content?.summary || '',
+      notes: content ? contentToMarkdown(item.title, content) : null,
+      aiContent: content ? { ...content, kind: item.kind } : null,
+      aiGenerated: true,
+      quizId: hasQuestions ? `draft-${id}` : null,
+      lessonType: LESSON_TYPE_BY_KIND[item.kind] || (content && hasQuestions ? 'Notes + Quiz' : content ? 'Notes' : 'Quiz'),
+      duration: content?.estimatedMinutes || 10,
+      order: item.order,
+      status: 'completed',
+      isPublished: false,
+    },
+    quiz: hasQuestions ? {
+      _id: `draft-${id}`,
+      title: item.kind === 'lesson' ? `${item.title} — Quiz` : item.title,
+      type: quizType,
+      passingScore: item.kind === 'mock_exam' ? 60 : 70,
+      timeLimit: item.questions.length * PREVIEW_SECONDS_PER_QUESTION,
+      questionsCount: item.questions.length,
+      isPublished: false,
+    } : null,
+    questions: (item.questions || []).map(q => ({ ...toAppQuestion(q, `draft-${id}`), _id: String(q._id) })),
+  };
+}
+
+const previewItem = async (req, res) => {
+  try {
+    const item = await loadItem(req, res);
+    if (!item) return;
+    // Neighbouring drafts in the same chapter, for Previous / Next
+    const siblings = await CourseBuildItem.find({
+      jobId: item.jobId,
+      chapterIndex: item.chapterIndex,
+      status: { $nin: ['rejected', 'error', 'pending', 'generating'] },
+    }).select('title kind order').sort({ order: 1 }).lean();
+    sendSuccess(res, {
+      ...draftAsLesson(item),
+      siblings: siblings.map(s => ({ _id: String(s._id), title: s.title, kind: s.kind })),
+    });
+  } catch (err) {
+    sendError(res, 'Failed to build preview', 500, err.message);
+  }
+};
+
+/** Grade a preview attempt exactly like a real submission, without saving it. */
+const previewSubmit = async (req, res) => {
+  try {
+    const item = await loadItem(req, res);
+    if (!item) return;
+    const { questions, quiz } = draftAsLesson(item);
+    const answers = Array.isArray(req.body?.answers) ? req.body.answers : [];
+    const results = [];
+    const open = [];
+    let totalScore = 0;
+    let maxScore = 0;
+
+    for (const q of questions) {
+      const a = answers.find(x => String(x.questionId) === q._id) || {};
+      const points = q.points || 1;
+      const selected = a.selectedOption != null && a.selectedOption !== '' ? Number(a.selectedOption) : null;
+      let isCorrect = false;
+      if (q.type === 'mcq' || q.type === 'true_false') {
+        isCorrect = selected === q.correctAnswer;
+      } else {
+        const text = String(a.answerText ?? a.selectedOption ?? '').trim();
+        isCorrect = q.type === 'fill_blank' && text.toLowerCase() === String(q.correctAnswer).trim().toLowerCase();
+        if (!isCorrect && text) {
+          open.push({ index: results.length, id: String(results.length), question: q.text, type: q.type, modelAnswer: q.correctAnswer, guidance: q.explanation, studentAnswer: text, points });
+        }
+      }
+      const score = isCorrect ? points : 0;
+      results.push({
+        questionId: q._id,
+        questionType: q.type,
+        question: q.text,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        userAnswer: { selectedOption: Number.isFinite(selected) ? selected : null, answerText: a.answerText ?? '' },
+        isCorrect,
+        score,
+        maxScore: points,
+        explanation: q.explanation,
+      });
+      totalScore += score;
+      maxScore += points;
+    }
+
+    if (open.length) {
+      const graded = await gradeOpenAnswers(open);
+      for (const o of open) {
+        const g = graded.get(o.id);
+        if (!g) continue;
+        const r = results[o.index];
+        totalScore += g.earnedPoints - r.score;
+        Object.assign(r, { score: g.earnedPoints, isCorrect: g.isCorrect, feedback: g.feedback, gradedBy: g.gradedBy });
+      }
+    }
+
+    const percentage = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
+    sendSuccess(res, {
+      _id: `preview-${Date.now()}`,
+      examId: quiz?._id,
+      totalScore,
+      maxScore,
+      percentage,
+      passed: percentage >= (quiz?.passingScore || 70),
+      needsManualGrading: false,
+      results,
+      submittedAt: new Date(),
+      preview: true,
+    }, 'Preview attempt graded (not saved)');
+  } catch (err) {
+    sendError(res, 'Failed to grade preview', 500, err.message);
+  }
+};
+
 module.exports = {
+  previewItem,
+  previewSubmit,
   listJobs,
   createJob,
   getJob,

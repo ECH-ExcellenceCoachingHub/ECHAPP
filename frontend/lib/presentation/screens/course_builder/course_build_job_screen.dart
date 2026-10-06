@@ -512,6 +512,12 @@ class _CourseBuildJobScreenState extends State<CourseBuildJobScreen> {
                 padding: EdgeInsets.only(right: 8),
                 child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
               ),
+            if (!item.isWorking && item.status != 'error')
+              IconButton(
+                tooltip: 'View as student',
+                icon: const Icon(Icons.visibility_outlined, size: 20, color: Color(0xFF4F46E5)),
+                onPressed: () => context.push('/ai-preview/${item.id}'),
+              ),
             BuildStatusChip(item.status, dense: true),
             PopupMenuButton<String>(
               enabled: !item.isWorking && !_busy,
@@ -519,6 +525,8 @@ class _CourseBuildJobScreenState extends State<CourseBuildJobScreen> {
                 switch (v) {
                   case 'open':
                     _openItem(item);
+                  case 'student':
+                    context.push('/ai-preview/${item.id}');
                   case 'approve':
                     _run(() => _service.setItemStatus(item.id, 'approved'));
                   case 'reject':
@@ -536,6 +544,7 @@ class _CourseBuildJobScreenState extends State<CourseBuildJobScreen> {
               },
               itemBuilder: (_) => [
                 const PopupMenuItem(value: 'open', child: Text('Open & review')),
+                const PopupMenuItem(value: 'student', child: Text('View as student')),
                 if (item.isReviewable) const PopupMenuItem(value: 'approve', child: Text('Approve')),
                 if (item.status == 'approved' || (item.isPublished && item.dirtyAfterPublish))
                   PopupMenuItem(value: 'publish', child: Text(item.isPublished ? 'Update published lesson' : 'Publish now')),
