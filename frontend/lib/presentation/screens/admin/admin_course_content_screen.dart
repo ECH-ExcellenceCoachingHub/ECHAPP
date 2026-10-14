@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:dio/dio.dart';
 import '../../../models/section.dart';
 import '../../../models/lesson.dart';
 import '../../../models/question.dart';
 import '../../../services/api/quiz_service.dart';
 import '../../../services/api/section_service.dart';
+import '../../../services/api/admin_video_download_service.dart';
 import 'package:excellencecoachinghub/config/app_theme.dart';
 
 class AdminCourseContentScreen extends StatefulWidget {
@@ -31,6 +33,9 @@ class _AdminCourseContentScreenState
   bool _isReordering = false;
 
   final SectionService _sectionService = SectionService();
+  final AdminVideoDownloadService _videoDownloadService =
+      AdminVideoDownloadService();
+  bool _isDownloadingVideo = false;
 
   // ─── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -105,6 +110,16 @@ class _AdminCourseContentScreenState
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
+  String _formatBytes(int bytes) {
+    const kb = 1024;
+    const mb = kb * 1024;
+    const gb = mb * 1024;
+    if (bytes >= gb) return '${(bytes / gb).toStringAsFixed(2)} GB';
+    if (bytes >= mb) return '${(bytes / mb).toStringAsFixed(1)} MB';
+    if (bytes >= kb) return '${(bytes / kb).toStringAsFixed(1)} KB';
+    return '$bytes B';
   }
 
   String _getQuestionTypeLabel(String type) {
@@ -399,6 +414,8 @@ class _AdminCourseContentScreenState
         itemBuilder: (_) => [
           _menuItem('edit', Icons.edit, 'Edit'),
           _menuItem('preview', Icons.visibility_outlined, 'Preview'),
+          if (lesson.hasVideo)
+            _menuItem('download_video', Icons.download, 'Download Video'),
           _menuItem('delete', Icons.delete, 'Delete', isDestructive: true),
         ],
       ),
@@ -550,6 +567,9 @@ class _AdminCourseContentScreenState
       case 'preview':
         context.push('/lesson/${lesson.id}?admin=true');
         break;
+      case 'download_video':
+        _downloadLessonVideo(lesson);
+        break;
       case 'delete':
         _showDeleteConfirmation(
           type: 'Lesson',
@@ -557,6 +577,103 @@ class _AdminCourseContentScreenState
           onConfirm: () => _sectionService.deleteLesson(lesson.id),
         );
         break;
+    }
+  }
+
+  /// Saves the lesson's video directly to the admin's computer (unlike
+  /// students, whose downloads live inside the app for offline playback).
+  Future<void> _downloadLessonVideo(Lesson lesson) async {
+    if (_isDownloadingVideo) {
+      _showErrorSnackBar('Another download is already in progress');
+      return;
+    }
+    if (!lesson.hasVideo) {
+      _showErrorSnackBar('This lesson has no video to download');
+      return;
+    }
+
+    setState(() => _isDownloadingVideo = true);
+    final cancelToken = CancelToken();
+    var progress = 0.0; // 0..1, or -1 while the total size is unknown
+    var status = 'Preparing download…';
+    var started = false;
+
+    try {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogCtx) => StatefulBuilder(
+          builder: (ctx, setLocal) {
+            if (!started) {
+              started = true;
+              _videoDownloadService
+                  .downloadLessonVideo(
+                    lessonId: lesson.id,
+                    suggestedName: lesson.title,
+                    cancelToken: cancelToken,
+                    onProgress: (received, total) {
+                      if (!dialogCtx.mounted) return;
+                      setLocal(() {
+                        progress = (total != null && total > 0)
+                            ? received / total
+                            : -1;
+                        status = 'Downloading… ${_formatBytes(received)}'
+                            '${(total != null && total > 0) ? ' of ${_formatBytes(total)}' : ''}';
+                      });
+                    },
+                  )
+                  .then((savedPath) {
+                    if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+                    if (savedPath == null) {
+                      _showErrorSnackBar('Download cancelled');
+                    } else {
+                      _showSuccessSnackBar('Video saved to $savedPath');
+                    }
+                  })
+                  .catchError((Object e) {
+                    if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+                    final cancelled = e is DioException &&
+                        e.type == DioExceptionType.cancel;
+                    _showErrorSnackBar(
+                        cancelled ? 'Download cancelled' : 'Download failed: $e');
+                  });
+            }
+            return AlertDialog(
+              title: const Text('Download Video'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    lesson.title,
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 16),
+                  LinearProgressIndicator(
+                    value: progress >= 0 ? progress : null,
+                    color: AppTheme.primaryGreen,
+                    backgroundColor: AppTheme.primaryGreen.withValues(alpha: 0.15),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    status,
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => cancelToken.cancel('Download cancelled'),
+                  child: const Text('Cancel'),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isDownloadingVideo = false);
     }
   }
 

@@ -2003,7 +2003,11 @@ class _ProfessionalLessonScreenState
   Widget _buildVideoPlayer() {
     final videoUrl = _extractVideoUrl();
     final isDesktop = ResponsiveBreakpoints.isDesktop(context);
-final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
+
+    // Use 16:9 for the player container to match the video's native aspect ratio.
+    // This prevents letterboxing (black bars on sides). The full 16:9 height is
+    // now available for video + controls since we removed the nested AppBar.
+    final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
         ? (kIsWeb
             // better_player has no web implementation; use video_player/chewie (CustomVideoPlayer) on browsers.
             ? CustomVideoPlayer(
@@ -2011,7 +2015,7 @@ final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
                 videoUrl: videoUrl,
                 title: _lesson!.title,
                 description: _lesson!.description ?? '',
-                showAppBar: true,
+                showAppBar: false,
               )
             : (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS
                 ? OptimizedVideoPlayer(
@@ -2019,14 +2023,15 @@ final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
                     videoUrl: videoUrl,
                     title: _lesson!.title,
                     description: _lesson!.description ?? '',
-                    showAppBar: true,
+                    showAppBar: false,
+                    aspectRatio: 16 / 9,
                   )
                 : CustomVideoPlayer(
                     videoId: _lesson!.videoId!,
                     videoUrl: videoUrl,
                     title: _lesson!.title,
                     description: _lesson!.description ?? '',
-                    showAppBar: true,
+                    showAppBar: false,
                   )))
         : _buildVideoPlaceholder();
 
@@ -2044,12 +2049,7 @@ final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
         ] : [],
       ),
       clipBehavior: Clip.antiAlias,
-      child: isDesktop
-          ? AspectRatio(aspectRatio: 16 / 9, child: videoChild)
-          : SizedBox(
-              height: MediaQuery.of(context).size.width * 9 / 16,
-              child: videoChild,
-            ),
+      child: AspectRatio(aspectRatio: 16 / 9, child: videoChild),
     );
   }
 
@@ -5151,38 +5151,41 @@ class _NavBtn extends StatelessWidget {
     final bg = isPrimary ? _T.green : bgColor;
     final bc = isPrimary ? Colors.transparent : borderColor;
 
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: Opacity(
-        opacity: enabled ? 1.0 : 0.35,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: bc),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!iconRight) ...[
-                Icon(icon, size: 14, color: c),
-                const SizedBox(width: 6),
-              ],
-              Flexible(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w600, color: c),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 180),
+      child: GestureDetector(
+        onTap: enabled ? onTap : null,
+        child: Opacity(
+          opacity: enabled ? 1.0 : 0.35,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: bc),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (!iconRight) ...[
+                  Icon(icon, size: 14, color: c),
+                  const SizedBox(width: 6),
+                ],
+                Flexible(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w600, color: c),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-              ),
-              if (iconRight) ...[
-                const SizedBox(width: 6),
-                Icon(icon, size: 14, color: c),
+                if (iconRight) ...[
+                  const SizedBox(width: 6),
+                  Icon(icon, size: 14, color: c),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

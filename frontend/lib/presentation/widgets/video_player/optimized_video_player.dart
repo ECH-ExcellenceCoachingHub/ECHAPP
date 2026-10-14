@@ -15,6 +15,7 @@ class OptimizedVideoPlayer extends StatefulWidget {
   final String description;
   final bool showAppBar;
   final VoidCallback? onFullScreen;
+  final double? aspectRatio;
 
   const OptimizedVideoPlayer({
     super.key,
@@ -24,6 +25,7 @@ class OptimizedVideoPlayer extends StatefulWidget {
     required this.description,
     this.showAppBar = false,
     this.onFullScreen,
+    this.aspectRatio,
   }) : assert(videoUrl != null);
 
   @override
@@ -87,6 +89,21 @@ class _OptimizedVideoPlayerState extends State<OptimizedVideoPlayer> {
       _betterPlayerController?.setVolume(0.5);
     } else {
       _betterPlayerController?.setVolume(1.0);
+    }
+  }
+
+  void _toggleDataSaver() {
+    setState(() {
+      _isDataSaver = !_isDataSaver;
+    });
+    _betterPlayerController?.setVolume(_isDataSaver ? 0.5 : 1.0);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isDataSaver ? 'Data Saver On' : 'Data Saver Off'),
+          duration: const Duration(seconds: 1),
+        ),
+      );
     }
   }
 
@@ -162,11 +179,12 @@ class _OptimizedVideoPlayerState extends State<OptimizedVideoPlayer> {
     BetterPlayerConfiguration betterPlayerConfiguration = BetterPlayerConfiguration(
       autoPlay: false,
       looping: false,
+      aspectRatio: widget.aspectRatio,
       fit: BoxFit.contain,
       controlsConfiguration: BetterPlayerControlsConfiguration(
         enablePlayPause: true,
         enableMute: true,
-        enableFullscreen: widget.onFullScreen != null,
+        enableFullscreen: true,
         enableProgressBar: true,
         enableProgressText: true,
         enableSkips: true,
@@ -178,6 +196,17 @@ class _OptimizedVideoPlayerState extends State<OptimizedVideoPlayer> {
         progressBarBufferedColor: AppTheme.primaryGreen.withOpacity(0.3),
         progressBarBackgroundColor: Colors.grey,
         iconsColor: Colors.white,
+        overflowMenuCustomItems: widget.showAppBar
+            ? const []
+            : [
+                BetterPlayerOverflowMenuItem(
+                  Icons.data_usage_outlined,
+                  'Data Saver',
+                  () {
+                    _toggleDataSaver();
+                  },
+                ),
+              ],
       ),
       handleLifecycle: true,
       // Keeps the screen on in full screen. Inline playback is covered by
@@ -193,6 +222,8 @@ class _OptimizedVideoPlayerState extends State<OptimizedVideoPlayer> {
       },
       placeholder: Container(
         color: Colors.black,
+        width: double.infinity,
+        height: double.infinity,
         child: const Center(
           child: CircularProgressIndicator(color: AppTheme.primaryGreen),
         ),
