@@ -54,7 +54,7 @@ const submissionSchema = new mongoose.Schema({
     }],
     correctAnswer: mongoose.Schema.Types.Mixed,
     userAnswer: {
-      selectedOption: Number,
+      selectedOption: mongoose.Schema.Types.Mixed,
       answerText: String
     },
     isCorrect: {

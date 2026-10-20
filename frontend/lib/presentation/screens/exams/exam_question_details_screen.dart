@@ -123,7 +123,7 @@ class _ExamQuestionDetailsScreenState extends State<ExamQuestionDetailsScreen> {
         return correctAnswer == 0 ? 'True' : 'False';
       }
       return 'N/A';
-    } else if (questionType == 'fill_blank' || questionType == 'open') {
+    } else if (questionType == 'fill_blank' || questionType == 'open' || questionType == 'essay' || questionType == 'programming') {
       return correctAnswer?.toString() ?? 'N/A';
     } else if (questionType == 'drag_drop') {
       // For drag_drop, correctAnswer contains the full structure with dragDropItems and dropZones
