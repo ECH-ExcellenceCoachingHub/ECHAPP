@@ -66,6 +66,20 @@ const courseBuildJobSchema = new mongoose.Schema({
     autoGenerate: { type: Boolean, default: false },
     instructions: { type: String, default: '' },
     language: { type: String, default: 'English' },
+    // Automatic lesson videos (explainer + experiment demos for science).
+    generateVideos: { type: Boolean, default: true },
+    videoLanguage: { type: String, default: '' },
+    // Per-course spending limit override (USD). 0 = use server default.
+    videoBudgetUsd: { type: Number, default: 0, min: 0 },
+  },
+
+  // Textbook figure extraction (PDF only), shared by every build of the same book.
+  figureExtraction: {
+    status: { type: String, enum: ['not_applicable', 'queued', 'running', 'completed', 'failed', 'skipped'], default: 'not_applicable' },
+    bookHash: { type: String, default: null },
+    extractionId: { type: mongoose.Schema.Types.ObjectId, ref: 'FigureExtraction', default: null },
+    summary: { type: mongoose.Schema.Types.Mixed, default: null },
+    error: { type: String, default: null },
   },
 
   outline: {

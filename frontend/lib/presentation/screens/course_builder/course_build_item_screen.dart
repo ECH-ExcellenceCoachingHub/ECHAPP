@@ -6,6 +6,7 @@ import 'package:excellencecoachinghub/services/api/course_builder_service.dart';
 import 'package:excellencecoachinghub/presentation/widgets/ai_lesson/ai_study_guide.dart';
 import 'package:excellencecoachinghub/presentation/widgets/ai_lesson/ai_activities.dart';
 import 'widgets/build_options_panel.dart';
+import 'widgets/lesson_video_panel.dart';
 
 /// Review one AI draft: preview it exactly as students will see it, edit the
 /// content and questions, check them against the book pages, regenerate,
@@ -21,7 +22,7 @@ class CourseBuildItemScreen extends StatefulWidget {
 class _CourseBuildItemScreenState extends State<CourseBuildItemScreen>
     with SingleTickerProviderStateMixin {
   final _service = CourseBuilderService();
-  late final TabController _tabs = TabController(length: 4, vsync: this);
+  late final TabController _tabs = TabController(length: 5, vsync: this);
   BuildItem? _item;
   String? _error;
   bool _dirty = false;
@@ -267,6 +268,9 @@ class _CourseBuildItemScreenState extends State<CourseBuildItemScreen>
                     const Tab(
                         icon: Icon(Icons.menu_book_outlined, size: 18),
                         text: 'Book source'),
+                    const Tab(
+                        icon: Icon(Icons.movie_creation_outlined, size: 18),
+                        text: 'Video'),
                   ],
                 ),
         ),
@@ -307,6 +311,13 @@ class _CourseBuildItemScreenState extends State<CourseBuildItemScreen>
                                 onChanged: _touch,
                                 onSnack: _snack),
                             _SourceTab(item: item, service: _service),
+                            item.kind == 'lesson'
+                                ? LessonVideoPanel(itemId: item.id, service: _service, onSnack: _snack)
+                                : const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.all(24),
+                                      child: Text('Videos are generated for lessons. Tests, revision notes and mock exams have no video.', textAlign: TextAlign.center),
+                                    )),
                           ],
                         ),
                       ),

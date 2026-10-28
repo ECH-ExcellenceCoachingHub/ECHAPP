@@ -6,9 +6,11 @@
   "scripts": {
     "start": "node --max-old-space-size=512 server.js",
     "dev": "nodemon server.js",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test --test-concurrency=1 --test-timeout=600000 \"test/*.test.js\"",
     "test:firebase": "node scripts/testFirebase.js",
-    "sync:users": "node scripts/syncFirebaseUsers.js"
+    "sync:users": "node scripts/syncFirebaseUsers.js",
+    "test:python": "cd python && python -m unittest discover -s tests",
+    "worker": "node --max-old-space-size=768 src/workers/media.worker.js"
   },
   "keywords": [],
   "author": "",
@@ -33,6 +35,7 @@
     "helmet": "^8.1.0",
     "joi": "^18.0.2",
     "jsonwebtoken": "^9.0.3",
+    "katex": "^0.16.11",
     "mammoth": "^1.11.0",
     "mongoose": "^9.2.1",
     "multer": "^2.0.2",
@@ -45,6 +48,7 @@
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
+    "mongodb-memory-server": "^10.1.4",
     "nodemon": "^3.1.11"
   }
 }

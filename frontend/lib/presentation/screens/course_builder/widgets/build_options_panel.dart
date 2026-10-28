@@ -190,6 +190,23 @@ class _BuildOptionsPanelState extends State<BuildOptionsPanel> {
               value: o.includeFlashcards,
               onChanged: (v) => _set(() => o.includeFlashcards = v),
             ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              activeThumbColor: builderGreen,
+              title: const Text('Generate a video for every lesson', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Explanatory video with narration, diagrams and textbook figures — plus a simulated experiment demo for science practicals. Lessons stay available while videos are made.'),
+              value: o.generateVideos,
+              onChanged: (v) => _set(() => o.generateVideos = v),
+            ),
+            if (o.generateVideos) ...[
+              TextFormField(
+                initialValue: o.videoBudgetUsd > 0 ? o.videoBudgetUsd.toStringAsFixed(2) : '',
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: _input('Video budget for this course (USD, optional)', hint: 'Leave empty to use the server limit'),
+                onChanged: (v) => _set(() => o.videoBudgetUsd = double.tryParse(v.trim()) ?? 0),
+              ),
+              const SizedBox(height: 14),
+            ],
           ],
           DropdownButtonFormField<String>(
             initialValue: const ['English', 'French', 'Kinyarwanda', 'Swahili'].contains(o.language) ? o.language : 'English',

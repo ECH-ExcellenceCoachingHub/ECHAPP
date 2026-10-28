@@ -44,3 +44,48 @@ services:
         value: "14"
       - key: BACKUP_EXCLUDE_COLLECTIONS
         value: ""
+
+  # ── AI media worker (figure extraction + automatic lesson videos) ──────────
+  # Runs the GenerationJob queue (stored in MongoDB) outside the web service so
+  # CPU-heavy rendering never slows the API. Adding it via Blueprint creates
+  # only this worker; the existing web service is not affected.
+  # See backend/docs/AI_MEDIA_PIPELINE.md for configuration and costs.
+  - type: worker
+    name: echapp-media-worker
+    runtime: docker
+    plan: standard # Chromium + FFmpeg need ~2 GB RAM — check current Render plan names/pricing
+    region: oregon # keep in the same region as the web service and database
+    rootDir: backend
+    dockerfilePath: ./Dockerfile.worker
+    dockerContext: .
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_REGION
+        sync: false
+      - key: S3_BUCKET_NAME
+        sync: false
+      - key: S3_BUCKET_URL
+        sync: false
+      - key: CLOUDFRONT_URL
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: ELEVENLABS_API_KEY # optional — without it narration uses espeak-ng (free, robotic)
+        sync: false
+      - key: ELEVENLABS_VOICE_ID
+        sync: false
+      - key: VIDEO_TTS_COST_PER_1K_CHARS # required when ElevenLabs is used (spending control)
+        sync: false
+      - key: GEMINI_API_KEY # optional — OCR of labels inside raster figures
+        sync: false
+      - key: MEDIA_WORKER_CONCURRENCY
+        value: "1"
+      - key: VIDEO_MAX_COST_PER_LESSON_USD
+        value: "1"
+      - key: VIDEO_MAX_COST_PER_COURSE_USD
+        value: "25"

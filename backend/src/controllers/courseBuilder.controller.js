@@ -73,8 +73,13 @@ function sanitizeOptions(input = {}, base = {}) {
   for (const k of ['examStyle', 'instructions', 'language']) {
     if (typeof input[k] === 'string') o[k] = input[k].slice(0, 2000);
   }
-  for (const k of ['includeVisuals', 'includeFlashcards', 'autoGenerate']) {
+  for (const k of ['includeVisuals', 'includeFlashcards', 'autoGenerate', 'generateVideos']) {
     if (input[k] != null) o[k] = input[k] === true || input[k] === 'true';
+  }
+  if (typeof input.videoLanguage === 'string') o.videoLanguage = input.videoLanguage.slice(0, 60);
+  if (input.videoBudgetUsd != null) {
+    const b = parseFloat(input.videoBudgetUsd);
+    if (Number.isFinite(b)) o.videoBudgetUsd = Math.max(0, Math.min(10000, b));
   }
   return o;
 }
@@ -397,9 +402,16 @@ const updateItem = async (req, res) => {
     if (item.status === 'generating') return sendError(res, 'This item is being generated — try again in a moment', 409);
     const { title, content, questions } = req.body || {};
     if (typeof title === 'string' && title.trim()) item.title = title.trim().slice(0, 200);
+    let contentEdited = false;
     if (content !== undefined) {
       item.content = content;
       item.markModified('content');
+      // New content version: existing generated videos become "outdated".
+      item.contentVersion = (item.contentVersion || 0) + 1;
+      for (const f of ['video', 'experimentVideo']) {
+        if (item[f]?.s3Key) { item[f].stale = true; item.markModified(f); }
+      }
+      contentEdited = true;
     }
     if (Array.isArray(questions)) {
       item.questions = questions
@@ -416,6 +428,10 @@ const updateItem = async (req, res) => {
     else if (['draft', 'needs_review', 'error'].includes(item.status)) item.status = 'draft';
     await item.save();
     await runner.refreshStats(item.jobId);
+    if (contentEdited && item.kind === 'lesson') {
+      // Queues a video only per policy (first video, or VIDEO_REGENERATE_ON_CHANGE=auto).
+      await require('../services/video/video-jobs.service').onLessonContentSaved(item.jobId, item._id);
+    }
     sendSuccess(res, item, 'Saved');
   } catch (err) {
     sendError(res, 'Failed to save item', 500, err.message);

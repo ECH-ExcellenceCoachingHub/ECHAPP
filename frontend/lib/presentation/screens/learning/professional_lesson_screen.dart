@@ -36,6 +36,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:excellencecoachinghub/utils/screen_wakelock.dart';
 import 'package:excellencecoachinghub/presentation/widgets/ai_lesson/ai_study_guide.dart';
+import 'package:excellencecoachinghub/presentation/widgets/ai_lesson/lesson_video_status.dart';
 import 'package:excellencecoachinghub/services/api/course_builder_service.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -119,6 +120,8 @@ class _ProfessionalLessonScreenState
 
   // ── UI state ──────────────────────────────────────────────────────────────
   _Tab _activeTab = _Tab.video;
+  // Video tab: lesson explainer (default) or the simulated experiment demo.
+  bool _showExperimentVideo = false;
   _NotesView _notesTab = _NotesView.pdf;
   bool _isChatOpen = false;
   String? _chatPrompt; // question handed to the AI tutor from the study guide
@@ -1939,7 +1942,7 @@ class _ProfessionalLessonScreenState
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Video player takes full width on mobile (no horizontal padding)
-                _buildVideoPlayer(),
+                _buildVideoSection(),
                 const SizedBox(height: 16),
                 // Other content keeps normal padding
                 Padding(
@@ -1973,7 +1976,7 @@ class _ProfessionalLessonScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildVideoPlayer(),
+        _buildVideoSection(),
         const SizedBox(height: 12),
         _buildVideoActions(),
         const SizedBox(height: 16),
@@ -2000,18 +2003,71 @@ class _ProfessionalLessonScreenState
     );
   }
 
+  /// Variant switcher (when an experiment demo exists) + player + transcript/notices.
+  Widget _buildVideoSection() {
+    final lesson = _lesson!;
+    final isDesktop = ResponsiveBreakpoints.isDesktop(context);
+    final experiment = _showExperimentVideo && lesson.hasExperimentVideo;
+    final meta = experiment ? lesson.aiExperimentVideo : lesson.aiVideo;
+    final pad = EdgeInsets.symmetric(horizontal: isDesktop ? 0 : 16);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (lesson.hasExperimentVideo && lesson.hasVideo)
+          Padding(
+            padding: pad.copyWith(bottom: 10),
+            child: Wrap(spacing: 8, children: [
+              ChoiceChip(
+                label: const Text('Lesson video'),
+                avatar: const Icon(Icons.play_circle_outline, size: 18),
+                selected: !experiment,
+                onSelected: (_) => setState(() => _showExperimentVideo = false),
+              ),
+              ChoiceChip(
+                label: const Text('Experiment demo (simulated)'),
+                avatar: const Icon(Icons.science_outlined, size: 18),
+                selected: experiment,
+                onSelected: (_) => setState(() => _showExperimentVideo = true),
+              ),
+            ]),
+          ),
+        _buildVideoPlayer(),
+        if (meta != null && (experiment || lesson.hasVideo))
+          Padding(padding: pad, child: LessonVideoInfoCard(video: meta, isDark: _isDark)),
+      ],
+    );
+  }
+
+  /// Storage key + URL of whichever video is selected.
+  ({String? key, String url}) _activeVideoSource() {
+    final lesson = _lesson!;
+    // A lesson without an explainer but with an approved experiment demo plays the demo.
+    final experiment = lesson.hasExperimentVideo && (_showExperimentVideo || !lesson.hasVideo);
+    if (experiment) {
+      final v = lesson.aiExperimentVideo!;
+      final url = v.url?.isNotEmpty == true
+          ? v.url!
+          : (v.s3Key == null ? '' : (v.s3Key!.startsWith('http') ? v.s3Key! : 'https://d3ofk5ujo941v.cloudfront.net/${v.s3Key}'));
+      return (key: v.s3Key, url: url);
+    }
+    return (key: lesson.videoId, url: _extractVideoUrl());
+  }
+
   Widget _buildVideoPlayer() {
-    final videoUrl = _extractVideoUrl();
+    final source = _activeVideoSource();
+    final videoUrl = source.url;
+    final activeKey = source.key;
     final isDesktop = ResponsiveBreakpoints.isDesktop(context);
 
     // Use 16:9 for the player container to match the video's native aspect ratio.
     // This prevents letterboxing (black bars on sides). The full 16:9 height is
     // now available for video + controls since we removed the nested AppBar.
-    final videoChild = _lesson!.videoId != null && videoUrl.isNotEmpty
+    final videoChild = activeKey != null && videoUrl.isNotEmpty
         ? (kIsWeb
             // better_player has no web implementation; use video_player/chewie (CustomVideoPlayer) on browsers.
             ? CustomVideoPlayer(
-                videoId: _lesson!.videoId!,
+                key: ValueKey('player-$activeKey'),
+                videoId: activeKey,
                 videoUrl: videoUrl,
                 title: _lesson!.title,
                 description: _lesson!.description ?? '',
@@ -2019,7 +2075,8 @@ class _ProfessionalLessonScreenState
               )
             : (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS
                 ? OptimizedVideoPlayer(
-                    videoId: _lesson!.videoId!,
+                    key: ValueKey('player-$activeKey'),
+                    videoId: activeKey,
                     videoUrl: videoUrl,
                     title: _lesson!.title,
                     description: _lesson!.description ?? '',
@@ -2027,7 +2084,8 @@ class _ProfessionalLessonScreenState
                     aspectRatio: 16 / 9,
                   )
                 : CustomVideoPlayer(
-                    videoId: _lesson!.videoId!,
+                    key: ValueKey('player-$activeKey'),
+                    videoId: activeKey,
                     videoUrl: videoUrl,
                     title: _lesson!.title,
                     description: _lesson!.description ?? '',
@@ -2054,6 +2112,17 @@ class _ProfessionalLessonScreenState
   }
 
   Widget _buildVideoPlaceholder() {
+    // Generated video still processing / failed / waiting for review: say so,
+    // and keep the notes and quiz one tap away.
+    final aiVideo = _lesson?.aiVideo;
+    if (aiVideo != null) {
+      return LessonVideoStatusView(
+        video: aiVideo,
+        title: _lesson?.title ?? '',
+        onOpenNotes: _lesson?.hasNotes == true ? () => _setActiveTab(_Tab.notes) : null,
+        onOpenQuiz: _lesson?.hasQuiz == true ? () => _setActiveTab(_Tab.quiz) : null,
+      );
+    }
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(

@@ -3,6 +3,8 @@ const router = express.Router();
 const { protect } = require('../middleware/auth.middleware');
 const { authorize } = require('../middleware/role.middleware');
 const c = require('../controllers/courseBuilder.controller');
+const v = require('../controllers/lessonVideo.controller');
+const { generationLimiter } = require('../middleware/generationLimiter.middleware');
 
 // AI Course Builder — admins and teachers assigned to the course
 router.use(protect, authorize('admin', 'instructor'));
@@ -34,5 +36,17 @@ router.post('/items/:itemId/images/search', c.searchItemImage);
 // See a draft exactly as students will, including taking its quiz (nothing is saved)
 router.get('/items/:itemId/preview', c.previewItem);
 router.post('/items/:itemId/preview-submit', c.previewSubmit);
+
+// Textbook figures + generated lesson videos
+router.get('/jobs/:jobId/media', v.getBuildMedia);
+router.get('/jobs/:jobId/figures', v.listFigures);
+router.post('/jobs/:jobId/figures/extract', generationLimiter, v.extractFigures);
+router.get('/items/:itemId/videos', v.getItemVideos);
+router.post('/items/:itemId/videos', generationLimiter, v.requestItemVideo);
+router.get('/lessons/:lessonId/videos', v.getLessonVideos);
+router.post('/lessons/:lessonId/videos', generationLimiter, v.requestLessonVideo);
+router.get('/video-jobs/:videoJobId', v.getVideoJob);
+router.post('/video-jobs/:videoJobId/cancel', v.cancelVideoJob);
+router.post('/video-jobs/:videoJobId/review', v.reviewVideoJob);
 
 module.exports = router;

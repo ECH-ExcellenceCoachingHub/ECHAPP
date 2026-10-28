@@ -53,6 +53,10 @@ class BuildOptions {
   bool autoGenerate;
   String instructions;
   String language;
+  /// Queue an explanatory video (and experiment demo for science) per lesson.
+  bool generateVideos;
+  /// Per-course video spending limit in USD (0 = server default).
+  double videoBudgetUsd;
 
   BuildOptions({
     this.mode = 'full',
@@ -69,6 +73,8 @@ class BuildOptions {
     this.autoGenerate = false,
     this.instructions = '',
     this.language = 'English',
+    this.generateVideos = true,
+    this.videoBudgetUsd = 0,
   }) : questionTypes = questionTypes ?? ['mcq', 'true_false', 'short_answer', 'calculation', 'scenario'];
 
   factory BuildOptions.fromJson(Map<String, dynamic>? j) {
@@ -89,6 +95,8 @@ class BuildOptions {
       autoGenerate: j['autoGenerate'] == true,
       instructions: _str(j['instructions']),
       language: _str(j['language']).isEmpty ? 'English' : _str(j['language']),
+      generateVideos: j['generateVideos'] != false,
+      videoBudgetUsd: (j['videoBudgetUsd'] as num?)?.toDouble() ?? 0,
     );
   }
 
@@ -98,6 +106,8 @@ class BuildOptions {
         'chapterTestQuestions': chapterTestQuestions,
         'mockExamQuestions': mockExamQuestions,
         'difficultyMix': {'easy': easy, 'medium': medium, 'hard': hard},
+        'generateVideos': generateVideos,
+        'videoBudgetUsd': videoBudgetUsd,
         'questionTypes': questionTypes,
         'examStyle': examStyle,
         'includeVisuals': includeVisuals,

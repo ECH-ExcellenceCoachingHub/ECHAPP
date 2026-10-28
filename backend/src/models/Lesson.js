@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { aiVideoSchema } = require('./schemas/aiVideo.schema');
 
 const lessonSchema = new mongoose.Schema({
   sectionId: {
@@ -81,6 +82,23 @@ const lessonSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'CourseBuildItem',
     default: null
+  },
+  // Automatically generated explanatory video (null on older lessons). When it
+  // is watchable and the lesson has no teacher-uploaded video, its storage key
+  // is also written to `videoId` so existing players keep working.
+  aiVideo: {
+    type: aiVideoSchema,
+    default: null
+  },
+  // Optional experiment-demonstration video for science lessons.
+  aiExperimentVideo: {
+    type: aiVideoSchema,
+    default: null
+  },
+  // Lesson content version (incremented when aiContent changes).
+  contentVersion: {
+    type: Number,
+    default: 1
   }
 }, {
   timestamps: true

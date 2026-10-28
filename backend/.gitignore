@@ -148,3 +148,7 @@ Thumbs.db
 /functions/node_modules/
 /functions/lib/
 /functions/.runtimeconfig.json
+# AI media pipeline (local development / tests)
+/python/.venv/
+/python/**/__pycache__/
+/media-local/

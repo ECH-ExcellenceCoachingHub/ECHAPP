@@ -184,9 +184,28 @@ const createLesson = async (req, res) => {
   }
 };
 
+// Generated-video metadata safe for the client: files that are pending review
+// (or rejected) are hidden, internal fields are dropped. Older lessons have
+// no such field and simply return null.
+const { isVideoWatchable } = require('../models/schemas/aiVideo.schema');
+const publicVideoMeta = (v) => {
+  if (!v) return null;
+  const { previous, jobId, provider, pendingContentVersion, ...meta } = v;
+  if (!isVideoWatchable(v)) {
+    meta.s3Key = null;
+    meta.url = null;
+    meta.captionsKey = null;
+    meta.captionsUrl = null;
+    meta.transcript = null;
+  }
+  return meta;
+};
+
 // Helper function to format lesson URLs
 const formatLessonUrls = (lesson, s3Service) => {
   const lessonObj = lesson.toObject();
+  lessonObj.aiVideo = publicVideoMeta(lessonObj.aiVideo);
+  lessonObj.aiExperimentVideo = publicVideoMeta(lessonObj.aiExperimentVideo);
   
   if (lessonObj.videoId && !lessonObj.videoId.startsWith('http')) {
     lessonObj.videoUrl = s3Service.getPublicUrl(lessonObj.videoId);
@@ -238,6 +257,18 @@ const updateLesson = async (req, res) => {
       } catch (aiError) {
         console.error('Error auto-organizing notes during update:', aiError);
       }
+    }
+
+    // Generated-video bookkeeping is managed by the video pipeline only.
+    delete updateData.aiVideo;
+    delete updateData.aiExperimentVideo;
+    delete updateData.contentVersion;
+    if (updateData.aiContent !== undefined) {
+      // Edited AI content → new content version; existing generated videos are outdated.
+      const existing = await Lesson.findById(lessonId).select('aiVideo aiExperimentVideo').lean();
+      updateData.$inc = { contentVersion: 1 };
+      if (existing?.aiVideo?.s3Key) updateData['aiVideo.stale'] = true;
+      if (existing?.aiExperimentVideo?.s3Key) updateData['aiExperimentVideo.stale'] = true;
     }
 
     const lesson = await Lesson.findByIdAndUpdate(

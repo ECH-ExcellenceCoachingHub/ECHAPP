@@ -161,6 +161,14 @@ async function publishItem(job, item, sectionId) {
   item.dirtyAfterPublish = false;
   item.published = { sectionId, lessonId: lesson._id, quizId, at: new Date() };
   await item.save();
+
+  // Generated videos follow the lesson: copy their state (videos still being
+  // generated keep updating the lesson), and expose a finished explainer
+  // through the lesson's existing videoId when no teacher video exists.
+  if (item.kind === 'lesson') {
+    await require('../video/video-jobs.service').onLessonPublished(item, lesson._id)
+      .catch(err => console.warn('[CourseBuilder] video sync on publish failed:', err.message));
+  }
 }
 
 function describeQuiz(item) {

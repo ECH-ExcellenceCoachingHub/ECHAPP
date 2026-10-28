@@ -12,7 +12,7 @@ const QUESTION_TYPES = ['mcq', 'true_false', 'short_answer', 'calculation', 'sce
 
 let jsonModeSupported = true;
 
-async function completeJson(prompt, { maxTokens = 4096, temperature = 0.3, system } = {}) {
+async function completeJson(prompt, { maxTokens = 4096, temperature = 0.3, system, onUsage } = {}) {
   if (!GrokService.isConfigured()) {
     throw new Error('AI is not configured on the server (GROQ_API_KEY missing).');
   }
@@ -34,6 +34,9 @@ async function completeJson(prompt, { maxTokens = 4096, temperature = 0.3, syste
       };
       if (jsonModeSupported) params.response_format = { type: 'json_object' };
       const completion = await GrokService._createCompletion(params);
+      if (typeof onUsage === 'function' && completion.usage) {
+        try { onUsage({ ...completion.usage, model: params.model, requestId: completion.id || null }); } catch (_) { /* never break generation */ }
+      }
       const raw = completion.choices?.[0]?.message?.content || '';
       if (!raw.trim()) throw new Error('Empty response from AI');
       return parseJson(raw);

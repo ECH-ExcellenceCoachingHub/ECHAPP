@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../config/api_config.dart';
 import '../../models/course_build.dart';
+import '../../models/lesson_video.dart';
 import '../infrastructure/api_client.dart';
 
 class CourseBuilderException implements Exception {
@@ -200,6 +201,55 @@ class CourseBuilderService {
   /// Grades a preview attempt like a real submission (nothing is saved).
   Future<Map<String, dynamic>> previewSubmit(String itemId, List<Map<String, dynamic>> answers) async =>
       Map<String, dynamic>.from(_data(await _api.post('$_base/items/$itemId/preview-submit', body: {'answers': answers})));
+
+  // ─── Figures & generated videos ────────────────────────────────────────────
+
+  /// Figure extraction status, video counts and spending for a build.
+  Future<Map<String, dynamic>> buildMedia(String jobId) async =>
+      Map<String, dynamic>.from(_data(await _api.get('$_base/jobs/$jobId/media')));
+
+  Future<List<Map<String, dynamic>>> figures(String jobId) async =>
+      ((_data(await _api.get('$_base/jobs/$jobId/figures')) as List?) ?? const [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+
+  Future<String> extractFigures(String jobId) async =>
+      _message(await _api.post('$_base/jobs/$jobId/figures/extract', body: {}));
+
+  /// {latest: {explainer, experiment}, history, video, experimentVideo}
+  Future<({VideoJobView? explainer, VideoJobView? experiment, LessonVideo? video, LessonVideo? experimentVideo})> itemVideos(String itemId) async {
+    final data = Map<String, dynamic>.from(_data(await _api.get('$_base/items/$itemId/videos')));
+    final latest = data['latest'] is Map ? Map<String, dynamic>.from(data['latest']) : <String, dynamic>{};
+    return (
+      explainer: VideoJobView.fromJson(latest['explainer']),
+      experiment: VideoJobView.fromJson(latest['experiment']),
+      video: LessonVideo.fromJson(data['video']),
+      experimentVideo: LessonVideo.fromJson(data['experimentVideo']),
+    );
+  }
+
+  /// [mode]: retry | full | script | audio | visuals
+  Future<String> requestItemVideo(String itemId, {String variant = 'explainer', String mode = 'retry'}) async {
+    final res = await _api.post('$_base/items/$itemId/videos', body: {'variant': variant, 'mode': mode});
+    _data(res);
+    return _message(res);
+  }
+
+  Future<VideoJobView?> videoJob(String videoJobId) async =>
+      VideoJobView.fromJson(_data(await _api.get('$_base/video-jobs/$videoJobId')));
+
+  Future<String> cancelVideoJob(String videoJobId) async {
+    final res = await _api.post('$_base/video-jobs/$videoJobId/cancel', body: {});
+    _data(res);
+    return _message(res);
+  }
+
+  /// [status]: approved | rejected
+  Future<String> reviewVideoJob(String videoJobId, String status) async {
+    final res = await _api.post('$_base/video-jobs/$videoJobId/review', body: {'status': status});
+    _data(res);
+    return _message(res);
+  }
 
   // ─── Helpers ───────────────────────────────────────────────────────────────
 

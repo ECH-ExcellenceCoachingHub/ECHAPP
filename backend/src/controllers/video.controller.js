@@ -16,8 +16,15 @@ const getVideoStreamUrl = async (req, res) => {
       return sendNotFound(res, 'Lesson not found');
     }
 
+    // ?variant=experiment → the generated experiment-demonstration video
+    let videoKey = lesson.videoId;
+    if (req.query.variant === 'experiment') {
+      const { isVideoWatchable } = require('../models/schemas/aiVideo.schema');
+      videoKey = isVideoWatchable(lesson.aiExperimentVideo) ? lesson.aiExperimentVideo.s3Key : null;
+    }
+
     // Check if lesson has a video
-    if (!lesson.videoId) {
+    if (!videoKey) {
       return sendNotFound(res, 'No video available for this lesson');
     }
 
@@ -35,7 +42,7 @@ const getVideoStreamUrl = async (req, res) => {
 
     // Generate signed streaming URL from S3 with 24-hour expiration
     // This handles long downloads on slow connections (24h = 86400 seconds)
-    const streamingUrl = await s3Service.generateStreamingUrl(lesson.videoId, 86400);
+    const streamingUrl = await s3Service.generateStreamingUrl(videoKey, 86400);
 
     sendSuccess(res, transformUrls({
       streamingUrl,

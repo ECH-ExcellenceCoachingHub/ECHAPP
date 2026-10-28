@@ -1,3 +1,5 @@
+import 'lesson_video.dart';
+
 class Lesson {
   final String id;
   final String sectionId;
@@ -19,6 +21,10 @@ class Lesson {
   /// notes, visuals, key terms, formulas, examples, flashcards, sources).
   final Map<String, dynamic>? aiContent;
   final bool aiGenerated;
+  /// Automatically generated explanatory video (null on older lessons).
+  final LessonVideo? aiVideo;
+  /// Optional simulated experiment demonstration (science lessons).
+  final LessonVideo? aiExperimentVideo;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -41,6 +47,8 @@ class Lesson {
     this.isPublished,
     this.aiContent,
     this.aiGenerated = false,
+    this.aiVideo,
+    this.aiExperimentVideo,
     this.createdAt,
     this.updatedAt,
   });
@@ -65,6 +73,8 @@ class Lesson {
       isPublished: json['isPublished'] as bool?,
       aiContent: json['aiContent'] is Map ? Map<String, dynamic>.from(json['aiContent'] as Map) : null,
       aiGenerated: json['aiGenerated'] == true,
+      aiVideo: LessonVideo.fromJson(json['aiVideo']),
+      aiExperimentVideo: LessonVideo.fromJson(json['aiExperimentVideo']),
       createdAt: _parseDateTime(json['createdAt']),
       updatedAt: _parseDateTime(json['updatedAt']),
     );
@@ -159,6 +169,8 @@ class Lesson {
       isPublished: isPublished ?? this.isPublished,
       aiContent: aiContent ?? this.aiContent,
       aiGenerated: aiGenerated ?? this.aiGenerated,
+      aiVideo: aiVideo,
+      aiExperimentVideo: aiExperimentVideo,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -169,6 +181,9 @@ class Lesson {
   bool get hasAiGuide => aiContent != null && aiContent!.isNotEmpty;
   bool get hasNotes => hasAiGuide || (notes != null && notes!.isNotEmpty) || (notesPdfUrl != null && notesPdfUrl!.isNotEmpty);
   bool get hasQuiz => quizId != null && quizId!.isNotEmpty;
+  /// A generated video is being prepared and no playable video exists yet.
+  bool get isVideoProcessing => !hasVideo && (aiVideo?.isProcessing ?? false);
+  bool get hasExperimentVideo => aiExperimentVideo?.isWatchable ?? false;
   bool get hasMaterials => materials != null && materials!.isNotEmpty;
   
   String get displayType {

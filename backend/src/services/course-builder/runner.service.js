@@ -6,6 +6,10 @@ const ai = require('./ai.service');
 const { normalizeOutline, heuristicOutline } = require('./structure.service');
 const { verifyQuestions, scoreItem } = require('./verify.service');
 const { resolveImages } = require('./images.service');
+const { checkContent } = require('./integrity.service');
+const { attachFigures } = require('./figure-selection.service');
+const figures = require('./figures.service');
+const videoJobs = require('../video/video-jobs.service');
 
 /**
  * In-process pipeline for AI course building.
@@ -127,6 +131,12 @@ class CourseBuilderRunner {
 
     let { pages, headings } = extracted;
     let ocrUsed = false;
+
+    // Textbook figures are extracted by the media worker in the background
+    // (PDF only). Requesting it is cheap and never blocks or fails the build.
+    figures.requestExtraction(job, buffer)
+      .then((x) => x && this.log(jobId, x.status === 'completed' ? 'Textbook figures already extracted for this book — reusing them' : 'Figure extraction queued'))
+      .catch((err) => this.log(jobId, `Figure extraction not started: ${err.message}`, 'warn'));
 
     // 2. OCR when the PDF is scanned images
     if (extracted.isScanned) {
@@ -290,6 +300,7 @@ class CourseBuilderRunner {
     await this.log(jobId, `Generating ${queue.length} item(s) with ${CONCURRENCY} parallel workers`);
 
     const pages = await this.getPages(jobId);
+    await this.waitForFigures(jobId);
     const freshJob = await CourseBuildJob.findById(jobId).lean();
 
     await runPool(queue, CONCURRENCY, async (item) => {
@@ -358,7 +369,10 @@ class CourseBuilderRunner {
           wantContent ? ai.generateLessonContent({ job: jobForPrompt, chapterTitle, lessonTitle: item.title, siblingTitles: siblings, pages: contextPages }) : null,
           wantQuestions ? this.questionsForRange(jobForPrompt, item.title, chapterTitle, itemPages, o.questionsPerLesson, 'end-of-lesson quiz') : null,
         ]);
-        if (c) content = await this.attachImages(c);
+        if (c) {
+          content = await this.attachImages(c);
+          content = await attachFigures({ job, item, content, log: (m, l) => this.log(job._id, m, l) });
+        }
         if (q) questions = q;
       } else if (item.kind === 'revision') {
         if (part !== 'questions') {
@@ -374,6 +388,12 @@ class CourseBuilderRunner {
 
       verifyQuestions(questions, item.kind === 'mock_exam' ? pages : itemPages);
       const { confidence, warnings } = scoreItem({ kind: item.kind, content, questions }, itemPages);
+      // Deterministic checks: arithmetic in examples, formulas, calculation answers, hazards.
+      // (decided before the integrity report is attached, which copies the object)
+      const contentChanged = !!content && content !== item.content;
+      const integrity = checkContent(content, questions);
+      warnings.push(...integrity.warnings);
+      if (content) content = { ...content, integrity: integrity.integrity };
       const status = warnings.length || confidence < 75 ? 'needs_review' : 'draft';
 
       await CourseBuildItem.updateOne({ _id: item._id }, {
@@ -381,13 +401,30 @@ class CourseBuilderRunner {
           content, questions, confidence, warnings, status, error: null,
           generationMs: Date.now() - t0,
           dirtyAfterPublish: !!item.published?.lessonId,
+          ...(contentChanged ? videoJobs.staleFlags(item, ['video', 'experimentVideo']) : {}),
         },
+        ...(contentChanged ? { $inc: { contentVersion: 1 } } : {}),
       });
+      // The lesson is saved — queue its video(s). Never blocks or fails the lesson.
+      if (contentChanged && item.kind === 'lesson') {
+        await videoJobs.onLessonContentSaved(job._id, item._id, { log: (m, l) => this.log(job._id, m, l) });
+      }
     } catch (err) {
       console.error(`[CourseBuilder] item ${item._id} failed`, err);
       await CourseBuildItem.updateOne({ _id: item._id }, { $set: { status: 'error', error: err.message } });
       await this.log(job._id, `"${item.title}" failed: ${err.message}`, 'error');
     }
+  }
+
+  /** Give the figure worker a bounded head start so lessons can use textbook figures. */
+  async waitForFigures(jobId) {
+    const job = await CourseBuildJob.findById(jobId).select('figureExtraction').lean();
+    if (!['queued', 'running'].includes(job?.figureExtraction?.status)) return;
+    const maxMs = parseInt(process.env.FIGURE_WAIT_SECONDS || '180', 10) * 1000;
+    if (maxMs <= 0) return;
+    await this.setProgress(jobId, { message: 'Waiting for textbook figures…' });
+    const status = await figures.waitForExtraction(jobId, maxMs);
+    if (status !== 'completed') await this.log(jobId, `Figures not ready (${status}) — generating lessons without textbook figures`, 'warn');
   }
 
   withContext(pages, itemPages, chapter) {

@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:excellencecoachinghub/models/course_build.dart';
 import 'package:excellencecoachinghub/services/api/course_builder_service.dart';
 import 'widgets/build_options_panel.dart';
+import 'widgets/build_media_card.dart';
 
 /// One AI build: live progress, outline review, and the chapter-by-chapter
 /// review table where drafts are approved and published.
@@ -292,6 +293,7 @@ class _CourseBuildJobScreenState extends State<CourseBuildJobScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         _ProgressHeader(job: job, items: _items, onStop: () => _run(() => _service.cancel(widget.jobId), success: 'Stopping…')),
+                        if (!job.isAnalyzing) BuildMediaCard(jobId: widget.jobId, service: _service, onSnack: _snack),
                         if (_showLogs) ...[const SizedBox(height: 12), _LogPanel(logs: job.logs)],
                         const SizedBox(height: 16),
                         ..._buildMain(job, wide),

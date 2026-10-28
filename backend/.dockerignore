@@ -1,0 +1,13 @@
+node_modules
+.env
+.env.*
+serviceAccountKey.json
+serviceAccountKey.b64
+serviceAccountKey_base64.txt
+backups
+certificates
+media-local
+python/.venv
+**/__pycache__
+test
+*.log
