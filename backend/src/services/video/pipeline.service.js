@@ -14,8 +14,10 @@ const { subjectByKey } = require('./subjects');
 const { assessExperiment } = require('./experiment');
 const { resolveTts } = require('./providers/tts');
 const { resolveVideoProvider } = require('./providers/video');
-const { renderScenes } = require('./render/renderer');
+const { renderScenes, animFps } = require('./render/renderer');
+const { layoutOf, PANEL } = require('./render/scene-html');
 const assembler = require('./render/assembler');
+const stockMedia = require('./media/stock-media.service');
 const { buildCaptions } = require('./captions');
 const { validateVideo } = require('./validator');
 const cost = require('./cost.service');
@@ -38,6 +40,76 @@ const { contentText } = require('../course-builder/integrity.service');
  */
 
 const STAGES = ['generating_script', 'generating_audio', 'generating_visuals', 'assembling', 'validating'];
+/** Silent "pause and think" time after a check question (seconds). */
+const THINK_SECONDS = 3.5;
+const CREDITS_SECONDS = 4;
+
+/**
+ * Licensed photos/clips for the storyboard: reused from the job's saved
+ * artifacts when possible (no new searches on a retry), otherwise searched.
+ */
+async function loadOrFindMedia(job, storyboard, work, ctx, { topic = [] } = {}) {
+  const saved = job.artifacts?.media;
+  if (Array.isArray(saved)) {
+    const media = new Map();
+    try {
+      for (const a of saved) {
+        if (!storyboard.scenes.some(s => s.n === a.scene)) continue;
+        const file = path.join(work, `stock_s${a.scene}${path.extname(a.key) || '.bin'}`);
+        await storage.download(a.key, file);
+        media.set(a.scene, { ...a, file });
+      }
+      return { media, warnings: job.artifacts?.mediaWarnings || [] };
+    } catch (_) { /* a cached file disappeared — search again */ }
+  }
+  const { assets, warnings } = await stockMedia.prepareStoryboardMedia(storyboard, work, { signal: ctx.signal, log: ctx.log || (() => {}), topic });
+  await ctx.saveArtifacts({
+    media: [...assets.entries()].map(([scene, { file, ...a }]) => ({ scene, ...a })),
+    mediaWarnings: warnings,
+  });
+  return { media: assets, warnings };
+}
+
+/** Background layer of a scene for the assembler (null = opaque slide). */
+function backgroundFor(scene, asset, layout) {
+  if (!asset || layout === 'none') return null;
+  return {
+    kind: asset.kind,
+    file: asset.file,
+    durationSec: asset.durationSec,
+    rect: layout === 'split' ? PANEL : null,
+    motion: scene.n,
+  };
+}
+
+/** Where the app should pause and ask each check question. */
+function interactionsFor(scenes, segments, audio) {
+  const out = [];
+  let t = 0;
+  scenes.forEach((s, i) => {
+    if (s.type === 'check') {
+      const askedAt = t + assembler.LEAD_IN + audio[i].seconds + 0.3;
+      out.push({
+        id: `check-${s.n}`,
+        at: Math.round(askedAt * 10) / 10,
+        resumeAt: Math.round((t + segments[i].seconds) * 10) / 10, // start of the answer reveal
+        question: s.question,
+        choices: s.choices,
+        answerIndex: s.answerIndex,
+        explanation: s.explanation || '',
+      });
+    }
+    t += segments[i].seconds;
+  });
+  return out;
+}
+
+/** Part spans scaled to the measured length of the joined narration (absorbs rounding). */
+function scaledSpans(a) {
+  if (!a?.spans?.length) return null;
+  const sum = a.spans.reduce((x, y) => x + y, 0);
+  return sum > 0 ? a.spans.map(s => (s * a.seconds) / sum) : null;
+}
 
 function sha(s) {
   return crypto.createHash('sha1').update(String(s)).digest('hex').slice(0, 16);
@@ -75,9 +147,9 @@ async function runLessonVideo(job, ctx) {
   resolveVideoProvider(); // fails clearly if VIDEO_RENDER_PROVIDER is unknown
 
   // Partial regeneration requested by an admin.
-  if (job.restartFrom === 'script') await ctx.unsetArtifacts(['storyboard', 'audio']);
+  if (job.restartFrom === 'script') await ctx.unsetArtifacts(['storyboard', 'audio', 'media', 'mediaWarnings']);
   if (job.restartFrom === 'audio') await ctx.unsetArtifacts(['audio']);
-  if (job.restartFrom) await ctx.update({ restartFrom: null });
+  if (job.restartFrom === 'visuals') await ctx.unsetArtifacts(['media', 'mediaWarnings']);  if (job.restartFrom) await ctx.update({ restartFrom: null });
 
   const src = await loadSource(job);
   const cfg = job.config || {};
@@ -124,18 +196,22 @@ async function runLessonVideo(job, ctx) {
 
     // ── 2. Narration ────────────────────────────────────────────────────
     await stage('generating_audio', `Recording narration (${tts.name})`);
-    const chars = storyboard.scenes.reduce((a, s) => a + s.narration.length, 0);
     const existingAudio = new Map((job.artifacts?.audio || []).map(a => [a.scene, a]));
-    const charsToBuy = storyboard.scenes.filter(s => existingAudio.get(s.n)?.hash !== sha(`${tts.name}|${s.narration}`)).reduce((a, s) => a + s.narration.length, 0);
+    // Voice/model/settings are part of the hash: changing the narrator re-records.
+    const voiceSig = typeof tts.signature === 'function' ? tts.signature() : tts.name;
+    // Scenes narrated step by step are recorded in parts (with pauses), so the hash covers the parts.
+    const audioHash = (s) => sha(`${voiceSig}|${s.parts?.length > 1 ? `parts:${assembler.stepPause()}:${s.parts.join('\u241e')}` : s.narration}`);
+    const charsToBuy = storyboard.scenes.filter(s => existingAudio.get(s.n)?.hash !== audioHash(s)).reduce((a, s) => a + s.narration.length, 0);
     const estimate = cost.ttsCost(tts, charsToBuy);
     await cost.assertWithinBudget({ job: await refreshCost(job), buildJob: src.buildJob, estimateUsd: estimate });
     await ctx.update({ 'cost.estimatedUsd': (job.cost?.actualUsd || 0) + estimate });
 
     const audio = [];
     let narrated = true;
-    for (const scene of storyboard.scenes) {
+    const STITCH_MAX_AGE_MS = 2 * 3600 * 1000 - 5 * 60 * 1000; // ElevenLabs: request ids ≤ 2 h old
+    for (const [si, scene] of storyboard.scenes.entries()) {
       ctx.checkpoint();
-      const hash = sha(`${tts.name}|${scene.narration}`);
+      const hash = audioHash(scene);
       const prior = existingAudio.get(scene.n);
       const local = path.join(work, `audio_${String(scene.n).padStart(2, '0')}`);
       if (prior && prior.hash === hash && await storage.exists(prior.key)) {
@@ -145,7 +221,47 @@ async function runLessonVideo(job, ctx) {
         if (prior.silent) narrated = false;
         continue;
       }
-      const res = await tts.synthesize(scene.narration, local, { language: cfg.language, signal: ctx.signal });
+      // Request stitching: the narrator "hears" the previous scenes and knows what comes next.
+      const recentIds = audio.filter(a => a.requestId && a.at && Date.now() - a.at < STITCH_MAX_AGE_MS && a.provider === tts.name).map(a => a.requestId).slice(-3);
+      let res;
+      let spans = null;
+      const parts = scene.parts?.length > 1 ? scene.parts : null;
+      if (parts) {
+        // One recording per step, joined with a pause: each line then stays on
+        // screen exactly while the teacher explains it.
+        const files = [];
+        const partSeconds = [];
+        const ids = [];
+        let chars = 0;
+        let silentPart = false;
+        for (const [pi, text] of parts.entries()) {
+          ctx.checkpoint();
+          const r = await tts.synthesize(text, `${local}_p${pi}`, {
+            language: cfg.language,
+            signal: ctx.signal,
+            previousRequestIds: [...recentIds, ...ids].slice(-3),
+            previousText: pi ? parts[pi - 1] : storyboard.scenes[si - 1]?.narration,
+            nextText: parts[pi + 1] || storyboard.scenes[si + 1]?.narration,
+          });
+          files.push(r.file);
+          partSeconds.push(await assembler.mediaDuration(r.file, { signal: ctx.signal }));
+          if (r.requestId) ids.push(r.requestId);
+          chars += r.chars;
+          silentPart = silentPart || !!r.silent;
+        }
+        const pause = assembler.stepPause();
+        const file = await assembler.joinAudio(files, pause, `${local}.wav`, { signal: ctx.signal });
+        spans = partSeconds.map((p, i) => p + (i < parts.length - 1 ? pause : 0));
+        res = { file, requestId: ids[ids.length - 1] || null, chars, silent: silentPart };
+      } else {
+        res = await tts.synthesize(scene.narration, local, {
+          language: cfg.language,
+          signal: ctx.signal,
+          previousRequestIds: recentIds,
+          previousText: storyboard.scenes[si - 1]?.narration,
+          nextText: storyboard.scenes[si + 1]?.narration,
+        });
+      }
       const seconds = await assembler.mediaDuration(res.file, { signal: ctx.signal });
       if (!(seconds > 0.3)) throw Object.assign(new Error(`Narration for scene ${scene.n} is empty`), { retryable: true, code: 'AUDIO_EMPTY' });
       const key = `${videoJobs.AI_VIDEO_PREFIX}work/${job._id}/scene_${String(scene.n).padStart(2, '0')}${path.extname(res.file)}`;
@@ -154,7 +270,7 @@ async function runLessonVideo(job, ctx) {
       await ctx.addCost({ stage: 'generating_audio', provider: tts.name, units: res.chars, unit: 'chars', usd, requestId: res.requestId, ttsChars: res.chars });
       await ctx.addProviderRequest({ stage: 'generating_audio', provider: tts.name, requestId: res.requestId });
       if (res.silent) narrated = false;
-      const entry = { scene: scene.n, key, hash, seconds, provider: tts.name, silent: !!res.silent };
+      const entry = { scene: scene.n, key, hash, seconds, spans, provider: tts.name, silent: !!res.silent, requestId: res.requestId || null, at: Date.now() };
       audio.push({ ...entry, file: res.file });
       await ctx.saveArtifacts({ audio: audio.map(({ file, ...a }) => a) });
     }
@@ -173,11 +289,28 @@ async function runLessonVideo(job, ctx) {
         throw Object.assign(new Error(`Textbook figure ${f.id} could not be downloaded: ${e.message}`), { retryable: true, code: 'ASSET_MISSING' });
       }
     }
+    // Licensed real-world photos and clips for scenes that asked for them.
+    let media = new Map();
+    if (storyboard.scenes.some(s => s.media?.query)) {
+      await ctx.stage('generating_visuals', 'Finding photos and video clips');
+      // Lesson vocabulary: a picture for "hand holding quadrat frame" must show a quadrat.
+      const topic = stockMedia.topicTerms(src.title, storyboard.title || '', (src.content.keyTerms || []).map(t => t?.term || ''));
+      ({ media } = await loadOrFindMedia(job, storyboard, work, ctx, { topic }));
+      ctx.checkpoint();
+    }
+    const credits = [...new Map([...media.values()].map(a => [`${a.provider}:${a.id}`, a])).values()]
+      .map(a => stockMedia.creditOf(a));
+    const extraScenes = credits.length
+      ? [{ type: 'credits', n: storyboard.scenes.length + 1, heading: 'Photo and video credits', items: credits, narration: '', sourcePages: [], onScreenLabels: [], transition: 'fade' }]
+      : [];
+    await ctx.stage('generating_visuals', 'Rendering animated scenes');
     const rendered = await renderScenes(storyboard, {
       lessonTitle: src.title,
       subjectLabel: subject.key === 'general' ? 'Lesson' : subject.key.replace('_', ' '),
       totalScenes: storyboard.scenes.length,
       figures,
+      media,
+      extraScenes,
     }, work, { signal: ctx.signal });
     const missing = rendered.filter(r => !r.frames.length);
     if (missing.length) throw Object.assign(new Error(`No frames rendered for scene(s) ${missing.map(m => m.scene).join(', ')}`), { retryable: true, code: 'VISUALS_MISSING' });
@@ -187,20 +320,39 @@ async function runLessonVideo(job, ctx) {
     const segments = [];
     for (const [i, scene] of storyboard.scenes.entries()) {
       ctx.checkpoint();
+      const asset = media.get(scene.n);
       const seg = await assembler.buildSegment({
-        frames: rendered[i].frames,
+        states: rendered[i].states,
         audioFile: audio[i].file,
         audioSeconds: audio[i].seconds,
         outFile: path.join(work, `segment_${String(scene.n).padStart(2, '0')}.mp4`),
-        transition: scene.transition,
+        transition: scene.type === 'check' ? 'cut' : scene.transition,
+        background: backgroundFor(scene, asset, layoutOf(scene, asset)),
+        tail: scene.type === 'check' ? THINK_SECONDS : assembler.TAIL,
+        holdLastForTail: scene.type === 'check', // all choices stay on screen during the thinking pause
+        animFps: animFps(),
+        stateSeconds: scaledSpans(audio[i]),
       }, { signal: ctx.signal });
       segments.push(seg);
     }
+    const sceneSegments = segments.slice();
+    if (extraScenes.length) {
+      const r = rendered[rendered.length - 1];
+      segments.push(await assembler.buildSegment({
+        states: r.states,
+        audioFile: null,
+        audioSeconds: CREDITS_SECONDS,
+        outFile: path.join(work, 'segment_credits.mp4'),
+        transition: 'fade',
+        animFps: animFps(),
+      }, { signal: ctx.signal }));
+    }
     const finalFile = await assembler.concatSegments(segments.map(s => s.file), path.join(work, 'lesson.mp4'), { signal: ctx.signal });
+    const interactions = interactionsFor(storyboard.scenes, sceneSegments, audio);
 
     // ── 5. Validation + upload ──────────────────────────────────────────
     await stage('validating', 'Checking the video');
-    const captions = buildCaptions(storyboard.scenes, segments.map(s => s.seconds), assembler.LEAD_IN);
+    const captions = buildCaptions(storyboard.scenes, sceneSegments.map(s => s.seconds), assembler.LEAD_IN, audio.map(scaledSpans));
     const expectedSeconds = segments.reduce((a, s) => a + s.seconds, 0);
     const result = await validateVideo({
       file: finalFile,
@@ -237,6 +389,8 @@ async function runLessonVideo(job, ctx) {
       sceneCount: storyboard.scenes.length,
       narrated,
       transcript: captions.transcript,
+      interactions,
+      credits,
     };
   } finally {
     await fsp.rm(work, { recursive: true, force: true }).catch(() => {});
@@ -260,4 +414,4 @@ runLessonVideo.onRetryScheduled = async (jobId) => {
   await videoJobs.applyJobStatus(jobId);
 };
 
-module.exports = { runLessonVideo, loadSource, STAGES };
+module.exports = { runLessonVideo, loadSource, loadOrFindMedia, backgroundFor, interactionsFor, STAGES, THINK_SECONDS };

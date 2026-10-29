@@ -132,7 +132,8 @@ class LessonVideoInfoCard extends StatelessWidget {
     if (v == null || !v.isWatchable) return const SizedBox.shrink();
     final hasTranscript = (v.transcript ?? '').trim().isNotEmpty;
     final regenerating = v.isProcessing;
-    if (!v.stale && v.disclosure == null && !hasTranscript && !regenerating) return const SizedBox.shrink();
+    final checks = v.interactions.length;
+    if (!v.stale && v.disclosure == null && !hasTranscript && !regenerating && checks == 0 && v.credits.isEmpty) return const SizedBox.shrink();
 
     final surface = isDark ? const Color(0xFF1E293B) : Colors.white;
     final border = isDark ? const Color(0xFF334155) : const Color(0xFFE5E7EB);
@@ -154,6 +155,14 @@ class LessonVideoInfoCard extends StatelessWidget {
               text: 'This video was made for an earlier version of the lesson. The notes are up to date.'),
         if (regenerating)
           _Notice(icon: Icons.autorenew, color: const Color(0xFF15803D), background: const Color(0xFFDCFCE7), text: 'An updated video is being prepared (${v.statusLabel.toLowerCase()}).'),
+        if (checks > 0)
+          _Notice(
+              icon: Icons.quiz_outlined,
+              color: const Color(0xFF15803D),
+              background: const Color(0xFFDCFCE7),
+              text: checks == 1
+                  ? 'This video pauses once with a quick question — answer it to keep going.'
+                  : 'This video pauses $checks times with quick questions — answer them to keep going.'),
         if (hasTranscript)
           Theme(
             data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -165,6 +174,34 @@ class LessonVideoInfoCard extends StatelessWidget {
               subtitle: Text('Read along with the narration', style: TextStyle(color: muted, fontSize: 12)),
               children: [
                 SelectableText(v.transcript!, style: TextStyle(color: text, fontSize: 14, height: 1.5)),
+              ],
+            ),
+          ),
+        if (v.credits.isNotEmpty)
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              key: const ValueKey('lesson-video-credits'),
+              tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+              childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              leading: Icon(Icons.photo_library_outlined, color: muted),
+              title: Text('Photo and video credits', style: TextStyle(fontWeight: FontWeight.w600, color: text, fontSize: 14)),
+              subtitle: Text('${v.credits.length} licensed ${v.credits.length == 1 ? 'item' : 'items'} used in this video', style: TextStyle(color: muted, fontSize: 12)),
+              children: [
+                for (final c in v.credits)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Icon(c.kind == 'video' ? Icons.videocam_outlined : Icons.image_outlined, size: 16, color: muted),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          if (c.title.isNotEmpty) Text(c.title, style: TextStyle(color: text, fontSize: 13, fontWeight: FontWeight.w600)),
+                          SelectableText(c.line + (c.sourceUrl != null ? '\n${c.sourceUrl}' : ''), style: TextStyle(color: muted, fontSize: 12, height: 1.4)),
+                        ]),
+                      ),
+                    ]),
+                  ),
               ],
             ),
           ),

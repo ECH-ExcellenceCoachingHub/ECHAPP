@@ -100,6 +100,24 @@ On success the result is mirrored onto the draft and, once published, the lesson
 
 Lesson edits increment `contentVersion` and mark existing videos `stale`; with `VIDEO_REGENERATE_ON_CHANGE=manual` (default) nothing is regenerated automatically.
 
+### 6a. Motion graphics, real-world media and in-video checks (renderer v2)
+
+**Motion.** Each new element enters with a CSS animation (rise, write-on for formula and worked-example steps, pop for flow nodes and quiz choices, pulse for figure highlights, slide-in lower thirds). The renderer pauses the animations and screenshots them at fixed times (`VIDEO_ANIM_FPS`, default 15, for 0.6 s), then holds the final frame, so every render is identical.
+
+**Licensed photos and clips.** The planner adds a short search phrase (`media: { query, kind, alternatives }`) to the title, to `media` scenes (full-screen photo or clip with animated key points) and to bullet and experiment scenes (photo or clip in a framed panel beside the points). When it asks for fewer than three, the scene heading is used as the phrase. The worker searches the enabled providers, ranks results by how many of the phrase's words appear in their title, tags and description, and rejects weak matches. If the phrase names a lesson topic word (from the lesson title and key terms, such as "quadrat"), the result must contain that word. Nothing is shown rather than an unrelated picture.
+
+| Provider | Key | Licence handling |
+|---|---|---|
+| Wikimedia Commons | none (identify yourself with `VIDEO_STOCK_USER_AGENT`) | CC0, public domain and CC BY only; CC BY-SA only with `VIDEO_STOCK_ALLOW_SHARE_ALIKE=true`; NC/ND and unknown licences rejected |
+| Pexels | `PEXELS_API_KEY` | Pexels licence (credit given anyway) |
+| Pixabay | `PIXABAY_API_KEY` | Pixabay content licence; files are always downloaded to our storage (no hotlinking); searches cached 24 h |
+
+Pinterest and similar sites are not supported: they have no API or licence for reusing other people's pins. Openverse was evaluated but its API timed out during development, so it is not included.
+
+Chosen files are downloaded once, normalised (photos to JPEG, clips to 1280×720 H.264 without sound, at most 30 s) and stored under `stock-media/<provider>/<id>` with a credit file next to them; later videos reuse them. FFmpeg puts the photo (slow zoom or pan) or clip under the transparent animated overlay. Exact content (formulas, graphs, tables, textbook figures) never sits on stock media. Every photo carries an on-screen credit, and a 4-second "Photo and video credits" slide closes the video. Requests are paced (`VIDEO_STOCK_MIN_INTERVAL_MS`), throttling answers are retried, and a provider that keeps refusing is skipped for a minute; a failed search never fails the video. Retries of a job reuse the media already chosen.
+
+**Interactive checks.** The planner adds 1–2 `check` scenes (question, 2–4 choices, answer, explanation). Each becomes a question scene, which ends with a 3.5 s "pause and choose" hold showing all choices, followed by an answer-reveal scene. The job output and the lesson's video record carry `interactions` (`at`, `resumeAt`, question, choices, answer, explanation) and `credits`. The app pauses at `at`, shows the question over the player, gives feedback with the explanation and continues from the answer reveal. Answer keys whose numbers do not appear in the lesson are flagged in the storyboard warnings for review.
+
 ## 7. Subject templates (`src/services/video/subjects.js`)
 
 | Subject | Scene emphasis |
@@ -161,6 +179,13 @@ Required on the worker: `MONGODB_URI`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_K
 | `MEDIA_WORKER_CONCURRENCY`, `VIDEO_FFMPEG_THREADS` | 1 / 2 | resource limits |
 | `FIGURE_EXTRACTION_ENABLED`, `FIGURE_EXTRACTOR_DPI`, `FIGURE_EXTRACTOR_CONFIG`, `FIGURE_WAIT_SECONDS`, `FIGURE_OCR_MAX` | true / 140 / — / 180 / 40 | figure extraction |
 | `GEMINI_API_KEY` | — | optional OCR of raster labels |
+| `VIDEO_STOCK_MEDIA` | true | licensed photos and clips in videos |
+| `VIDEO_STOCK_PROVIDERS` | `pexels,pixabay,wikimedia` | search order; providers without a key are skipped |
+| `PEXELS_API_KEY`, `PIXABAY_API_KEY` | — | free keys from pexels.com/api and pixabay.com/api/docs; strongly recommended for video clips |
+| `VIDEO_STOCK_USER_AGENT` | `ECH-CourseBuilder/1.0 (educational lesson videos)` | set to include a contact email or URL (Wikimedia API etiquette) |
+| `VIDEO_STOCK_ALLOW_SHARE_ALIKE` | false | also accept CC BY-SA photos from Wikimedia (check your licensing position first) |
+| `VIDEO_STOCK_MIN_MATCH`, `VIDEO_STOCK_MAX_ITEMS`, `VIDEO_STOCK_MAX_VIDEO_MB`, `VIDEO_STOCK_MAX_CLIP_SECONDS`, `VIDEO_STOCK_MIN_INTERVAL_MS` | 0.5 / 8 / 60 / 30 / 1000 | relevance threshold, media per video, download and clip limits, request pacing |
+| `VIDEO_ANIM_FPS` | 15 | animation sampling rate (0 disables entrance animations) |
 | `GENERATION_RATE_LIMIT`, `GENERATION_RATE_WINDOW_MS` | 30 / 600000 | admin endpoint rate limit |
 
 Deployment steps: deploy the API as usual → `node scripts/createMediaIndexes.js` → create the worker → set `VIDEO_TTS_COST_PER_1K_CHARS` if ElevenLabs is used → upload a small PDF and watch the build's media card. Without a running worker, jobs simply wait in `queued` and lessons stay fully usable.
@@ -173,19 +198,46 @@ Local development: `cd backend/python && python -m venv .venv && .venv/Scripts/p
 
 | Suite | Covers |
 |---|---|
-| `python/tests` (13) | page numbering, vector graphs + labels + label positions, captions (figures/tables, below/above), raster callouts, OCR flag, overlapping images, decorative filtering, tables, caption-without-figure reported incomplete, duplicates, two-column reading order, CLI errors |
+| `python/tests` (18) | real-book layouts (long `FIGURE n.n:` captions, unnumbered `FIGURE (…)` captions, left-aligned captions under centred figures, paragraph tails and page markers excluded from labels, shared frames not flagged as duplicates), page numbering, vector graphs + labels + label positions, captions (figures/tables, below/above), raster callouts, OCR flag, overlapping images, decorative filtering, tables, caption-without-figure reported incomplete, duplicates, two-column reading order, CLI errors |
 | `test/unit.test.js` (12) | expression parser, arithmetic/formula/calculation/hazard checks, storyboard validation (invented figures, LaTeX fallback, graph rejection, invented measurements, safety, ledger balance, length expansion), captions, subjects/experiments, figure-id validation, cost rules, deterministic plots |
 | `test/queue.test.js` (10) | duplicate prevention under concurrency, exclusive claims, backoff, max attempts, non-retryable errors, lease-expiry recovery, requeue, stages/artifacts/costs, timeout, cancellation, graceful release |
 | `test/builder-video.test.js` (6) | job created after lesson persistence and only once, videos off, publish sync, stale on edit without overwriting, teacher video protected, review gating + student sanitising, failure mirrored + retry |
 | `test/e2e.test.js` (9) | PDF → worker extraction → asset library; book re-upload reuse; lesson with textbook figures queues explainer + experiment; real render/validate/store of both; publish → playback via `videoId`; unreviewed experiment not streamable; visuals-only regeneration reuses script; failing re-render keeps the valid video; budget stop before paid calls; invalid file detection |
-| Flutter `test/lesson_video_test.dart` (11) | parsing incl. older lessons, processing/failed/review states, notes/quiz fallback, small-phone layout, transcript/disclosure/stale card |
+| `test/media.test.js` (16) | Commons licence rules on real API data, Pexels/Pixabay parsing, relevance and topic gate, fallback queries, photo fallback for clips, provider errors, 429/overload retry and cool-down, download size/type limits, clip normalisation and storage reuse, media and check scenes in the storyboard, transparent overlays, frame timing, FFmpeg compositing (pixel-checked), full worker run with media, a check question and credits, retry reuse |
+| Flutter `test/lesson_video_test.dart` (16) | parsing incl. older lessons, processing/failed/review states, notes/quiz fallback, small-phone layout, transcript/disclosure/stale card |
 
 The real planner (Groq) was also exercised once with maths and accounting lessons: both storyboards validated without warnings and rendered to ~2:15 videos.
 
+### Docker end-to-end test (real textbook)
+
+The worker image (`Dockerfile.worker`) was built and run against a throwaway `mongo:7` container on a private Docker network, with `MEDIA_STORAGE_DRIVER=local` on a mounted folder, `VIDEO_TTS_PROVIDER=espeak` and only `GROQ_API_KEY` passed in (no production database, S3 or ElevenLabs). Test book: *Biology S6 Student Book* (349 pages).
+
+| Step | Result |
+|---|---|
+| Figure extraction in the container | completed on attempt 1 in 47 s; 331 figures/tables, 329 `ok`, 2 `needs_review` (uncaptioned diagrams), 3 caption-only, 0 duplicates; 331 PNGs + `figures.json` stored; build job marked `completed` |
+| Unit 1 spot check (pp. 8–24) | all 9 numbered figures, 8 unnumbered illustrations and Table 1.1 matched to the correct captions (the book has no Figure 1.4) |
+| Explainer video (quadrats & line transects, using Figures 1.5 and 1.6) | completed in 42 s: 1280×720 H.264 + AAC, 2:26, 9 scenes, espeak narration (mean −20.6 dB), WebVTT captions and poster stored; both textbook figures shown with captions and page numbers |
+| Experiment video (same lesson) | completed in 37 s: 2:09, 9 scenes (apparatus, safety, set-up, procedure, figures, calculation), "Simulated demonstration" banner on every scene |
+| `docker stop` | SIGTERM handled, exit code 0 |
+
+Renderer v2 (motion, stock media, checks) was then run the same way with the real Groq planner, live Wikimedia Commons search and espeak narration on the same Biology lesson:
+
+| Video | Result |
+|---|---|
+| Explainer | completed in 136 s; 2:20, 13 scenes, 2 interactive checks with correct answer keys, 2 Commons photos with on-screen credits plus a credits slide; all quality checks passed |
+| Experiment demo | completed in 125 s; 2:41, 4 Commons photos (full-screen title, framed panels), 1 check; all quality checks passed |
+| Problems found and fixed during the runs | planner used media too rarely (stricter prompt plus heading fallback); Wikimedia throttling (pacing, retries, cool-down; HTTP-200 error bodies are no longer cached as "no results"); a loosely related photo ("Hand in hand" for "hand holding quadrat frame") was accepted (topic gate) |
+
 ## 13. Known limitations
 
-* Narration in the automated tests is silent; ElevenLabs and espeak-ng adapters were not exercised here (no ElevenLabs test call was made; espeak-ng is installed only in the Docker image). The Docker image itself was not built in this environment.
-* Synthetic test PDFs, not real textbooks, were used for extraction tests. Expect threshold tuning (`FIGURE_EXTRACTOR_CONFIG`) on real books, especially scanned books (no embedded images to locate figures), figures split across columns/pages, and dense vector layouts.
+* Stock media was tested live only with Wikimedia Commons. Pexels and Pixabay are built to their official documentation and tested with recorded response shapes, but have not been called live because no keys are configured.
+* Wikimedia Commons has few video clips and many relevant photos are CC BY-SA (off by default), so lessons get fewer and sometimes less fitting pictures (for example underwater quadrat surveys for a grassland lesson). Its search API also throttles bursts. Adding Pexels/Pixabay keys gives more and better matches, especially clips.
+* Relevance is judged from titles, tags and descriptions, not by looking at the picture. The topic gate and the threshold reject most mismatches, but an admin should still watch generated videos before relying on them.
+* The in-player question overlay is shown in the inline player; when a student is in full screen, the mobile player leaves full screen to show it, and the desktop/web players pause without the overlay.
+* Narration in the automated tests is silent. espeak-ng narration was verified in the Docker image; ElevenLabs was not exercised (no ElevenLabs call was made).
+* The Docker image has been run locally only; it has not yet been deployed to Render with this configuration.
+* Extraction has been checked on one real textbook (Biology S6). Other books may need threshold tuning (`FIGURE_EXTRACTOR_CONFIG`), especially scanned books (no embedded images to locate figures), figures split across columns/pages, and dense vector layouts.
+* On the Biology book, 3 captions found no figure region (pp. 306, 322, 323) and 2 diagrams have no caption (pp. 83, 199); these are flagged for review rather than guessed. Crops can include a few pixels of the caption line below the figure (4 pt render padding).
 * OCR of raster labels needs `GEMINI_API_KEY` (not configured in this environment, untested).
 * No third-party text-to-video provider is implemented (none verified); the provider interface is ready in `providers/video.js`.
 * Captions are delivered as a WebVTT file and an in-app transcript; the existing video players do not yet render the VTT track inline.

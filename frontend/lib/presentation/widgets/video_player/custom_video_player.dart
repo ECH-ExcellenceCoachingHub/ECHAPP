@@ -11,6 +11,8 @@ import 'package:excellencecoachinghub/services/video_progress_service.dart';
 import 'package:excellencecoachinghub/utils/media_proxy.dart';
 import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/utils/screen_wakelock.dart';
+import 'package:excellencecoachinghub/models/lesson_video.dart';
+import 'package:excellencecoachinghub/presentation/widgets/video_player/video_checkpoints.dart';
 import 'dart:io';
 import 'dart:async';
 
@@ -22,6 +24,8 @@ class CustomVideoPlayer extends StatefulWidget {
   final String description;
   final bool showAppBar;
   final VoidCallback? onFullScreen;
+  /// "Pause and think" questions of a generated lesson video (empty for normal videos).
+  final List<VideoInteraction> interactions;
 
   const CustomVideoPlayer({
     super.key,
@@ -32,6 +36,7 @@ class CustomVideoPlayer extends StatefulWidget {
     required this.description,
     this.showAppBar = false,
     this.onFullScreen,
+    this.interactions = const [],
   }) : assert(videoUrl != null || externalPlayer != null);
 
   @override
@@ -69,6 +74,40 @@ class _CustomVideoPlayerState extends State<CustomVideoPlayer> {
   Duration _duration = Duration.zero;
 
   List<StreamSubscription> _subscriptions = [];
+
+  late final CheckpointTracker _checkpoints = CheckpointTracker(widget.interactions);
+  VideoInteraction? _activeCheck;
+
+  /// Pause and ask when playback reaches a check question.
+  void _handleCheckpoint(Duration position) {
+    if (_activeCheck != null || _checkpoints.isEmpty) return;
+    final it = _checkpoints.onPosition(position);
+    if (it == null) return;
+    _mkPlayer?.pause();
+    _vpController?.pause();
+    // Listeners can fire mid-frame; update the UI after it, like the rest of this widget.
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _activeCheck = it);
+    });
+  }
+
+  /// After answering, continue from the answer reveal.
+  Future<void> _continueAfterCheck() async {
+    final it = _activeCheck;
+    if (it == null) return;
+    setState(() => _activeCheck = null);
+    if (_mkPlayer != null) {
+      await _mkPlayer!.seek(it.resumeAt);
+      await _mkPlayer!.play();
+    } else if (_vpController != null) {
+      await _vpController!.seekTo(it.resumeAt);
+      await _vpController!.play();
+    }
+  }
+
+  Widget _checkOverlay() => Positioned.fill(
+        child: VideoCheckOverlay(key: ValueKey('check-${_activeCheck!.id}'), interaction: _activeCheck!, onContinue: _continueAfterCheck),
+      );
 
   bool get _isMobile => !kIsWeb && (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS);
   bool get _isAndroid => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
@@ -264,6 +303,7 @@ class _CustomVideoPlayerState extends State<CustomVideoPlayer> {
     }
     
     final position = _vpController!.value.position;
+    _handleCheckpoint(position);
 
     // Hold the screen awake for as long as the video is actually playing, so
     // watching a lesson is never cut short by the screen dimming or locking
@@ -418,6 +458,7 @@ class _CustomVideoPlayerState extends State<CustomVideoPlayer> {
         }
       }),
       _mkPlayer!.stream.position.listen((position) {
+        _handleCheckpoint(position);
         if (mounted) {
           SchedulerBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
@@ -534,6 +575,7 @@ class _CustomVideoPlayerState extends State<CustomVideoPlayer> {
           Chewie(controller: _chewieController!),
           if (_showSlowInternetError)
             _buildSlowInternetOverlay(),
+          if (_activeCheck != null) _checkOverlay(),
         ],
       ),
     );
@@ -705,6 +747,7 @@ class _CustomVideoPlayerState extends State<CustomVideoPlayer> {
             if (_showSlowInternetError)
               _buildSlowInternetOverlay(),
             if (_showControls) _buildMediaKitControls(),
+            if (_activeCheck != null) _checkOverlay(),
           ],
         ),
       ),

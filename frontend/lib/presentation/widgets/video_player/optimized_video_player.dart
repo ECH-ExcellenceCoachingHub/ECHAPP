@@ -6,6 +6,8 @@ import 'package:excellencecoachinghub/config/app_theme.dart';
 import 'package:excellencecoachinghub/services/video_progress_service.dart';
 import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/utils/screen_wakelock.dart';
+import 'package:excellencecoachinghub/models/lesson_video.dart';
+import 'package:excellencecoachinghub/presentation/widgets/video_player/video_checkpoints.dart';
 import 'dart:async';
 
 class OptimizedVideoPlayer extends StatefulWidget {
@@ -16,6 +18,8 @@ class OptimizedVideoPlayer extends StatefulWidget {
   final bool showAppBar;
   final VoidCallback? onFullScreen;
   final double? aspectRatio;
+  /// "Pause and think" questions of a generated lesson video (empty for normal videos).
+  final List<VideoInteraction> interactions;
 
   const OptimizedVideoPlayer({
     super.key,
@@ -26,6 +30,7 @@ class OptimizedVideoPlayer extends StatefulWidget {
     this.showAppBar = false,
     this.onFullScreen,
     this.aspectRatio,
+    this.interactions = const [],
   }) : assert(videoUrl != null);
 
   @override
@@ -42,6 +47,26 @@ class _OptimizedVideoPlayerState extends State<OptimizedVideoPlayer> {
   final double _playbackSpeed = 1.0;
   bool _isSlowNetwork = false;
   final ScreenWakelock _wakelock = ScreenWakelock();
+  late final CheckpointTracker _checkpoints = CheckpointTracker(widget.interactions);
+  VideoInteraction? _activeCheck;
+
+  void _handleCheckpoint(Duration position) {
+    if (_activeCheck != null || _checkpoints.isEmpty) return;
+    final it = _checkpoints.onPosition(position);
+    if (it == null) return;
+    _betterPlayerController?.pause();
+    // Leave full screen so the question is visible on top of the inline player.
+    if (_betterPlayerController?.isFullScreen == true) _betterPlayerController?.exitFullScreen();
+    if (mounted) setState(() => _activeCheck = it);
+  }
+
+  Future<void> _continueAfterCheck() async {
+    final it = _activeCheck;
+    if (it == null) return;
+    setState(() => _activeCheck = null);
+    await _betterPlayerController?.seekTo(it.resumeAt);
+    await _betterPlayerController?.play();
+  }
 
   @override
   void initState() {
@@ -279,6 +304,7 @@ class _OptimizedVideoPlayerState extends State<OptimizedVideoPlayer> {
         switch (event.betterPlayerEventType) {
           case BetterPlayerEventType.progress:
             final position = _betterPlayerController!.videoPlayerController!.value.position;
+            _handleCheckpoint(position);
             if (widget.videoId != null && position.inSeconds % 5 == 0 && position.inSeconds > 0) {
               videoProgressService.saveProgress(widget.videoId!, position);
             }
@@ -410,9 +436,13 @@ class _OptimizedVideoPlayerState extends State<OptimizedVideoPlayer> {
     return SizedBox(
       width: double.infinity,
       height: double.infinity,
-      child: BetterPlayer(
-        controller: _betterPlayerController!,
-      ),
+      child: Stack(children: [
+        Positioned.fill(child: BetterPlayer(controller: _betterPlayerController!)),
+        if (_activeCheck != null)
+          Positioned.fill(
+            child: VideoCheckOverlay(key: ValueKey('check-${_activeCheck!.id}'), interaction: _activeCheck!, onContinue: _continueAfterCheck),
+          ),
+      ]),
     );
   }
 

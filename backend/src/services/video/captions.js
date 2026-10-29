@@ -32,12 +32,32 @@ function chunk(sentence, max = 84) {
  * @param {Array<{narration:string}>} scenes
  * @param {number[]} durations  seconds per scene (segment length in the video)
  * @param {number} leadIn       seconds of silence before narration starts in each segment
+ * @param {Array<number[]|null>} [spans]  per scene: seconds of each narration part (scenes told step by step)
  */
-function buildCaptions(scenes, durations, leadIn = 0.2) {
+function buildCaptions(scenes, durations, leadIn = 0.2, spans = []) {
   const cues = [];
   let offset = 0;
   scenes.forEach((scene, i) => {
     const dur = durations[i] || 0;
+    const sp = spans?.[i];
+    if (scene.parts?.length && sp?.length === scene.parts.length) {
+      // Each part is captioned inside its own time window.
+      let t0 = offset + leadIn;
+      scene.parts.forEach((part, pi) => {
+        const pieces = splitSentences(part).flatMap(s => chunk(s));
+        const chars = pieces.reduce((a, p) => a + p.length, 0) || 1;
+        const speak = Math.max(0.3, sp[pi] - (pi < scene.parts.length - 1 ? 0.6 : 0));
+        let t = t0;
+        for (const p of pieces) {
+          const len = (p.length / chars) * speak;
+          cues.push({ start: t, end: Math.min(offset + dur, t + len), text: p });
+          t += len;
+        }
+        t0 += sp[pi];
+      });
+      offset += dur;
+      return;
+    }
     const parts = splitSentences(scene.narration).flatMap(s => chunk(s));
     const speakable = Math.max(0.5, dur - leadIn - 0.2);
     const totalChars = parts.reduce((a, p) => a + p.length, 0) || 1;

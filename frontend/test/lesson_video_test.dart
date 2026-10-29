@@ -4,6 +4,7 @@ import 'package:excellencecoachinghub/models/lesson.dart';
 import 'package:excellencecoachinghub/models/lesson_video.dart';
 import 'package:excellencecoachinghub/models/course_build.dart';
 import 'package:excellencecoachinghub/presentation/widgets/ai_lesson/lesson_video_status.dart';
+import 'package:excellencecoachinghub/presentation/widgets/video_player/video_checkpoints.dart';
 
 Widget _wrap(Widget child, {Size size = const Size(400, 225)}) => MaterialApp(
       home: Scaffold(body: Center(child: SizedBox(width: size.width, height: size.height, child: child))),
@@ -144,6 +145,91 @@ void main() {
         home: Scaffold(body: LessonVideoInfoCard(video: LessonVideo(status: 'completed', reviewStatus: 'pending', transcript: 'x'))),
       ));
       expect(find.byKey(const ValueKey('lesson-video-info')), findsNothing);
+    });
+  });
+
+  group('Interactive checks and credits', () {
+    const check = {
+      'id': 'check-4', 'at': 41.2, 'resumeAt': 44.9, 'question': 'Density of 25 plants in 5 m²?',
+      'choices': ['5 per m²', '25 per m²', '125 per m²'], 'answerIndex': 0, 'explanation': '25 ÷ 5 = 5',
+    };
+    LessonVideo video() => LessonVideo.fromJson({
+          'status': 'completed', 's3Key': 'ai-videos/x.mp4', 'transcript': 'Hello',
+          'interactions': [
+            check,
+            {'at': 10, 'question': 'Broken', 'choices': ['only one'], 'answerIndex': 0},
+            {'at': 5, 'question': 'Earlier?', 'choices': ['a', 'b'], 'answerIndex': 1},
+          ],
+          'credits': [
+            {'provider': 'wikimedia', 'providerLabel': 'Wikimedia Commons', 'title': 'Quadrat on grass', 'author': 'M. de Casamajor', 'license': 'CC BY 4.0', 'sourceUrl': 'https://commons.wikimedia.org/wiki/File:Q.jpg'},
+            {'nothing': true},
+          ],
+        })!;
+
+    test('parses valid questions sorted by time and drops malformed ones', () {
+      final v = video();
+      expect(v.interactions.map((i) => i.question), ['Earlier?', 'Density of 25 plants in 5 m²?']);
+      final q = v.interactions.last;
+      expect(q.at, const Duration(milliseconds: 41200));
+      expect(q.resumeAt, const Duration(milliseconds: 44900));
+      expect(q.answerIndex, 0);
+      expect(v.credits.single.line, 'M. de Casamajor · Wikimedia Commons · CC BY 4.0');
+      // Older videos have neither.
+      final old = LessonVideo.fromJson({'status': 'completed', 's3Key': 'k'})!;
+      expect(old.interactions, isEmpty);
+      expect(old.credits, isEmpty);
+    });
+
+    test('tracker fires once when playback crosses a question, not when seeking past it', () {
+      final t = CheckpointTracker(video().interactions);
+      expect(t.onPosition(const Duration(seconds: 4)), isNull); // first update only sets the baseline
+      expect(t.onPosition(const Duration(milliseconds: 4600)), isNull);
+      expect(t.onPosition(const Duration(milliseconds: 5100))?.question, 'Earlier?');
+      expect(t.onPosition(const Duration(milliseconds: 5300)), isNull, reason: 'asked once');
+      // A seek over the second question does not fire it…
+      expect(t.onPosition(const Duration(seconds: 50)), isNull);
+      // …and rewinding then playing through it does.
+      expect(t.onPosition(const Duration(seconds: 40)), isNull);
+      expect(t.onPosition(const Duration(milliseconds: 40800)), isNull);
+      expect(t.onPosition(const Duration(milliseconds: 41300))?.id, 'check-4');
+    });
+
+    testWidgets('overlay: answer, see feedback and explanation, continue', (tester) async {
+      var continued = 0;
+      final q = video().interactions.last;
+      await tester.pumpWidget(_wrap(VideoCheckOverlay(interaction: q, onContinue: () => continued++), size: const Size(640, 360)));
+      expect(find.text('Density of 25 plants in 5 m²?'), findsOneWidget);
+      expect(find.text('Continue'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('video-check-choice-1')));
+      await tester.pump();
+      expect(find.textContaining('Not quite — the answer is A. 25 ÷ 5 = 5'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('video-check-choice-0'))); // already answered: no change
+      await tester.pump();
+      expect(find.textContaining('Not quite'), findsOneWidget);
+      await tester.tap(find.text('Continue'));
+      expect(continued, 1);
+    });
+
+    testWidgets('overlay fits a small phone player and can be skipped', (tester) async {
+      var continued = 0;
+      await tester.pumpWidget(_wrap(VideoCheckOverlay(interaction: video().interactions.last, onContinue: () => continued++), size: const Size(320, 180)));
+      expect(tester.takeException(), isNull);
+      await tester.tap(find.text('Skip'));
+      expect(continued, 1);
+      await tester.tap(find.byKey(const ValueKey('video-check-choice-0')));
+      await tester.pump();
+      expect(find.textContaining('Correct!'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('info card announces the questions and lists credits', (tester) async {
+      await tester.pumpWidget(MaterialApp(home: Scaffold(body: SingleChildScrollView(child: LessonVideoInfoCard(video: video())))));
+      expect(find.textContaining('pauses 2 times'), findsOneWidget);
+      expect(find.text('Photo and video credits'), findsOneWidget);
+      await tester.tap(find.text('Photo and video credits'));
+      await tester.pumpAndSettle();
+      expect(find.text('Quadrat on grass'), findsOneWidget);
+      expect(find.textContaining('CC BY 4.0'), findsOneWidget);
     });
   });
 }

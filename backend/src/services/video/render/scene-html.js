@@ -10,10 +10,25 @@ const { parse: parseExpression } = require('../../../utils/mathExpression');
  *
  * Exact content (formulas, numbers, labels, plotted curves) is produced here
  * by code — never by an image/video model.
+ *
+ * Motion: the element that appears in a frame state carries a CSS entrance
+ * animation (rise / write-on / pop / pulse). The renderer samples those
+ * animations at fixed times, so every video renders identically.
+ *
+ * Layouts (layoutOf):
+ *   none  — opaque slide (default)
+ *   split — content on the left, licensed photo/clip in a framed panel on the right
+ *   full  — licensed photo/clip fills the frame; text sits on a dark scrim
+ * For split/full the page is transparent where the media shows; FFmpeg puts
+ * the (Ken Burns-animated) photo or clip underneath.
  */
 
 const W = 1280;
 const H = 720;
+/** Media panel of the split layout (px). */
+const PANEL = { x: 712, y: 156, w: 508, h: 400, r: 18 };
+/** Entrance animations finish within this time; the renderer samples it at ANIM_FPS. */
+const ANIM_SECONDS = 0.6;
 const C = {
   green: '#16A34A', greenLight: '#DCFCE7', greenDark: '#14532D',
   orange: '#EA580C', amberLight: '#FEF3C7', blue: '#2563EB', blueLight: '#EFF6FF',
@@ -25,6 +40,10 @@ const KATEX_CSS = pathToFileURL(require.resolve('katex/dist/katex.min.css')).hre
 
 function esc(s) {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function hostOf(url) {
+  try { return new URL(url).host.replace(/^www\./, ''); } catch (_) { return ''; }
 }
 
 function tex(latex, display = true) {
@@ -60,9 +79,20 @@ function labelHtml(label) {
 
 function range(n) { return Array.from({ length: n }, (_, i) => i); }
 
+/** Frame states of a scene; the first one also animates the heading in. */
 function framesFor(scene) {
+  const states = baseFrames(scene);
+  states[0] = { ...states[0], first: true };
+  return states;
+}
+
+function baseFrames(scene) {
   switch (scene.type) {
     case 'title': return [{ k: 0 }];
+    case 'media': return range((scene.points || []).length + 1).map(i => ({ reveal: i }));
+    case 'check': return range(scene.choices.length + 1).map(i => ({ reveal: i, think: i === scene.choices.length }));
+    case 'check_answer': return [{ answer: true }];
+    case 'credits': return [{ k: 0 }];
     case 'bullets':
     case 'summary': return range(Math.max(1, scene.bullets.length)).map(i => ({ reveal: i + 1 }));
     case 'formula': return range(scene.steps.length).map(i => ({ reveal: i + 1 }));
@@ -190,10 +220,30 @@ const PHASE = {
   explanation: ['Scientific explanation', '💡'], conclusion: ['Conclusion', '✅'], questions: ['Questions for you', '❓'],
 };
 
+const LETTERS = 'ABCD';
+
+function choicesHtml(scene, state) {
+  return `<div class="choices">${scene.choices.map((c, i) => {
+    let cls;
+    if (state.answer) cls = i === scene.answerIndex ? 'on correct' : 'on wrong';
+    else cls = i < state.reveal ? (i === state.reveal - 1 ? 'on current' : 'on') : 'off';
+    return `<div class="choice ${cls}"><span class="letter">${state.answer && i === scene.answerIndex ? '✓' : LETTERS[i]}</span><span>${esc(c)}</span></div>`;
+  }).join('')}</div>`;
+}
+
 function body(scene, state, ctx) {
   switch (scene.type) {
     case 'title':
       return `<div class="title-wrap"><div class="kicker">${esc(ctx.subjectLabel)}</div><h1 class="big">${esc(scene.heading)}</h1>${scene.subtitle ? `<p class="sub">${esc(scene.subtitle)}</p>` : ''}</div>`;
+    case 'media':
+      // Without a found asset the scene is shown as plain points.
+      return list(scene.points?.length ? scene.points : [scene.heading], Math.max(1, state.reveal));
+    case 'check':
+      return `<div class="check"><div class="q">${esc(scene.question)}</div>${choicesHtml(scene, state)}${state.think ? '<div class="think current">⏸&nbsp; Pause and choose your answer</div>' : ''}</div>`;
+    case 'check_answer':
+      return `<div class="check"><div class="q">${esc(scene.question)}</div>${choicesHtml(scene, state)}${scene.explanation ? `<div class="why current">💡 ${esc(scene.explanation)}</div>` : ''}</div>`;
+    case 'credits':
+      return `<div class="credits">${scene.items.map(c => `<div class="credit-row"><b>${esc(c.title || (c.kind === 'video' ? 'Video' : 'Photo'))}</b><span>${esc(c.author)} · ${esc(c.providerLabel)} · ${esc(c.license)}${c.sourceUrl ? ` · ${esc(hostOf(c.sourceUrl))}` : ''}</span></div>`).join('')}</div>`;
     case 'bullets':
     case 'summary':
       return list(scene.bullets, state.reveal, scene.type === 'summary' ? 'summary' : '');
@@ -224,7 +274,7 @@ function body(scene, state, ctx) {
     }
     case 'worked_example': {
       const steps = scene.steps.map((s, i) => `<div class="wstep ${i < state.reveal ? (i === state.reveal - 1 && !state.answer ? 'on current' : 'on') : 'off'}"><span class="num">${i + 1}</span><div>${s.latex && !isProseLatex(s.latex) ? tex(s.latex, false) : esc(s.text || s.latex)}${s.latex && s.text && !isProseLatex(s.latex) ? `<div class="fnote">${esc(s.text)}</div>` : ''}</div></div>`).join('');
-      return `<div class="worked"><div class="problem"><b>Problem.</b> ${esc(scene.problem)}</div><div class="wsteps">${steps}</div>${state.answer ? `<div class="answer">Answer: ${esc(scene.answer)}</div>` : ''}</div>`;
+      return `<div class="worked">${scene.problem ? `<div class="problem"><b>Problem.</b> ${esc(scene.problem)}</div>` : ''}<div class="wsteps">${steps}</div>${state.answer ? `<div class="answer">Answer: ${esc(scene.answer)}</div>` : ''}</div>`;
     }
     case 'table': return tableHtml(scene, state.reveal, false);
     case 'ledger': return tableHtml(scene, state.reveal, true);
@@ -336,18 +386,124 @@ h1.big{font-size:60px;line-height:1.1;margin:22px 0 14px;font-weight:800;letter-
 .exp{width:100%;max-width:1080px}
 .phase{display:inline-flex;gap:12px;align-items:center;font-size:24px;font-weight:800;background:#fff;border:2px solid ${C.border};border-radius:999px;padding:6px 18px;margin-bottom:8px}
 .exp-safety .phase{background:${C.amberLight};border-color:#F59E0B;color:#92400E}
+
+/* ── motion: entrance animations (sampled deterministically by the renderer) ── */
+@keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+@keyframes pop{0%{opacity:0;transform:scale(.82)}70%{opacity:1;transform:scale(1.04)}100%{opacity:1;transform:none}}
+@keyframes write{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes grow{from{width:0}to{width:84px}}
+@keyframes slidein{from{opacity:0;transform:translateX(-46px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%{opacity:0;transform:scale(1.35)}60%{opacity:1;transform:scale(.97)}100%{opacity:1;transform:none}}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.first h2.heading{animation:rise .45s cubic-bezier(.2,.8,.2,1) both}
+.first h2.heading:after{animation:grow .45s .15s ease-out both}
+.list li.current,.tl.current,.bubble.current,.tbl tr.current td,.wstep.current .num{animation:rise .45s cubic-bezier(.2,.8,.2,1) both}
+.fstep.current .fmath,.wstep.current>div{animation:write .55s linear both}
+.fstep.current{animation:fadein .2s both}
+.node.current,.choice.current,.think.current{animation:pop .45s cubic-bezier(.2,.8,.2,1) both}
+.hl.active{animation:pulse .5s cubic-bezier(.2,.8,.2,1) both}
+.answer{animation:pop .45s both}
+.first .kicker{animation:pop .45s both}
+.first h1.big{animation:rise .5s .08s cubic-bezier(.2,.8,.2,1) both}
+.first .sub{animation:fadein .35s .25s both}
+
+/* ── check questions ── */
+.check{width:100%;max-width:1060px;display:flex;flex-direction:column;gap:16px}
+.q{font-size:32px;font-weight:800;line-height:1.25}
+.choices{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.choice{display:flex;align-items:center;gap:16px;background:#fff;border:3px solid ${C.border};border-radius:16px;padding:14px 18px;font-size:24px;min-height:74px}
+.choice .letter{flex:0 0 42px;height:42px;border-radius:50%;background:${C.blueLight};color:${C.blue};font-weight:800;display:flex;align-items:center;justify-content:center;font-size:20px}
+.choice.off{opacity:0}
+.choice.current{border-color:${C.blue}}
+.choice.correct{border-color:${C.green};background:${C.greenLight};animation:pulse .5s both}
+.choice.correct .letter{background:${C.green};color:#fff}
+.choice.wrong{opacity:.4}
+.think{align-self:center;background:${C.text};color:#fff;font-weight:700;font-size:22px;padding:10px 22px;border-radius:999px}
+.why{font-size:22px;background:#fff;border-left:6px solid ${C.green};border-radius:12px;padding:12px 18px;animation:rise .45s .15s both}
+.credits{width:100%;max-width:1060px;display:flex;flex-direction:column;gap:10px}
+.credit-row{display:flex;flex-direction:column;background:#fff;border-radius:12px;padding:12px 18px;font-size:21px;box-shadow:0 4px 16px rgba(17,24,39,.06)}
+.credit-row span{color:${C.muted};font-size:17px;margin-top:2px}
+
+/* ── split layout: media panel on the right ── */
+.split .content{padding-right:${W - PANEL.x + 24}px;justify-content:flex-start}
+.split .list li{font-size:25px;margin:8px 0;padding:10px 14px}
+.split .exp,.split .list{max-width:100%}
+.bgmask{position:absolute;inset:0;z-index:-1}
+.panel-credit{position:absolute;left:${PANEL.x}px;top:${PANEL.y + PANEL.h + 10}px;width:${PANEL.w}px;font-size:13px;color:${C.muted};text-align:right}
+
+/* ── full layout: media fills the frame ── */
+.full{color:#fff}
+.full .brand,.full .footer{color:rgba(255,255,255,.85)}
+.full .brand b{color:#4ADE80}
+.full .dots span{background:rgba(255,255,255,.35)}
+.full .dots span.on{background:#4ADE80}
+.scrim{position:absolute;inset:0}
+.scrim.title{background:linear-gradient(180deg,rgba(2,6,23,.45) 0%,rgba(2,6,23,.55) 50%,rgba(2,6,23,.75) 100%)}
+.scrim.media{background:linear-gradient(180deg,rgba(2,6,23,.45) 0%,rgba(2,6,23,0) 22%,rgba(2,6,23,0) 42%,rgba(2,6,23,.82) 100%)}
+.full .title-wrap{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);margin:0 auto}
+.full .kicker{background:#4ADE80;color:#052e16}
+.full .sub{color:rgba(255,255,255,.88)}
+.full h1.big{text-shadow:0 4px 24px rgba(0,0,0,.45)}
+.lower{position:absolute;left:64px;right:64px;bottom:64px}
+.lt-bar{display:inline-block;background:${C.green};padding:10px 22px 12px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.lt-bar h2{font-size:36px;font-weight:800;letter-spacing:-.4px;color:#fff}
+.first .lt-bar{animation:slidein .5s cubic-bezier(.2,.8,.2,1) both}
+.chips{display:flex;flex-wrap:wrap;gap:12px;margin-top:14px;max-width:1100px}
+.chip{background:rgba(255,255,255,.95);color:${C.text};font-size:24px;font-weight:600;padding:10px 18px;border-radius:12px;box-shadow:0 8px 22px rgba(0,0,0,.25)}
+.chip.off{opacity:0}
+.chip.current{animation:pop .45s cubic-bezier(.2,.8,.2,1) both}
+.full-credit{position:absolute;right:64px;bottom:44px;font-size:13px;color:rgba(255,255,255,.8);text-shadow:0 1px 4px rgba(0,0,0,.6)}
+.full .lower{bottom:72px}
 `;
+
+/**
+ * How a scene is laid out, given the stock media found for it.
+ * @returns {'none'|'split'|'full'}
+ */
+function layoutOf(scene, asset) {
+  if (!asset) return 'none';
+  if (scene.type === 'media' || scene.type === 'title') return 'full';
+  if (scene.type === 'bullets' || scene.type === 'experiment') return 'split';
+  return 'none';
+}
+
+function panelMask() {
+  const { x, y, w, h, r } = PANEL;
+  const hole = `M${x + r} ${y}H${x + w - r}A${r} ${r} 0 0 1 ${x + w} ${y + r}V${y + h - r}A${r} ${r} 0 0 1 ${x + w - r} ${y + h}H${x + r}A${r} ${r} 0 0 1 ${x} ${y + h - r}V${y + r}A${r} ${r} 0 0 1 ${x + r} ${y}Z`;
+  return `<svg class="bgmask" xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><defs>
+<linearGradient id="bgg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".6" stop-color="${C.bg}"/><stop offset="1" stop-color="#EEF7F1"/></linearGradient>
+<filter id="sh" x="-10%" y="-10%" width="120%" height="120%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#111827" flood-opacity=".18"/></filter></defs>
+<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="none" stroke="#fff" stroke-width="10" filter="url(#sh)"/>
+<path fill="url(#bgg)" fill-rule="evenodd" d="M0 0H${W}V${H}H0Z ${hole}"/>
+<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="none" stroke="#fff" stroke-width="6"/></svg>`;
+}
 
 /** Full HTML document for one frame. */
 function renderFrame(scene, state, ctx) {
+  const asset = ctx.media?.get(scene.n) || null;
+  const layout = layoutOf(scene, asset);
   const disclosure = scene.disclosure ? `<div class="disclosure">${esc(scene.disclosure)}</div>` : '';
   const pages = scene.sourcePages?.length ? `Source: textbook p. ${scene.sourcePages.join(', ')}` : '';
   const dots = Array.from({ length: ctx.totalScenes }, (_, i) => `<span class="${i < scene.n ? 'on' : ''}"></span>`).join('');
-  const labels = scene.onScreenLabels?.length ? `<div class="labels">${scene.onScreenLabels.map(l => `<span>${esc(l)}</span>`).join('')}</div>` : '';
-  const heading = scene.type === 'title' ? '' : `<h2 class="heading">${esc(scene.heading || '')}</h2>`;
-  return `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="${KATEX_CSS}"><style>${CSS}</style></head>
-<body><div class="frame"><div class="brand"><b>ECH</b> · ${esc(ctx.lessonTitle)}</div>${disclosure}${heading}<div class="content">${body(scene, state, ctx)}</div>${labels}
-<div class="footer"><span>${esc(pages)}</span><span class="dots">${dots}</span></div></div></body></html>`;
+  const labels = scene.onScreenLabels?.length && layout !== 'full' ? `<div class="labels">${scene.onScreenLabels.map(l => `<span>${esc(l)}</span>`).join('')}</div>` : '';
+  const brand = `<div class="brand"><b>ECH</b> · ${esc(ctx.lessonTitle)}</div>`;
+  const footer = `<div class="footer"><span>${esc(pages)}</span><span class="dots">${dots}</span></div>`;
+  const cls = [layout === 'none' ? '' : layout, state.first ? 'first' : ''].join(' ');
+  const bodyBg = layout === 'none' ? '' : '<style>html,body{background:transparent!important}</style>';
+
+  let inner;
+  if (layout === 'full' && scene.type === 'title') {
+    inner = `<div class="scrim title"></div>${brand}${disclosure}${body(scene, state, ctx)}<div class="full-credit">${esc(asset.credit)}</div>${footer}`;
+  } else if (layout === 'full') {
+    const chips = (scene.points || []).map((p, i) => `<div class="chip ${i < state.reveal ? (i === state.reveal - 1 ? 'on current' : 'on') : 'off'}">${esc(p)}</div>`).join('');
+    inner = `<div class="scrim media"></div>${brand}${disclosure}<div class="lower"><div class="lt-bar"><h2>${esc(scene.heading || '')}</h2></div><div class="chips">${chips}</div></div><div class="full-credit">${esc(asset.credit)}</div>${footer}`;
+  } else {
+    const heading = scene.type === 'title' ? '' : `<h2 class="heading">${esc(scene.heading || '')}</h2>`;
+    const panel = layout === 'split' ? `${panelMask()}<div class="panel-credit">${esc(asset.credit)}</div>` : '';
+    inner = `${panel}${brand}${disclosure}${heading}<div class="content">${body(scene, state, ctx)}</div>${labels}${footer}`;
+  }
+  return `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="${KATEX_CSS}"><style>${CSS}</style>${bodyBg}</head>
+<body><div class="frame ${cls}">${inner}</div></body></html>`;
 }
 
-module.exports = { framesFor, renderFrame, plotSvg, sampleGraph, W, H, esc };
+module.exports = { framesFor, renderFrame, layoutOf, plotSvg, sampleGraph, W, H, PANEL, ANIM_SECONDS, esc };

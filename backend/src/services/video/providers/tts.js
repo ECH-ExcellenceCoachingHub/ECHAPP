@@ -50,6 +50,50 @@ function which(cmd) {
   return null;
 }
 
+// Default narrator: "Alice" (ElevenLabs default voice, clear and friendly,
+// British; described for e-learning) on eleven_multilingual_v2, the model
+// ElevenLabs rates most stable for long-form narration. Both chosen after
+// test generations (pace ~150 words/min with natural sentence pauses).
+const DEFAULT_VOICE = 'Xb7hH8MSUJpSbSDYk0k2';
+const DEFAULT_MODEL = 'eleven_multilingual_v2';
+// Models that do not support request stitching (ElevenLabs docs).
+const NO_STITCHING = new Set(['eleven_v3']);
+
+function num(name, def, min, max) {
+  const v = parseFloat(process.env[name] || '');
+  return Number.isFinite(v) ? Math.min(max, Math.max(min, v)) : def;
+}
+
+/** Teacher-style delivery: steady, expressive and slow enough for beginners in English. */
+function elevenVoiceSettings() {
+  return {
+    stability: num('ELEVENLABS_STABILITY', 0.5, 0, 1),
+    similarity_boost: num('ELEVENLABS_SIMILARITY', 0.75, 0, 1),
+    style: num('ELEVENLABS_STYLE', 0.15, 0, 1),
+    use_speaker_boost: String(process.env.ELEVENLABS_SPEAKER_BOOST || 'true').toLowerCase() !== 'false',
+    speed: num('ELEVENLABS_SPEED', 0.85, 0.7, 1.2),
+  };
+}
+
+/**
+ * Request body for one scene. Request stitching (previous request ids, or the
+ * neighbouring scenes' text) keeps tone and pacing continuous across scenes.
+ */
+function elevenRequest(text, { previousText, nextText, previousRequestIds } = {}) {
+  const model = process.env.ELEVENLABS_MODEL_ID || DEFAULT_MODEL;
+  const body = { text, model_id: model, voice_settings: elevenVoiceSettings() };
+  if (!NO_STITCHING.has(model)) {
+    const ids = (previousRequestIds || []).filter(Boolean).slice(-3);
+    if (ids.length) body.previous_request_ids = ids;
+    else if (previousText) body.previous_text = String(previousText).slice(-1000);
+    if (nextText) body.next_text = String(nextText).slice(0, 1000);
+  }
+  if (process.env.ELEVENLABS_PRONUNCIATION_DICTIONARY_ID) {
+    body.pronunciation_dictionary_locators = [{ pronunciation_dictionary_id: process.env.ELEVENLABS_PRONUNCIATION_DICTIONARY_ID }];
+  }
+  return body;
+}
+
 const elevenlabs = {
   name: 'elevenlabs',
   paid: true,
@@ -58,16 +102,20 @@ const elevenlabs = {
     const v = parseFloat(process.env.VIDEO_TTS_COST_PER_1K_CHARS || '');
     return Number.isFinite(v) ? v : null;
   },
-  async synthesize(text, outBase, { signal } = {}) {
-    const voice = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
+  /** Changes when the voice, model or delivery settings change (narration is then re-recorded). */
+  signature() {
+    return `elevenlabs:${process.env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE}:${process.env.ELEVENLABS_MODEL_ID || DEFAULT_MODEL}:${JSON.stringify(elevenVoiceSettings())}`;
+  },
+  supportsStitching: () => !NO_STITCHING.has(process.env.ELEVENLABS_MODEL_ID || DEFAULT_MODEL),
+  async synthesize(text, outBase, { signal, previousText, nextText, previousRequestIds } = {}) {
+    const voice = process.env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE;
     const file = `${outBase}.mp3`;
     let res;
     try {
-      // Same endpoint and payload the platform already uses in tts.service.js.
       res = await axios({
         method: 'post',
-        url: `https://api.elevenlabs.io/v1/text-to-speech/${voice}`,
-        data: { text, model_id: process.env.ELEVENLABS_MODEL_ID || 'eleven_turbo_v2_5' },
+        url: `https://api.elevenlabs.io/v1/text-to-speech/${voice}?output_format=mp3_44100_128`,
+        data: elevenRequest(text, { previousText, nextText, previousRequestIds }),
         headers: { Accept: 'audio/mpeg', 'xi-api-key': process.env.ELEVENLABS_API_KEY, 'Content-Type': 'application/json' },
         responseType: 'arraybuffer',
         timeout: 120000,
@@ -97,7 +145,7 @@ const espeak = {
     if (!bin) throw Object.assign(new Error('espeak-ng is not installed'), { retryable: false, code: 'TTS_MISSING' });
     const file = `${outBase}.wav`;
     const voice = LANG_TO_ESPEAK[String(language || 'english').toLowerCase()] || 'en';
-    await run(bin, ['-v', voice, '-s', process.env.ESPEAK_SPEED || '155', '-w', file, '--stdin'], { signal, input: text });
+    await run(bin, ['-v', voice, '-s', process.env.ESPEAK_SPEED || '135', '-w', file, '--stdin'], { signal, input: text });
     return { file, requestId: null, chars: text.length };
   },
 };
@@ -135,4 +183,4 @@ function resolveTts(preferred = process.env.VIDEO_TTS_PROVIDER || 'auto') {
   return p;
 }
 
-module.exports = { resolveTts, PROVIDERS, run, which };
+module.exports = { resolveTts, PROVIDERS, run, which, elevenRequest, elevenVoiceSettings, DEFAULT_VOICE, DEFAULT_MODEL };

@@ -35,6 +35,32 @@ const storedVideoSchema = new mongoose.Schema({
   completedAt: Date,
 }, { _id: false });
 
+/** A "pause and think" question the player asks at `at` seconds. */
+const interactionSchema = new mongoose.Schema({
+  id: String,
+  at: Number,
+  resumeAt: Number,
+  question: String,
+  choices: [String],
+  answerIndex: Number,
+  explanation: String,
+}, { _id: false });
+
+/** Licensed photo/clip shown in the video (attribution). */
+const creditSchema = new mongoose.Schema({
+  provider: String,
+  providerLabel: String,
+  id: String,
+  kind: String,
+  title: String,
+  author: String,
+  authorUrl: String,
+  sourceUrl: String,
+  license: String,
+  licenseUrl: String,
+  attributionRequired: Boolean,
+}, { _id: false });
+
 const aiVideoSchema = new mongoose.Schema({
   variant: { type: String, enum: ['explainer', 'experiment'], default: 'explainer' },
   status: { type: String, enum: VIDEO_STATUSES, default: 'queued' },
@@ -47,6 +73,9 @@ const aiVideoSchema = new mongoose.Schema({
   captionsUrl: { type: String, default: null },
   durationSeconds: { type: Number, default: null },
   transcript: { type: String, default: null },
+  // In-video check questions (the app pauses and asks) and media attributions.
+  interactions: { type: [interactionSchema], default: [] },
+  credits: { type: [creditSchema], default: [] },
   // Lesson content version the *current* video was made from.
   contentVersion: { type: Number, default: 1 },
   // Lesson content version a job is currently working on (if any).

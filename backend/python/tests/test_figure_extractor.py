@@ -255,5 +255,95 @@ class FigureExtractorTests(unittest.TestCase):
         self.assertFalse(json.loads(r.stdout)["ok"])
 
 
+def framed_pixmap(w, h, interior, stripe):
+    """Same thick black frame on every image; only the interior differs (like the Biology book)."""
+    pix = solid_pixmap(w, h, (0, 0, 0))
+    b = w // 12
+    pix.set_rect(fitz.IRect(b, b, w - b, h - b), interior)
+    pix.set_rect(stripe, (255, 255, 255))
+    return pix
+
+
+LONG_CAPTION = ("FIGURE 3.1: Structure of the animal cell showing the nucleus, mitochondria, "
+                "rough and smooth endoplasmic reticulum, Golgi apparatus, lysosomes and the cell "
+                "membrane. The nucleus contains chromatin and a nucleolus, and is surrounded by a "
+                "double nuclear envelope with pores. Mitochondria are the site of aerobic respiration "
+                "and have an inner membrane folded into cristae. Ribosomes attached to the rough "
+                "endoplasmic reticulum synthesise proteins that are packaged by the Golgi apparatus.")
+
+
+def make_real_book(path):
+    doc = fitz.open()
+    # Page 1: long colon-style caption, paragraph whose short last line touches the figure,
+    # and a "[Book page 5]" marker beside the figure.
+    p = doc.new_page(width=595, height=842)
+    body(p, (50, 40, 545, 150), "Cells are the basic units of life. " + LOREM + "Cells divide.")
+    p.insert_image(fitz.Rect(150, 156, 450, 400),
+                   pixmap=framed_pixmap(300, 244, (40, 160, 60), fitz.IRect(60, 60, 240, 90)))
+    p.insert_text((460, 280), "[Book page 5]", fontsize=8)
+    body(p, (60, 410, 540, 520), LONG_CAPTION, 9)
+    # Page 2: same frame, very different interior, unnumbered caption.
+    p = doc.new_page(width=595, height=842)
+    body(p, (50, 40, 545, 130), LOREM)
+    p.insert_image(fitz.Rect(150, 156, 450, 400),
+                   pixmap=framed_pixmap(300, 244, (200, 200, 230), fitz.IRect(130, 40, 170, 200)))
+    body(p, (150, 408, 450, 428), "FIGURE (unnumbered illustration in the source)", 9)
+    # Page 3: centred photo with the caption left-aligned at the margin just below it.
+    p = doc.new_page(width=595, height=842)
+    body(p, (50, 40, 545, 130), LOREM)
+    p.insert_image(fitz.Rect(160, 160, 400, 330),
+                   pixmap=solid_pixmap(240, 170, (90, 30, 30), (240, 240, 240)))
+    p.insert_text((57, 341), "FIGURE 9.6: Sensory neuron", fontsize=9)
+    doc.save(path)
+
+
+class RealBookPatternTests(unittest.TestCase):
+    """Layouts seen in the S6 Biology student book."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix="ech_fig_real_")
+        pdf = os.path.join(cls.tmp, "real.pdf")
+        make_real_book(pdf)
+        cfg = dict(fx.DEFAULT_CONFIG)
+        cfg["ocr"] = False
+        cls.res = fx.extract(pdf, os.path.join(cls.tmp, "out"), cfg)
+        cls.figs = [f for f in cls.res["figures"] if f["file"]]
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def page_fig(self, n):
+        figs = [f for f in self.figs if f["page"] == n]
+        self.assertEqual(len(figs), 1, figs)
+        return figs[0]
+
+    def test_long_colon_caption_is_matched(self):
+        f = self.page_fig(1)
+        self.assertEqual(f["captionLabel"], "3.1")
+        self.assertTrue(f["caption"].startswith("FIGURE 3.1:"))
+
+    def test_unnumbered_caption_is_matched(self):
+        f = self.page_fig(2)
+        self.assertIsNotNone(f["caption"])
+        self.assertIn("unnumbered", f["caption"])
+        self.assertIsNone(f["captionLabel"])
+        # the caption text must not leak into the labels
+        self.assertFalse(any("unnumbered" in l for l in f["labels"]), f["labels"])
+
+    def test_paragraph_tail_and_page_marker_are_not_labels(self):
+        labels = self.page_fig(1)["labels"]
+        self.assertNotIn("Cells divide.", labels)
+        self.assertFalse(any("Book page" in l for l in labels), labels)
+
+    def test_left_aligned_caption_under_centred_figure(self):
+        self.assertEqual(self.page_fig(3)["captionLabel"], "9.6")
+        self.assertFalse([f for f in self.res["figures"] if f["quality"] == "incomplete"])
+
+    def test_shared_frame_is_not_a_duplicate(self):
+        self.assertFalse([f for f in self.figs if f["duplicateOf"]])
+
+
 if __name__ == "__main__":
     unittest.main()

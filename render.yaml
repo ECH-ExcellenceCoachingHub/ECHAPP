@@ -83,6 +83,12 @@ services:
         sync: false
       - key: GEMINI_API_KEY # optional — OCR of labels inside raster figures
         sync: false
+      - key: PEXELS_API_KEY # optional, free — licensed stock photos/clips in lesson videos
+        sync: false
+      - key: PIXABAY_API_KEY # optional, free — licensed stock photos/clips in lesson videos
+        sync: false
+      - key: VIDEO_STOCK_USER_AGENT # include a contact email/URL (Wikimedia API etiquette)
+        sync: false
       - key: MEDIA_WORKER_CONCURRENCY
         value: "1"
       - key: VIDEO_MAX_COST_PER_LESSON_USD

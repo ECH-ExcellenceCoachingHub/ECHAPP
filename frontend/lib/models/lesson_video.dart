@@ -1,3 +1,78 @@
+/// A "pause and think" question inside a generated video. The player pauses
+/// at [at] and asks; after answering, playback continues from [resumeAt]
+/// (the start of the answer reveal).
+class VideoInteraction {
+  final String id;
+  final Duration at;
+  final Duration resumeAt;
+  final String question;
+  final List<String> choices;
+  final int answerIndex;
+  final String explanation;
+
+  const VideoInteraction({
+    required this.id,
+    required this.at,
+    required this.resumeAt,
+    required this.question,
+    required this.choices,
+    required this.answerIndex,
+    this.explanation = '',
+  });
+
+  static Duration _secs(dynamic v) => Duration(milliseconds: (((v as num?) ?? 0) * 1000).round());
+
+  /// Null for anything malformed (missing question, fewer than 2 choices, bad answer index).
+  static VideoInteraction? fromJson(dynamic json) {
+    if (json is! Map) return null;
+    final choices = (json['choices'] as List?)?.map((e) => e.toString()).where((s) => s.isNotEmpty).toList() ?? const <String>[];
+    final answer = (json['answerIndex'] as num?)?.toInt() ?? -1;
+    final question = json['question']?.toString() ?? '';
+    if (question.isEmpty || choices.length < 2 || answer < 0 || answer >= choices.length || json['at'] is! num) return null;
+    final at = _secs(json['at']);
+    final resume = json['resumeAt'] is num ? _secs(json['resumeAt']) : at;
+    return VideoInteraction(
+      id: json['id']?.toString() ?? 'check-${at.inMilliseconds}',
+      at: at,
+      resumeAt: resume < at ? at : resume,
+      question: question,
+      choices: choices,
+      answerIndex: answer,
+      explanation: json['explanation']?.toString() ?? '',
+    );
+  }
+}
+
+/// Attribution for a licensed photo or clip shown in a generated video.
+class VideoCredit {
+  final String title;
+  final String author;
+  final String source; // e.g. "Wikimedia Commons", "Pexels"
+  final String license;
+  final String? sourceUrl;
+  final String kind; // image | video
+
+  const VideoCredit({required this.title, required this.author, required this.source, required this.license, this.sourceUrl, this.kind = 'image'});
+
+  static VideoCredit? fromJson(dynamic json) {
+    if (json is! Map) return null;
+    final author = json['author']?.toString() ?? '';
+    final source = json['providerLabel']?.toString() ?? json['provider']?.toString() ?? '';
+    if (author.isEmpty && source.isEmpty) return null;
+    return VideoCredit(
+      title: json['title']?.toString() ?? '',
+      author: author,
+      source: source,
+      license: json['license']?.toString() ?? '',
+      sourceUrl: json['sourceUrl']?.toString(),
+      kind: json['kind']?.toString() ?? 'image',
+    );
+  }
+
+  /// "Jane Doe · Wikimedia Commons · CC BY 4.0"
+  String get line => [author, source, license].where((s) => s.isNotEmpty).join(' · ');
+}
+
 /// Generated lesson video metadata (Lesson.aiVideo / aiExperimentVideo and
 /// draft item video fields). Older lessons have none — parse returns null.
 class LessonVideo {
@@ -13,6 +88,8 @@ class LessonVideo {
   final String? disclosure;
   final String? error;
   final int contentVersion;
+  final List<VideoInteraction> interactions;
+  final List<VideoCredit> credits;
 
   const LessonVideo({
     this.variant = 'explainer',
@@ -27,6 +104,8 @@ class LessonVideo {
     this.disclosure,
     this.error,
     this.contentVersion = 1,
+    this.interactions = const [],
+    this.credits = const [],
   });
 
   static LessonVideo? fromJson(dynamic json) {
@@ -50,6 +129,12 @@ class LessonVideo {
       disclosure: s('disclosure'),
       error: s('error'),
       contentVersion: (j['contentVersion'] as num?)?.toInt() ?? 1,
+      interactions: ((j['interactions'] as List?) ?? const [])
+          .map(VideoInteraction.fromJson)
+          .whereType<VideoInteraction>()
+          .toList()
+        ..sort((a, b) => a.at.compareTo(b.at)),
+      credits: ((j['credits'] as List?) ?? const []).map(VideoCredit.fromJson).whereType<VideoCredit>().toList(),
     );
   }
 

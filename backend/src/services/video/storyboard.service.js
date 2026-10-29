@@ -1,6 +1,6 @@
 const katex = require('katex');
 const { parse: parseExpression } = require('../../utils/mathExpression');
-const { SCENE_TYPES, subjectByKey } = require('./subjects');
+const { SCENE_TYPES, EXPERIMENT_SCENES, subjectByKey } = require('./subjects');
 const { SIMULATION_DISCLOSURE } = require('./experiment');
 
 /**
@@ -15,9 +15,14 @@ const { SIMULATION_DISCLOSURE } = require('./experiment');
  *   - experiment observations may only quote numbers found in the lesson
  */
 
-const WORDS_PER_SECOND = 2.4;
+const WORDS_PER_SECOND = 2.0; // slow, beginner-friendly narration
 const MAX_SCENES = 14;
+const MAX_CHECKS = 3;
+const MEDIA_SCENES_HINT = '3-5';
+const CHECKS_HINT = '1-2';
 const NOTES_CHARS = 7000;
+const MAX_FORMULA_STEPS = 6;
+const MAX_WORKED_STEPS = 7;
 
 function wordCount(s) {
   return String(s || '').trim().split(/\s+/).filter(Boolean).length;
@@ -31,10 +36,10 @@ function sceneSpec(types) {
   const all = {
     title: '{ "type": "title", "heading": "lesson title", "subtitle": "one line hook", "narration": "..." }',
     bullets: '{ "type": "bullets", "heading": "...", "bullets": ["max 5 short points"], "narration": "..." }',
-    formula: '{ "type": "formula", "heading": "...", "steps": [ { "latex": "PV = \\\\frac{FV}{(1+r)^n}", "text": "PV = FV / (1 + r)^n", "explanation": "what changed in this step" } ], "highlight": ["r"], "narration": "..." }',
+    formula: '{ "type": "formula", "heading": "...", "steps": [ { "latex": "PV = \\\\frac{FV}{(1+r)^n}", "text": "PV = FV / (1 + r)^n", "explanation": "what changed in this step", "say": "what the teacher says while THIS line appears (1-3 short sentences)" } ], "highlight": ["r"], "narration": "short introduction, said before the first line" }',
     graph: '{ "type": "graph", "heading": "...", "graph": { "functions": [ { "expression": "x^2 - 4", "label": "y = x^2 - 4" } ], "xMin": -5, "xMax": 5, "yMin": -6, "yMax": 10, "points": [ { "x": 2, "y": 0, "label": "root" } ] }, "narration": "..." }   // expression in x only, plain math syntax',
     figure: '{ "type": "figure", "heading": "...", "figureId": "<one of the AVAILABLE FIGURES ids>", "highlightLabels": ["exact label text from that figure"], "narration": "..." }',
-    worked_example: '{ "type": "worked_example", "heading": "...", "problem": "...", "steps": [ { "text": "...", "latex": "optional" } ], "answer": "...", "narration": "..." }',
+    worked_example: '{ "type": "worked_example", "heading": "...", "problem": "...", "steps": [ { "text": "...", "latex": "optional", "say": "what the teacher says while THIS line appears (1-3 short sentences)" } ], "answer": "...", "answerSay": "one or two sentences stating the answer", "narration": "short introduction: read the problem aloud" }',
     table: '{ "type": "table", "heading": "...", "columns": ["..."], "rows": [["..."]], "narration": "..." }   // max 8 rows',
     ledger: '{ "type": "ledger", "heading": "Journal entry", "columns": ["Date","Account","Debit","Credit"], "rows": [["...","...","...","..."]], "narration": "..." }',
     timeline: '{ "type": "timeline", "heading": "...", "events": [ { "label": "1994", "detail": "..." } ], "narration": "..." }',
@@ -42,13 +47,15 @@ function sceneSpec(types) {
     dialogue: '{ "type": "dialogue", "heading": "...", "lines": [ { "speaker": "A", "text": "...", "translation": "optional" } ], "narration": "..." }',
     experiment: '{ "type": "experiment", "phase": "apparatus | safety | setup | procedure | observation | explanation | conclusion | questions", "heading": "...", "items": ["..."], "narration": "..." }',
     summary: '{ "type": "summary", "heading": "Key takeaways", "bullets": ["..."], "narration": "..." }',
+    media: '{ "type": "media", "heading": "short title", "points": ["max 3 very short key points"], "media": { "query": "2-5 concrete words naming what is visible", "kind": "video | image", "alternatives": ["simpler search words"] }, "narration": "..." }',
+    check: '{ "type": "check", "question": "...", "choices": ["2 to 4 short options"], "answerIndex": 0, "explanation": "why the answer is right, from the lesson", "narration": "asks the question and invites the learner to pause and think", "answerNarration": "reveals and explains the answer" }',
   };
   return types.map(t => `  ${all[t]}`).join(',\n');
 }
 
 function buildPrompt({ lesson, subject, level, language, durationSec, figures, variant, experimentInfo }) {
   const s = subjectByKey(subject);
-  const types = variant === 'experiment' ? ['title', 'experiment', 'figure', 'formula', 'summary'] : s.scenes;
+  const types = variant === 'experiment' ? EXPERIMENT_SCENES : s.scenes;
   const c = lesson.content || {};
   const figureList = figures.length
     ? figures.map(f => `- id: ${f.id} | page ${f.page} | ${f.caption || 'no caption'} | labels: ${(f.labels || []).slice(0, 15).join(', ') || '-'} | use: ${f.usage.join('/')}`).join('\n')
@@ -74,11 +81,29 @@ ${experimentRules}
 RULES:
 - Use ONLY facts, numbers, formulas and examples from the LESSON below.
 - "narration" is what the narrator says: natural spoken sentences, usually 3-6 per scene, that EXPLAIN (why, how, what to notice), not just read the screen. On-screen text is short.
+- NARRATOR = a warm, experienced classroom teacher talking to one student. Signpost ("First…", "Now notice…", "So what does this tell us?"), ask a short rhetorical question before an important idea, link ideas to everyday life the student knows, and recap in one sentence at the end of a scene. Short sentences; commas and full stops where a teacher would pause. No filler, no "In this scene" or "As you can see on the screen".
+- AUDIENCE: beginners, both in this topic and in English. Teach slowly, like a patient teacher at the board:
+  * simple everyday English words; sentences of at most 15 words; one idea per sentence;
+  * explain every new word the first time you use it;
+  * in "formula" and "worked_example" scenes give EVERY step a "say": the teacher explains that line only (what we do, why, and the result) while it appears on the board;
+  * after an important result, repeat it once in a short recap ("So, x squared is sixteen.");
+  * never do two calculations in one sentence.
+- Narration is read aloud by a voice engine: write numbers, units and symbols the way a teacher says them ("five plants per square metre", "x squared", "twenty-five divided by five"), never "m²", "x^2" or "25/5".
 - Start with a "title" scene and end with a "summary" scene.
 - At most ${MAX_SCENES} scenes. Allowed scene types: ${types.join(', ')}.
+- At most ${MAX_FORMULA_STEPS} steps per "formula" scene and ${MAX_WORKED_STEPS} per "worked_example" scene. Continue longer working in the next scene instead of skipping lines.
 - figure scenes may only use ids from AVAILABLE FIGURES; "highlightLabels" must be copied from that figure's labels.
 - LaTeX: valid KaTeX syntax, escape backslashes for JSON. Always also give "text" (plain form).
 - Every scene may also have "sourcePages": [page numbers from the lesson sources] and "transition": "fade" | "cut".
+${types.includes('media') && s.mediaOptional ? `- REAL-WORLD MEDIA (OPTIONAL): a "media" scene shows a licensed photo or clip found from a short search phrase ("media": { "query": "2-5 concrete words", "kind": "image" }). Use one only when the LESSON itself describes a real-world situation or application; otherwise use no media at all. Never invent applications, and never use media for formulas, graphs, tables or numbers.` : ''}
+${types.includes('media') && !s.mediaOptional ? `- REAL-WORLD MEDIA (REQUIRED): licensed photos and video clips are searched for you from a short phrase, so the video SHOWS what the narration talks about (organisms, places, apparatus, people doing the activity). You MUST include:
+  1. a "media" field on the "title" scene;
+  2. at least 2 scenes of type "media" (real-world context between the explanations);
+  3. a "media" field on every "bullets" scene${variant === 'experiment' ? ' and on the apparatus, set-up and procedure "experiment" scenes' : ''}.
+  In total about ${MEDIA_SCENES_HINT} scenes with media.
+  "media.query" = 2-5 concrete English words naming exactly what should be visible ("quadrat frame on grass", "lake shore wetland"), never abstract ideas ("population density"). "kind": "video" when motion helps, otherwise "image". Give 1-2 simpler "alternatives".
+  Never use media for formulas, labelled diagrams, graphs, tables or numbers — those are drawn exactly by the renderer.` : ''}
+${types.includes('check') ? `- INTERACTIVE CHECKS: add ${CHECKS_HINT} "check" scenes right after key ideas. The app pauses the video at each one and lets the learner answer. Exactly one choice must be correct, following directly from the lesson; the other choices are plausible misconceptions. Keep the question and choices short.` : ''}
 
 SCENE FORMATS:
 [
@@ -102,6 +127,41 @@ SOURCE PAGES: ${[...new Set((c.sources || []).map(x => x.page).filter(Boolean))]
 Return JSON: { "title": "...", "scenes": [ ... ] }`;
 }
 
+// ─── Spoken narration ────────────────────────────────────────────────────────
+
+/**
+ * The planner is told to write maths the way a teacher says it, but symbols
+ * still slip through ("-4", "Δ", "2xy", "x²"). Voice engines read those
+ * badly or skip them, so they are turned into words before recording.
+ * English only; other languages keep the planner's text.
+ */
+const SPOKEN = [
+  [/√\s*/g, 'the square root of '],
+  [/±/g, ' plus or minus '],
+  [/∓/g, ' minus or plus '],
+  [/[Δ∆δ]/g, 'delta'], [/π/g, 'pi'], [/θ/g, 'theta'], [/α/g, 'alpha'], [/β/g, 'beta'], [/λ/g, 'lambda'], [/σ/g, 'sigma'],
+  [/²/g, ' squared'], [/³/g, ' cubed'], [/\^\s*2\b/g, ' squared'], [/\^\s*3\b/g, ' cubed'], [/\^\s*\(?(-?\d+)\)?/g, ' to the power $1'],
+  [/≤/g, ' is less than or equal to '], [/≥/g, ' is greater than or equal to '], [/≠/g, ' is not equal to '], [/≈/g, ' is approximately '],
+  [/×/g, ' times '], [/÷/g, ' divided by '], [/[→⇒]/g, ' gives '], [/ℂ/g, 'the complex numbers'], [/ℝ/g, 'the real numbers'],
+  [/(\d)\s*\/\s*(\d)/g, '$1 over $2'],
+  [/\s+=\s+|(?<=[\w)])=(?=[\w(-])/g, ' equals '],
+  // A minus sign before a number or a single-letter variable: "-4", "−b", "(−i)".
+  [/[\u2010\u2011\u2012]/g, '-'], // hyphen variants the planner sometimes uses as a minus sign
+  [/(^|[\s(\[,])[-−–](?=\d|[a-z]\b)/g, '$1minus '],
+  [/\)\s*\/\s*(?=[\d(a-z])/g, ') over '],
+  [/\s[−-]\s/g, ' minus '],
+  [/\s\+\s/g, ' plus '],
+  [/\bi([xyz])\b/g, 'i $1'], // "iz" → "i z"
+  // A number written against variables: "2xy" → "2 x y", "8i" → "8 i".
+  [/\b(\d+)([abcixyz])([abcixyz])?\b/g, (_, n, a, b) => [n, a, b].filter(Boolean).join(' ')],
+];
+
+function speakable(text) {
+  let s = String(text || '');
+  for (const [re, to] of SPOKEN) s = s.replace(re, to);
+  return s.replace(/\s{2,}/g, ' ').replace(/\s+([,.;:!?])/g, '$1').trim();
+}
+
 // ─── Validation ──────────────────────────────────────────────────────────────
 
 const str = (v, max = 400) => (v == null ? '' : String(v).trim().slice(0, max));
@@ -117,13 +177,31 @@ function latexOk(latex) {
   }
 }
 
+/**
+ * The planner sometimes packs several equations into one step with only
+ * spacing between them ("2x^2=32\;x^2=16\;x=\pm4"), which renders as one
+ * confusing line. Separate them visibly with a comma and a gap.
+ */
+function separateEquations(latex) {
+  if (!latex || (latex.match(/=/g) || []).length < 2) return latex;
+  // "\," is left alone: it is also the thousands separator ("1\,000").
+  return latex.replace(/\s*,?\s*(?:\\[;: ]\s*)+(?=[^=]*=)/g, ',\\quad ');
+}
+
+/** Split a list into consecutive groups of at most `size` items. */
+function chunks(list, size) {
+  const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
 function cleanFormulaStep(step, warnings) {
-  const latex = str(step?.latex, 300);
+  const latex = separateEquations(str(step?.latex, 300));
   const text = str(step?.text, 300);
   const ok = latexOk(latex);
   if (latex && !ok) warnings.push(`LaTeX did not compile, using plain text: ${latex.slice(0, 60)}`);
   if (!ok && !text) return null;
-  return { latex: ok ? latex : null, text: text || latex, explanation: str(step?.explanation, 200) };
+  return { latex: ok ? latex : null, text: text || latex, explanation: str(step?.explanation, 200), say: str(step?.say, 400) };
 }
 
 function cleanGraph(g, warnings) {
@@ -153,6 +231,40 @@ function numbersIn(text) {
   return new Set((String(text || '').match(/\d+(?:[.,]\d+)?/g) || []).map(n => n.replace(',', '.')));
 }
 
+/** { query, kind, alternatives } or null. Queries are short concrete search phrases. */
+function cleanMedia(m) {
+  if (!m || typeof m !== 'object') return null;
+  const words = (q) => str(q, 80).replace(/["<>]/g, '').split(/\s+/).filter(Boolean).slice(0, 8).join(' ');
+  const query = words(m.query);
+  if (!query) return null;
+  return {
+    query,
+    kind: m.kind === 'video' ? 'video' : 'image',
+    alternatives: arr(m.alternatives).map(words).filter(q => q && q.toLowerCase() !== query.toLowerCase()).slice(0, 2),
+  };
+}
+
+function cleanCheck(s, warnings, lessonNumbers) {
+  const question = str(s.question, 220);
+  const seen = new Set();
+  const choices = arr(s.choices).map(c => str(c, 100)).filter(c => c && !seen.has(c.toLowerCase()) && seen.add(c.toLowerCase())).slice(0, 4);
+  const answerIndex = Number(s.answerIndex);
+  if (!question || choices.length < 2 || !Number.isInteger(answerIndex) || answerIndex < 0 || answerIndex >= choices.length) {
+    warnings.push(`Dropped an invalid check question: ${question.slice(0, 60) || '(no question)'}`);
+    return null;
+  }
+  const unknown = [...numbersIn(choices[answerIndex])].filter(n => !lessonNumbers.has(n));
+  if (unknown.length) warnings.push(`Check "${question.slice(0, 50)}": answer uses numbers not in the lesson (${unknown.join(', ')}) — review the answer key`);
+  const explanation = str(s.explanation, 260);
+  return {
+    question,
+    choices,
+    answerIndex,
+    explanation,
+    answerNarration: str(s.answerNarration, 600) || `The answer is ${choices[answerIndex]}. ${explanation}`.trim(),
+  };
+}
+
 function cleanTable(columns, rows, maxRows = 8) {
   const cols = arr(columns).map(c => str(c, 40)).slice(0, 6);
   if (cols.length < 2) return null;
@@ -164,7 +276,7 @@ function cleanTable(columns, rows, maxRows = 8) {
  * Validate and normalise a planner response.
  * @returns {{storyboard: object, warnings: string[], inventedFigureIds: string[]}}
  */
-function validateStoryboard(raw, { allowedTypes, figures = [], variant = 'explainer', lessonText = '', lessonTitle = '', hazards = [] }) {
+function validateStoryboard(raw, { allowedTypes, figures = [], variant = 'explainer', lessonText = '', lessonTitle = '', hazards = [], mediaOptional = false, language = 'English' }) {
   const warnings = [];
   const inventedFigureIds = [];
   const figureById = new Map(figures.map(f => [String(f.id), f]));
@@ -175,8 +287,9 @@ function validateStoryboard(raw, { allowedTypes, figures = [], variant = 'explai
   for (const s of arr(raw?.scenes).slice(0, MAX_SCENES + 4)) {
     if (!s || typeof s !== 'object') continue;
     let type = SCENE_TYPES.includes(s.type) && allowed.has(s.type) ? s.type : null;
+    const stepSays = ['formula', 'worked_example'].includes(s.type) ? arr(s.steps).map(st => str(st?.say, 400)).filter(Boolean) : [];
     const narration = str(s.narration, 900);
-    if (!narration) { warnings.push(`Dropped a ${s.type || 'unknown'} scene without narration`); continue; }
+    if (!narration && !stepSays.length) { warnings.push(`Dropped a ${s.type || 'unknown'} scene without narration`); continue; }
     const base = {
       heading: str(s.heading, 90),
       narration,
@@ -193,17 +306,46 @@ function validateStoryboard(raw, { allowedTypes, figures = [], variant = 'explai
     }
     switch (type) {
       case 'title':
-        scene = { type, ...base, heading: base.heading || lessonTitle, subtitle: str(s.subtitle, 120) };
+        scene = { type, ...base, heading: base.heading || lessonTitle, subtitle: str(s.subtitle, 120), media: cleanMedia(s.media) };
         break;
       case 'bullets':
       case 'summary': {
         const bullets = arr(s.bullets || s.items).map(b => str(b, 120)).filter(Boolean).slice(0, 5);
         scene = { type, ...base, bullets: bullets.length ? bullets : splitSentences(narration).slice(0, 3) };
+        if (type === 'bullets') scene.media = cleanMedia(s.media);
+        break;
+      }
+      case 'media': {
+        const media = cleanMedia(s.media);
+        const points = arr(s.points || s.bullets).map(b => str(b, 80)).filter(Boolean).slice(0, 3);
+        scene = media
+          ? { type, ...base, points, media }
+          : { type: 'bullets', ...base, bullets: points.length ? points : splitSentences(narration).slice(0, 3) };
+        break;
+      }
+      case 'check': {
+        const c = cleanCheck(s, warnings, lessonNumbers);
+        if (c && scenes.filter(x => x.type === 'check').length >= MAX_CHECKS) {
+          warnings.push('More than 3 check questions — extra ones removed');
+          scene = 'skip';
+        } else {
+          scene = c ? { type, ...base, heading: base.heading || 'Quick check', ...c } : 'skip';
+        }
         break;
       }
       case 'formula': {
-        const steps = arr(s.steps).map(st => cleanFormulaStep(st, warnings)).filter(Boolean).slice(0, 5);
-        scene = steps.length ? { type, ...base, steps, highlight: arr(s.highlight).map(h => str(h, 20)).slice(0, 4) } : null;
+        const all = arr(s.steps).map(st => cleanFormulaStep(st, warnings)).filter(Boolean);
+        const spoken = all.length && all.every(st => st.say);
+        const highlight = arr(s.highlight).map(h => str(h, 20)).slice(0, 4);
+        // Long working continues on a new "board" rather than losing steps.
+        scene = chunks(all, MAX_FORMULA_STEPS).map((steps, ci) => {
+          const sc = { type, ...base, heading: ci ? `${base.heading} (continued)` : base.heading, steps, highlight };
+          // One spoken part per revealed line (the intro goes with the first line).
+          if (spoken) sc.parts = steps.map((st, i) => (i === 0 && ci === 0 ? [narration, st.say].filter(Boolean).join(' ') : st.say));
+          else if (ci) sc.narration = '';
+          return sc;
+        });
+        if (!scene.length) scene = null;
         break;
       }
       case 'graph': {
@@ -227,10 +369,24 @@ function validateStoryboard(raw, { allowedTypes, figures = [], variant = 'explai
       }
       case 'worked_example': {
         const steps = arr(s.steps).map(st => {
-          const latex = str(st?.latex, 300);
-          return { text: str(st?.text || st, 240), latex: latexOk(latex) ? latex : null };
-        }).filter(st => st.text || st.latex).slice(0, 7);
-        scene = steps.length ? { type, ...base, problem: str(s.problem, 400), steps, answer: str(s.answer, 160) } : null;
+          const latex = separateEquations(str(st?.latex, 300));
+          return { text: str(st?.text || st, 240), latex: latexOk(latex) ? latex : null, say: str(st?.say, 400) };
+        }).filter(st => st.text || st.latex);
+        const spoken = steps.length && steps.every(st => st.say);
+        const problem = str(s.problem, 400);
+        const answer = str(s.answer, 160);
+        const groups = chunks(steps, MAX_WORKED_STEPS);
+        scene = groups.map((part, ci) => {
+          const last = ci === groups.length - 1;
+          const sc = { type, ...base, heading: ci ? `${base.heading} (continued)` : base.heading, problem, steps: part, answer: last ? answer : '' };
+          // Parts follow the reveals: problem, each step, then the answer.
+          if (spoken) {
+            sc.parts = [ci ? 'Let us continue.' : (narration || 'Let us read the problem carefully.'), ...part.map(st => st.say)];
+            if (sc.answer) sc.parts.push(str(s.answerSay, 300) || `So the answer is ${sc.answer}.`);
+          } else if (ci) sc.narration = '';
+          return sc;
+        });
+        if (!scene.length) scene = null;
         break;
       }
       case 'table':
@@ -271,17 +427,22 @@ function validateStoryboard(raw, { allowedTypes, figures = [], variant = 'explai
           items = kept;
           if (!items.length) items = ['Observe and record what happens, as described in your textbook.'];
         }
-        scene = items.length ? { type, ...base, phase, items } : null;
+        scene = items.length ? { type, ...base, phase, items, media: phase === 'safety' ? null : cleanMedia(s.media) } : null;
         break;
       }
       default:
         scene = null;
     }
+    if (scene === 'skip') continue; // an unusable question is dropped, not turned into slides
     if (!scene) {
       // Keep the narration — show it as points rather than losing the explanation.
       scene = { type: 'bullets', ...base, bullets: splitSentences(narration).slice(0, 3) };
     }
-    scenes.push(scene);
+    if (Array.isArray(scene)) {
+      // A continued board without its own narration shares the first board's.
+      scene.filter(sc => !sc.narration && !sc.parts).forEach(sc => { sc.narration = 'Let us continue.'; });
+      scenes.push(...scene);
+    } else scenes.push(scene);
   }
 
   if (!scenes.length) throw Object.assign(new Error('The storyboard had no usable scenes'), { retryable: true, code: 'EMPTY_STORYBOARD' });
@@ -290,6 +451,36 @@ function validateStoryboard(raw, { allowedTypes, figures = [], variant = 'explai
   }
   if (scenes[scenes.length - 1].type !== 'summary' && scenes.length > 2) {
     warnings.push('Storyboard had no summary scene');
+  }
+
+  // The planner sometimes forgets media. Fall back to the scene heading as the
+  // search phrase for a few slides; the relevance gate in the media search
+  // still rejects anything that does not match.
+  if (allowed.has('media') && !mediaOptional) {
+    const MIN_MEDIA = 3;
+    let count = scenes.filter(s => s.media).length;
+    for (const s of scenes) {
+      if (count >= MIN_MEDIA) break;
+      const eligible = (s.type === 'bullets' || (s.type === 'experiment' && ['apparatus', 'setup', 'procedure'].includes(s.phase))) && !s.media;
+      const words = (s.heading || '').replace(/[^\p{L}\p{N}\s-]/gu, ' ').split(/\s+/)
+        .filter(w => w.length > 2 && !/^(the|and|for|why|how|what|use|using|steps?|key|quick|check|about|with|from|your|our)$/i.test(w));
+      if (!eligible || words.length < 2) continue;
+      s.media = { query: words.slice(0, 4).join(' ').toLowerCase(), kind: 'image', alternatives: [], auto: true };
+      count++;
+    }
+  }
+
+  // Each check becomes two scenes: the question (the app pauses at its end
+  // and asks the learner) and the answer reveal, each with its own narration.
+  for (let i = scenes.length - 1; i >= 0; i--) {
+    const s = scenes[i];
+    if (s.type !== 'check') continue;
+    const { answerNarration, ...question } = s;
+    scenes[i] = question;
+    scenes.splice(i + 1, 0, {
+      type: 'check_answer', heading: s.heading, question: s.question, choices: s.choices, answerIndex: s.answerIndex,
+      explanation: s.explanation, narration: answerNarration, onScreenLabels: [], sourcePages: s.sourcePages, transition: 'cut',
+    });
   }
 
   if (variant === 'experiment') {
@@ -305,7 +496,17 @@ function validateStoryboard(raw, { allowedTypes, figures = [], variant = 'explai
     for (const s of scenes) s.disclosure = SIMULATION_DISCLOSURE;
   }
 
-  scenes.forEach((s, i) => { s.n = i + 1; s.plannedSec = Math.round(estimateSeconds(s.narration) * 10) / 10; });
+  const english = /^(en|english)\b/i.test(String(language || 'English'));
+  for (const s of scenes) {
+    if (s.parts) {
+      if (english) s.parts = s.parts.map(speakable);
+      s.narration = s.parts.join(' ');
+    } else if (!s.narration && s.steps) {
+      s.narration = s.steps.map(st => st.say).filter(Boolean).join(' ');
+    }
+    if (english) s.narration = speakable(s.narration);
+  }
+  scenes.forEach((s, i) => { s.n = i + 1; s.plannedSec = Math.round((estimateSeconds(s.narration) + (s.parts ? s.parts.length - 1 : 0)) * 10) / 10; });
   const totalSec = scenes.reduce((a, s) => a + s.plannedSec, 0);
   return {
     storyboard: { title: str(raw?.title, 120) || lessonTitle, variant, scenes, plannedSeconds: Math.round(totalSec) },
@@ -338,7 +539,7 @@ function splitSentences(text) {
  */
 async function generateStoryboard(input, { completeJson, onUsage }) {
   const subject = subjectByKey(input.subject);
-  const allowedTypes = input.variant === 'experiment' ? ['title', 'experiment', 'figure', 'formula', 'summary'] : subject.scenes;
+  const allowedTypes = input.variant === 'experiment' ? EXPERIMENT_SCENES : subject.scenes;
   const durationSec = input.durationSec || subject.durationSec;
   const prompt = buildPrompt({ ...input, durationSec });
   const ask = (extra) => completeJson(prompt + extra, {
@@ -354,6 +555,8 @@ async function generateStoryboard(input, { completeJson, onUsage }) {
     lessonText: input.lessonText,
     lessonTitle: input.lesson.title,
     hazards: input.experimentInfo?.hazards || [],
+    mediaOptional: !!subject.mediaOptional && input.variant !== 'experiment',
+    language: input.language,
   });
 
   let result = null;
@@ -384,4 +587,4 @@ async function generateStoryboard(input, { completeJson, onUsage }) {
   return result;
 }
 
-module.exports = { buildPrompt, validateStoryboard, generateStoryboard, estimateSeconds, splitSentences, latexOk, WORDS_PER_SECOND };
+module.exports = { buildPrompt, validateStoryboard, generateStoryboard, estimateSeconds, splitSentences, latexOk, speakable, separateEquations, WORDS_PER_SECOND };

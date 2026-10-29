@@ -48,10 +48,13 @@ DEFAULT_CONFIG = {
     # Short text lines this close to a region are treated as figure labels.
     "label_margin": 16,
     "label_max_chars": 48,
+    # Lines from blocks longer than this are paragraph text, not figure labels.
+    "label_block_max_chars": 100,
     # Caption search.
     "max_caption_gap": 72,
     "caption_search_height": 320,
     "min_x_overlap": 0.25,
+    "tight_caption_gap": 12,
     # Uncaptioned regions smaller than this are dropped as decorative.
     "min_uncaptioned_area": 15000,
     "render_padding": 4,
@@ -68,6 +71,11 @@ CAPTION_RE = re.compile(
     r"(\d+(?:\s*[.\-–:]\s*\d+)*[a-z]?)\b",
     re.IGNORECASE,
 )
+# "FIGURE (unnumbered illustration)", "Figure: Map of ..." - a caption without a number.
+UNNUMBERED_CAPTION_RE = re.compile(r"^\s*(fig(?:ure)?\.?|illustration|diagram|table)\s*[(:]", re.IGNORECASE)
+# Explicit "Figure 2.1:" / "TABLE 3." style: a caption even when the block is long.
+EXPLICIT_CAPTION_RE = re.compile(r"^\s*(fig(?:ure)?s?\.?|table)\s*\d+(?:\s*[.\-–]\s*\d+)*[a-z]?\s*[:.]", re.IGNORECASE)
+PAGE_MARKER_RE = re.compile(r"^\s*\[?\s*(?:book\s+|original\s+)?page\s+\d+\s*\]?\s*$", re.IGNORECASE)
 CONTINUED_RE = re.compile(r"\(?\b(cont(?:inued|'d|\.)?)\b\)?", re.IGNORECASE)
 PAGE_NUMBER_RE = re.compile(r"^\s*(?:page\s+)?(\d{1,4}|[ivxlcdm]{1,7})\s*$", re.IGNORECASE)
 MATH_CHARS = set("=±×÷√∑∫∏∂∞≈≠≤≥→⇒∆Δπθλμσωαβγ^²³")
@@ -200,7 +208,8 @@ def find_captions(lines, blocks):
     used_blocks = set()
     for ln in lines:
         m = CAPTION_RE.match(ln["text"])
-        if not m:
+        unnumbered = None if m else UNNUMBERED_CAPTION_RE.match(ln["text"])
+        if not m and not unnumbered:
             continue
         b = ln["block"]
         if b in used_blocks:
@@ -210,11 +219,18 @@ def find_captions(lines, blocks):
         starts_block = block["text"].startswith(ln["text"][:20])
         if not starts_block:
             continue
-        if len(block["text"]) > 400:
+        # Long blocks are usually prose mentioning a figure, unless the block
+        # opens with an explicit "Figure 2.1:" caption.
+        limit = 1500 if (m and EXPLICIT_CAPTION_RE.match(block["text"])) else 400
+        if len(block["text"]) > limit:
             continue
         used_blocks.add(b)
-        word = m.group(1).lower()
-        label = re.sub(r"\s+", "", m.group(2)).replace("–", "-")
+        if m:
+            word = m.group(1).lower()
+            label = re.sub(r"\s+", "", m.group(2)).replace("–", "-")
+        else:
+            word = unnumbered.group(1).lower()
+            label = None
         caps.append({
             "rect": fitz.Rect(block["rect"]),
             "text": block["text"].strip(),
@@ -241,7 +257,7 @@ def merge_regions(regions, cfg):
     return out
 
 
-def attach_labels(region, lines, caption_blocks, cfg):
+def attach_labels(region, lines, caption_blocks, cfg, blocks=None):
     """Grow a region to include short text labels sitting on/around it."""
     r = fitz.Rect(region["rect"])
     grown = True
@@ -255,6 +271,10 @@ def attach_labels(region, lines, caption_blocks, cfg):
                 continue
             if len(ln["text"]) > cfg["label_max_chars"]:
                 continue
+            if blocks is not None and len(blocks[ln["block"]]["text"]) > cfg["label_block_max_chars"]:
+                continue
+            if PAGE_MARKER_RE.match(ln["text"]):
+                continue
             if probe.intersects(ln["rect"]) and not r.contains(ln["rect"]):
                 r |= ln["rect"]
                 grown = True
@@ -267,10 +287,14 @@ def associate_captions(regions, captions, cfg):
     pairs = []
     for ci, c in enumerate(captions):
         for ri, r in enumerate(regions):
-            if x_overlap_ratio(c["rect"], r["rect"]) < cfg["min_x_overlap"]:
-                continue
             below = c["rect"].y0 - r["rect"].y1      # caption under figure
             above = r["rect"].y0 - c["rect"].y1      # caption over figure (tables)
+            ratio = x_overlap_ratio(c["rect"], r["rect"])
+            # Books often left-align captions under centred figures: a caption sitting
+            # directly beneath a region only needs to overlap it a little.
+            tight = -4 <= below <= cfg["tight_caption_gap"] and ratio > 0
+            if ratio < cfg["min_x_overlap"] and not tight:
+                continue
             if -4 <= below <= cfg["max_caption_gap"]:
                 pairs.append((below, ci, ri))
             elif -4 <= above <= (cfg["max_caption_gap"] if c["kind"] == "table" else cfg["max_caption_gap"] / 2):
@@ -385,9 +409,13 @@ def printed_page_number(lines, page):
 
 
 def average_hash(page, rect):
-    """64-bit average hash of a region, for duplicate detection."""
+    """64-bit average hash of a region, for duplicate detection.
+    The outer 10% is ignored so shared frames/borders do not dominate."""
+    r = fitz.Rect(rect)
+    dx, dy = r.width * 0.1, r.height * 0.1
+    inner = fitz.Rect(r.x0 + dx, r.y0 + dy, r.x1 - dx, r.y1 - dy)
     try:
-        pix = page.get_pixmap(clip=rect, dpi=24, colorspace=fitz.csGRAY, alpha=False)
+        pix = page.get_pixmap(clip=inner, dpi=24, colorspace=fitz.csGRAY, alpha=False)
     except Exception:
         return None
     w, h = pix.width, pix.height
@@ -483,7 +511,7 @@ def extract(pdf_path, out_dir, cfg, page_range=None):
                                                  for tr in table_rects)]
 
         regions = merge_regions(rasters + vectors, cfg)
-        regions = [attach_labels(r, lines, caption_blocks, cfg) for r in regions]
+        regions = [attach_labels(r, lines, caption_blocks, cfg, blocks) for r in regions]
         # Label growth can make regions touch — merge again.
         if len(regions) > 1:
             regions = merge_regions([{**r, "kind": "raster" if r["has_raster"] else "vector"} for r in regions], cfg)
@@ -515,7 +543,7 @@ def extract(pdf_path, out_dir, cfg, page_range=None):
                 continue
             found = search_region_for_caption(page, c, lines, small_vectors, all_vectors, rasters_all, cfg, taken)
             if found:
-                found = attach_labels(found, lines, caption_blocks, cfg)
+                found = attach_labels(found, lines, caption_blocks, cfg, blocks)
                 regions.append(found)
                 cap_for_region[len(regions) - 1] = ci
                 used_c.add(ci)
@@ -656,10 +684,12 @@ def extract(pdf_path, out_dir, cfg, page_range=None):
     # Duplicates (identical logos / repeated diagrams) by perceptual hash.
     seen = []
     for f in figures:
-        if not f.get("hash"):
+        # Text tables share a blank/grid look, so hashes are meaningless for them.
+        if not f.get("hash") or f["kind"] == "table":
             continue
         for g in seen:
-            if hamming(f["hash"], g["hash"]) <= 3 and abs(f["widthPx"] - g["widthPx"]) < 0.1 * max(1, g["widthPx"]):
+            same_shape = abs(f["widthPx"] - g["widthPx"]) < 0.1 * max(1, g["widthPx"]) and                 abs(f["heightPx"] - g["heightPx"]) < 0.1 * max(1, g["heightPx"])
+            if same_shape and hamming(f["hash"], g["hash"]) <= 3:
                 f["duplicateOf"] = g["id"]
                 f["warnings"].append("duplicate")
                 break

@@ -7,6 +7,8 @@
 const SCENE_TYPES = [
   'title', 'bullets', 'formula', 'graph', 'figure', 'worked_example',
   'table', 'ledger', 'timeline', 'flow', 'dialogue', 'experiment', 'summary',
+  'media', // full-screen licensed photo/clip with animated key points
+  'check', // "pause and think" question; the app pauses here and asks the student
 ];
 
 const SUBJECTS = [
@@ -14,8 +16,17 @@ const SUBJECTS = [
     key: 'mathematics',
     match: /\b(math|maths|mathematics|algebra|geometry|calculus|statistics?|trigonometr\w*|arithmetic|probability|vectors?|matrices|quantitative)\b/i,
     scenes: ['title', 'formula', 'graph', 'worked_example', 'figure', 'bullets', 'table', 'summary'],
-    durationSec: [120, 210],
-    guidance: `Teach visually: use "graph" scenes for functions, coordinate planes and geometric relationships; "formula" scenes that transform an expression step by step (one transformation per step, in LaTeX); "worked_example" scenes that solve the lesson's own example line by line keeping its numbers. Highlight the symbol being discussed in the narration. Never round or change numbers from the source.`,
+    durationSec: [180, 330], // worked examples explained slowly, step by step
+    guidance: `Teach visually: use "graph" scenes for functions, coordinate planes and geometric relationships; "formula" scenes that transform an expression step by step (one transformation per step, in LaTeX); "worked_example" scenes that solve the lesson's own example line by line keeping its numbers. Highlight the symbol being discussed in the narration. Never round or change numbers from the source.
+WHEN THE LESSON HAS A WORKED EXAMPLE, SOLVE IT COMPLETELY so a student can follow every calculation:
+  1. Show the question exactly as the lesson states it, on screen, before solving.
+  2. One scene per stage of the method (e.g. rewrite, substitute, simplify, solve, final answer). Before each stage the narration says what we are about to do and why.
+  3. Put every intermediate line on screen. Never skip arithmetic the student must do: write "2x^2 = 32", then "x^2 = 16", then "x = ±4", not just the result.
+  4. End each stage with its result on its own line, and state the final answer clearly.
+  5. Check the answer by substituting it back into the original question, with the calculation on screen.
+  If a stage needs more lines than one scene allows, continue it in the next scene.
+Real-world photos are optional in mathematics: use a "media" scene only for an application the lesson itself describes, never invent one.`,
+    mediaOptional: true,
   },
   {
     key: 'physics',
@@ -94,6 +105,14 @@ const GENERAL_SCIENCE = {
   science: true,
 };
 
+// Every subject can use real-world media scenes and in-video checks.
+for (const s of [...SUBJECTS, GENERAL, GENERAL_SCIENCE]) {
+  s.scenes.splice(s.scenes.indexOf('summary'), 0, 'media', 'check');
+}
+
+/** Scene types for experiment demonstration videos. */
+const EXPERIMENT_SCENES = ['title', 'experiment', 'figure', 'formula', 'media', 'check', 'summary'];
+
 /** Detect the subject template from book/course metadata. */
 function detectSubject(...texts) {
   const hay = texts.filter(Boolean).join(' \n ');
@@ -106,4 +125,4 @@ function subjectByKey(key) {
   return SUBJECTS.find(s => s.key === key) || (key === GENERAL_SCIENCE.key ? GENERAL_SCIENCE : GENERAL);
 }
 
-module.exports = { SCENE_TYPES, SUBJECTS, detectSubject, subjectByKey };
+module.exports = { SCENE_TYPES, SUBJECTS, EXPERIMENT_SCENES, detectSubject, subjectByKey };

@@ -6,7 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-for (const k of ['MONGODB_URI', 'GROQ_API_KEY', 'ELEVENLABS_API_KEY', 'GEMINI_API_KEY', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'S3_BUCKET_NAME']) {
+for (const k of ['MONGODB_URI', 'GROQ_API_KEY', 'ELEVENLABS_API_KEY', 'GEMINI_API_KEY', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'S3_BUCKET_NAME', 'PEXELS_API_KEY', 'PIXABAY_API_KEY']) {
   delete process.env[k];
 }
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'ech-test-'));
@@ -17,6 +17,10 @@ Object.assign(process.env, {
   VIDEO_TTS_PROVIDER: 'silent',
   VIDEO_ALLOW_SILENT: 'true',
   FIGURE_WAIT_SECONDS: '0',
+  VIDEO_STOCK_MEDIA: 'false', // no network in tests; stock media is tested with mocked providers
+  VIDEO_STOCK_USER_AGENT: 'ECH-tests',
+  VIDEO_STOCK_MIN_INTERVAL_MS: '0',
+  VIDEO_STOCK_BUSY_RETRY_MS: '0',
   JOB_BACKOFF_BASE_MS: '50',
   JOB_BACKOFF_MAX_MS: '200',
 });

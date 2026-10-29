@@ -197,6 +197,8 @@ const publicVideoMeta = (v) => {
     meta.captionsKey = null;
     meta.captionsUrl = null;
     meta.transcript = null;
+    meta.interactions = [];
+    meta.credits = [];
   }
   return meta;
 };

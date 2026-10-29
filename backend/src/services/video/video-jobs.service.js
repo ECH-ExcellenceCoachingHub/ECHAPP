@@ -20,7 +20,8 @@ const { assessExperiment, SIMULATION_DISCLOSURE } = require('./experiment');
  */
 
 const AI_VIDEO_PREFIX = 'ai-videos/';
-const RENDERER_VERSION = 'programmatic-v1';
+// v2: motion graphics, licensed stock media, in-video check questions.
+const RENDERER_VERSION = 'programmatic-v2';
 
 const flag = (name, def) => String(process.env[name] ?? def).toLowerCase() !== 'false';
 const policy = () => ({
@@ -258,6 +259,8 @@ async function applyJobResult(jobId) {
       captionsUrl: o.captionsUrl,
       durationSeconds: o.durationSeconds,
       transcript: o.transcript,
+      interactions: o.interactions || [],
+      credits: o.credits || [],
       contentVersion: job.contentVersion,
       pendingContentVersion: null,
       stale: (doc.contentVersion || 1) > job.contentVersion,

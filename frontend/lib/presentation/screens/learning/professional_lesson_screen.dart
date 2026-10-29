@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:excellencecoachinghub/config/api_config.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:excellencecoachinghub/models/lesson.dart';
+import 'package:excellencecoachinghub/models/lesson_video.dart';
 import 'package:excellencecoachinghub/models/video.dart';
 import 'package:excellencecoachinghub/data/repositories/lesson_repository.dart';
 import 'package:excellencecoachinghub/data/repositories/video_repository.dart';
@@ -2053,10 +2054,20 @@ class _ProfessionalLessonScreenState
     return (key: lesson.videoId, url: _extractVideoUrl());
   }
 
+  /// Check questions of the generated video that is playing (none for teacher videos).
+  List<VideoInteraction> _activeInteractions(String? activeKey) {
+    final lesson = _lesson!;
+    for (final v in [lesson.aiVideo, lesson.aiExperimentVideo]) {
+      if (v != null && v.isWatchable && activeKey != null && (v.s3Key == activeKey || v.url == activeKey)) return v.interactions;
+    }
+    return const [];
+  }
+
   Widget _buildVideoPlayer() {
     final source = _activeVideoSource();
     final videoUrl = source.url;
     final activeKey = source.key;
+    final interactions = _activeInteractions(activeKey);
     final isDesktop = ResponsiveBreakpoints.isDesktop(context);
 
     // Use 16:9 for the player container to match the video's native aspect ratio.
@@ -2072,6 +2083,7 @@ class _ProfessionalLessonScreenState
                 title: _lesson!.title,
                 description: _lesson!.description ?? '',
                 showAppBar: false,
+                interactions: interactions,
               )
             : (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS
                 ? OptimizedVideoPlayer(
@@ -2082,6 +2094,7 @@ class _ProfessionalLessonScreenState
                     description: _lesson!.description ?? '',
                     showAppBar: false,
                     aspectRatio: 16 / 9,
+                    interactions: interactions,
                   )
                 : CustomVideoPlayer(
                     key: ValueKey('player-$activeKey'),
@@ -2090,6 +2103,7 @@ class _ProfessionalLessonScreenState
                     title: _lesson!.title,
                     description: _lesson!.description ?? '',
                     showAppBar: false,
+                    interactions: interactions,
                   )))
         : _buildVideoPlaceholder();
 
