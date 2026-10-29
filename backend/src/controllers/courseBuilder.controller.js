@@ -9,6 +9,8 @@ const { publishApproved, contentToMarkdown, toAppQuestion } = require('../servic
 const { gradeOpenAnswers } = require('../services/answer-grading.service');
 const { searchImage } = require('../services/course-builder/images.service');
 const { sendSuccess, sendError, sendNotFound, sendForbidden } = require('../utils/response.utils');
+const { isVideoWatchable } = require('../models/schemas/aiVideo.schema');
+const videoStorage = require('../services/video/storage.service');
 
 const ALLOWED_EXT = /\.(pdf|docx?|txt|md)$/i;
 const MODES = ['full', 'selected', 'lessons_only', 'quizzes_only', 'exam_prep', 'revision', 'mock_exam'];
@@ -534,10 +536,41 @@ function draftAsLesson(item) {
   };
 }
 
+/**
+ * A draft's generated video exactly as a student would receive it: hidden
+ * until watchable (pending review / rejected), internal fields dropped. The
+ * link is the same CloudFront address a published lesson plays (the app's
+ * players and web media proxy expect it; a signed S3 link would be rewritten).
+ */
+function previewVideoMeta(video) {
+  const v = video?.toObject ? video.toObject() : video;
+  if (!v) return null;
+  const { previous, jobId, provider, pendingContentVersion, ...meta } = v;
+  if (!isVideoWatchable(v)) {
+    return { ...meta, s3Key: null, url: null, captionsKey: null, captionsUrl: null, transcript: null, interactions: [], credits: [] };
+  }
+  meta.url = videoStorage.publicUrl(v.s3Key) || v.url;
+  return meta;
+}
+
+/** Adds the draft's generated videos to its preview lesson (same fields as a published lesson). */
+function withPreviewVideos(preview, item) {
+  const aiVideo = previewVideoMeta(item.video);
+  const aiExperimentVideo = previewVideoMeta(item.experimentVideo);
+  preview.lesson.aiVideo = aiVideo;
+  preview.lesson.aiExperimentVideo = aiExperimentVideo;
+  if (aiVideo?.s3Key) {
+    preview.lesson.videoId = aiVideo.s3Key;
+    preview.lesson.videoUrl = aiVideo.url;
+  }
+  return preview;
+}
+
 const previewItem = async (req, res) => {
   try {
     const item = await loadItem(req, res);
     if (!item) return;
+    const preview = withPreviewVideos(draftAsLesson(item), item);
     // Neighbouring drafts in the same chapter, for Previous / Next
     const siblings = await CourseBuildItem.find({
       jobId: item.jobId,
@@ -545,7 +578,7 @@ const previewItem = async (req, res) => {
       status: { $nin: ['rejected', 'error', 'pending', 'generating'] },
     }).select('title kind order').sort({ order: 1 }).lean();
     sendSuccess(res, {
-      ...draftAsLesson(item),
+      ...preview,
       siblings: siblings.map(s => ({ _id: String(s._id), title: s.title, kind: s.kind })),
     });
   } catch (err) {

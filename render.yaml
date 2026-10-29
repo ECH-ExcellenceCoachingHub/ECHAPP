@@ -79,8 +79,8 @@ services:
         sync: false
       - key: ELEVENLABS_VOICE_ID
         sync: false
-      - key: VIDEO_TTS_COST_PER_1K_CHARS # required when ElevenLabs is used (spending control)
-        sync: false
+      - key: VIDEO_TTS_COST_PER_1K_CHARS # required when ElevenLabs is used (spending control); ElevenLabs overage rate, a safe upper estimate
+        value: "0.30"
       - key: GEMINI_API_KEY # optional — OCR of labels inside raster figures
         sync: false
       - key: PEXELS_API_KEY # optional, free — licensed stock photos/clips in lesson videos
@@ -91,7 +91,7 @@ services:
         sync: false
       - key: MEDIA_WORKER_CONCURRENCY
         value: "1"
-      - key: VIDEO_MAX_COST_PER_LESSON_USD
-        value: "1"
+      - key: VIDEO_MAX_COST_PER_LESSON_USD # slow, step-by-step narration is longer
+        value: "2"
       - key: VIDEO_MAX_COST_PER_COURSE_USD
         value: "25"

@@ -105,8 +105,10 @@ const GENERAL_SCIENCE = {
   science: true,
 };
 
-// Every subject can use real-world media scenes and in-video checks.
+// Every subject can use real-world media scenes and in-video checks, and a
+// worked calculation (e.g. population density in biology) is shown step by step.
 for (const s of [...SUBJECTS, GENERAL, GENERAL_SCIENCE]) {
+  if (!s.scenes.includes('worked_example')) s.scenes.splice(s.scenes.indexOf('summary'), 0, 'worked_example');
   s.scenes.splice(s.scenes.indexOf('summary'), 0, 'media', 'check');
 }
 

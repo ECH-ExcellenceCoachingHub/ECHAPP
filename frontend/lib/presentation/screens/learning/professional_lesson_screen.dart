@@ -340,6 +340,19 @@ class _ProfessionalLessonScreenState
   /// notes card in the Lessons tab) wins whenever the lesson has that
   /// content; otherwise fall back to the lesson's own content.
   _Tab _resolveInitialTab(Lesson lesson) {
+    final tab = _resolveRequestedTab(lesson);
+    // A generated video lives inside the notes, so "video" opens the notes.
+    return tab == _Tab.video && _embedsVideo(lesson) ? _Tab.notes : tab;
+  }
+
+  /// Generated lesson videos are shown inside the notes (no separate Video
+  /// tab), so students read and watch on one page without switching tabs.
+  bool _embedsVideo(Lesson lesson) =>
+      lesson.hasNotes && (lesson.aiVideo != null || lesson.aiExperimentVideo != null);
+
+  bool get _videoInNotes => _lesson != null && _embedsVideo(_lesson!);
+
+  _Tab _resolveRequestedTab(Lesson lesson) {
     switch (widget.initialTab?.toLowerCase()) {
       case 'notes':
         if (lesson.hasNotes) return _Tab.notes;
@@ -1203,6 +1216,7 @@ class _ProfessionalLessonScreenState
                   _buildSidebarSection('Navigation', [
                     _SidebarItem(Icons.home_rounded, 'Home', false,
                         () => context.pop()),
+                    if (!_videoInNotes)
                     _SidebarItem(Icons.play_circle_outline, 'Video',
                         _activeTab == _Tab.video,
                         () {
@@ -1509,6 +1523,7 @@ class _ProfessionalLessonScreenState
   }
 
   void _setActiveTab(_Tab tab) {
+    if (tab == _Tab.video && _videoInNotes) tab = _Tab.notes;
     final wasNotes = _activeTab == _Tab.notes;
     setState(() => _activeTab = tab);
     if (tab == _Tab.notes && !wasNotes) {
@@ -1527,7 +1542,8 @@ class _ProfessionalLessonScreenState
 
   Widget _buildTabBar() {
     final tabs = <(_Tab tab, IconData icon, String label)>[
-      (_Tab.video, Icons.play_circle_outline, 'Video'),
+      if (!_videoInNotes)
+        (_Tab.video, Icons.play_circle_outline, 'Video'),
       if (_lesson?.hasQuiz == true)
         (_Tab.quiz, Icons.quiz_outlined, 'Quiz'),
       if (_lesson?.hasNotes == true)
@@ -1603,7 +1619,7 @@ class _ProfessionalLessonScreenState
 
   Widget _buildTabContent() {
     return switch (_activeTab) {
-      _Tab.video => _buildVideoTab(),
+      _Tab.video => _videoInNotes ? _buildNotesTab() : _buildVideoTab(),
       _Tab.notes => _buildNotesTab(),
       _Tab.quiz => _buildQuizTab(),
       _Tab.feedback => _buildFeedbackTab(),
@@ -2005,12 +2021,12 @@ class _ProfessionalLessonScreenState
   }
 
   /// Variant switcher (when an experiment demo exists) + player + transcript/notices.
-  Widget _buildVideoSection() {
+  Widget _buildVideoSection({bool embedded = false}) {
     final lesson = _lesson!;
     final isDesktop = ResponsiveBreakpoints.isDesktop(context);
     final experiment = _showExperimentVideo && lesson.hasExperimentVideo;
     final meta = experiment ? lesson.aiExperimentVideo : lesson.aiVideo;
-    final pad = EdgeInsets.symmetric(horizontal: isDesktop ? 0 : 16);
+    final pad = EdgeInsets.symmetric(horizontal: isDesktop || embedded ? 0 : 16);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2032,7 +2048,7 @@ class _ProfessionalLessonScreenState
               ),
             ]),
           ),
-        _buildVideoPlayer(),
+        _buildVideoPlayer(embedded: embedded),
         if (meta != null && (experiment || lesson.hasVideo))
           Padding(padding: pad, child: LessonVideoInfoCard(video: meta, isDark: _isDark)),
       ],
@@ -2063,7 +2079,7 @@ class _ProfessionalLessonScreenState
     return const [];
   }
 
-  Widget _buildVideoPlayer() {
+  Widget _buildVideoPlayer({bool embedded = false}) {
     final source = _activeVideoSource();
     final videoUrl = source.url;
     final activeKey = source.key;
@@ -2111,7 +2127,7 @@ class _ProfessionalLessonScreenState
       width: double.infinity,
       decoration: BoxDecoration(
         color: const Color(0xFF0F172A),
-        borderRadius: BorderRadius.circular(isDesktop ? 16 : 0),
+        borderRadius: BorderRadius.circular(isDesktop || embedded ? 16 : 0),
         boxShadow: isDesktop ? [
           BoxShadow(
             color: Colors.black.withOpacity(0.2),
@@ -2133,7 +2149,8 @@ class _ProfessionalLessonScreenState
       return LessonVideoStatusView(
         video: aiVideo,
         title: _lesson?.title ?? '',
-        onOpenNotes: _lesson?.hasNotes == true ? () => _setActiveTab(_Tab.notes) : null,
+        // Already on the notes page when the video is embedded there.
+        onOpenNotes: _lesson?.hasNotes == true && !_videoInNotes ? () => _setActiveTab(_Tab.notes) : null,
         onOpenQuiz: _lesson?.hasQuiz == true ? () => _setActiveTab(_Tab.quiz) : null,
       );
     }
@@ -2663,15 +2680,80 @@ class _ProfessionalLessonScreenState
 
   Widget _buildNotesTab() {
     final isDesktop = ResponsiveBreakpoints.isDesktop(context);
+    final pad = isDesktop ? 24.0 : 16.0;
+    if (!_videoInNotes) {
+      return SingleChildScrollView(
+        padding: EdgeInsets.all(pad),
+        child: _buildNotesBody(),
+      );
+    }
+    // The generated video sits with the notes: beside them on wide screens
+    // (staying in view while the notes scroll), above them on phones/tablets.
+    return LayoutBuilder(builder: (context, constraints) {
+      if (constraints.maxWidth >= 960) {
+        final videoWidth = (constraints.maxWidth * 0.42).clamp(380.0, 560.0);
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(pad, pad, 12, pad),
+                child: _buildNotesBody(),
+              ),
+            ),
+            SizedBox(
+              width: videoWidth,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.fromLTRB(12, pad, pad, pad),
+                child: _buildEmbeddedVideo(),
+              ),
+            ),
+          ],
+        );
+      }
+      return SingleChildScrollView(
+        padding: EdgeInsets.all(pad),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildEmbeddedVideo(),
+            const SizedBox(height: 24),
+            _buildNotesBody(),
+          ],
+        ),
+      );
+    });
+  }
+
+  /// Video block shown inside the notes page.
+  Widget _buildEmbeddedVideo() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(children: [
+          Icon(Icons.play_circle_outline, color: _T.green, size: 20),
+          const SizedBox(width: 8),
+          Text('Lesson video',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _textColor)),
+        ]),
+        const SizedBox(height: 10),
+        _buildVideoSection(embedded: true),
+        if (_lesson!.hasVideo) ...[
+          const SizedBox(height: 12),
+          _buildVideoActions(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildNotesBody() {
     final hasPdf =
         _lesson!.notesPdfUrl?.isNotEmpty == true;
     final hasText = _lesson!.notes?.isNotEmpty == true;
     final hasGuide = _lesson!.hasAiGuide;
     final viewCount = [hasGuide, hasPdf, hasText && !hasGuide].where((v) => v).length;
 
-    return SingleChildScrollView(
-      padding: EdgeInsets.all(isDesktop ? 24 : 16),
-      child: ConstrainedBox(
+    return ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 820),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2731,7 +2813,6 @@ class _ProfessionalLessonScreenState
             const SizedBox(height: 80),
           ],
         ),
-      ),
     );
   }
 

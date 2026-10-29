@@ -191,6 +191,38 @@ test('videos that need review are hidden from students until approved', async ()
   } finally { restore(); }
 });
 
+test('student-view preview of a draft plays its generated video (hidden while under review)', async () => {
+  const restore = stubAi();
+  try {
+    const { job, item, userId } = await seed({ subject: 'Mathematics' });
+    await runner.processItem((await CourseBuildJob.findById(job._id).lean()), await CourseBuildItem.findById(item._id), pages);
+    const vjob = await GenerationJob.findOne({ variant: 'explainer' });
+    await queue.claim('w', ['lesson_video']);
+    await queue.complete(vjob._id, 'w', { output: { s3Key: 'ai-videos/c/x/draft.mp4', url: 'https://cdn/draft.mp4', transcript: 't', durationSeconds: 100 } });
+    await videoJobs.applyJobResult(vjob._id);
+
+    const ctrl = require('../src/controllers/courseBuilder.controller');
+    const req = { params: { itemId: String(item._id) }, user: { role: 'admin', id: String(userId), _id: userId } };
+    let res = mockRes();
+    await ctrl.previewItem(req, res);
+    assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+    let lesson = res.body.data.lesson;
+    assert.equal(lesson.videoId, 'ai-videos/c/x/draft.mp4', 'the preview plays the generated video');
+    assert.ok(lesson.videoUrl);
+    assert.equal(lesson.aiVideo.status, 'completed');
+    assert.equal(lesson.aiVideo.previous, undefined, 'internal fields dropped');
+
+    // Pending review: shown to students as "under review", not playable.
+    await CourseBuildItem.updateOne({ _id: item._id }, { $set: { 'video.reviewStatus': 'pending' } });
+    res = mockRes();
+    await ctrl.previewItem(req, res);
+    lesson = res.body.data.lesson;
+    assert.equal(lesson.videoId ?? null, null);
+    assert.equal(lesson.aiVideo.url, null);
+    assert.equal(lesson.aiVideo.reviewStatus, 'pending');
+  } finally { restore(); }
+});
+
 test('failed job status is mirrored onto the draft and the lesson stays usable', async () => {
   const restore = stubAi();
   try {
