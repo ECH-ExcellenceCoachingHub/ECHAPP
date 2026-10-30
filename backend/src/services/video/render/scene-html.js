@@ -1,6 +1,7 @@
 const { pathToFileURL } = require('url');
 const katex = require('katex');
 const { parse: parseExpression } = require('../../../utils/mathExpression');
+const { HANDS_ON_PHASES } = require('../subjects');
 
 /**
  * Deterministic HTML for every frame of every scene (1280×720).
@@ -220,6 +221,18 @@ const PHASE = {
   explanation: ['Scientific explanation', '💡'], conclusion: ['Conclusion', '✅'], questions: ['Questions for you', '❓'],
 };
 
+/** Phase label and step list of an experiment scene. */
+function experimentParts(scene, state) {
+  const [label, icon] = PHASE[scene.phase] || PHASE.procedure;
+  const numbered = ['procedure', 'setup'].includes(scene.phase);
+  return {
+    phase: `<div class="phase"><span>${icon}</span>${esc(label)}</div>`,
+    items: numbered
+      ? `<ol class="list steps">${scene.items.map((t, i) => `<li class="${i < state.reveal ? (i === state.reveal - 1 ? 'on current' : 'on') : 'off'}"><span class="num">${i + 1}</span><span>${esc(t)}</span></li>`).join('')}</ol>`
+      : list(scene.items, state.reveal),
+  };
+}
+
 const LETTERS = 'ABCD';
 
 function choicesHtml(scene, state) {
@@ -285,13 +298,8 @@ function body(scene, state, ctx) {
     case 'dialogue':
       return `<div class="dialogue">${scene.lines.map((l, i) => `<div class="bubble ${i % 2 ? 'right' : 'left'} ${i < state.reveal ? (i === state.reveal - 1 ? 'on current' : 'on') : 'off'}"><b>${esc(l.speaker)}</b><div>${esc(l.text)}</div>${l.translation ? `<div class="muted small">${esc(l.translation)}</div>` : ''}</div>`).join('')}</div>`;
     case 'experiment': {
-      const [label, icon] = PHASE[scene.phase] || PHASE.procedure;
-      const numbered = ['procedure', 'setup'].includes(scene.phase);
-      return `<div class="exp exp-${scene.phase}"><div class="phase"><span>${icon}</span>${esc(label)}</div>${
-        numbered
-          ? `<ol class="list steps">${scene.items.map((t, i) => `<li class="${i < state.reveal ? (i === state.reveal - 1 ? 'on current' : 'on') : 'off'}"><span class="num">${i + 1}</span><span>${esc(t)}</span></li>`).join('')}</ol>`
-          : list(scene.items, state.reveal)
-      }</div>`;
+      const { phase, items } = experimentParts(scene, state);
+      return `<div class="exp exp-${scene.phase}">${phase}${items}</div>`;
     }
     default:
       return '';
@@ -454,6 +462,18 @@ h1.big{font-size:60px;line-height:1.1;margin:22px 0 14px;font-weight:800;letter-
 .chip.current{animation:pop .45s cubic-bezier(.2,.8,.2,1) both}
 .full-credit{position:absolute;right:64px;bottom:44px;font-size:13px;color:rgba(255,255,255,.8);text-shadow:0 1px 4px rgba(0,0,0,.6)}
 .full .lower{bottom:72px}
+.scrim.exp{background:linear-gradient(90deg,rgba(2,6,23,.6) 0%,rgba(2,6,23,.25) 50%,rgba(2,6,23,0) 75%)}
+.exp-card{position:absolute;left:48px;top:84px;max-height:572px;width:580px;background:rgba(2,6,23,.74);border-radius:18px;padding:22px 26px;color:#fff;display:flex;flex-direction:column;box-shadow:0 14px 40px rgba(0,0,0,.35);overflow:hidden}
+.first .exp-card{animation:slidein .5s cubic-bezier(.2,.8,.2,1) both}
+.exp-card .phase{display:inline-flex;align-self:flex-start;gap:8px;border:0;margin:0;background:#4ADE80;color:#052e16;font-weight:800;font-size:16px;padding:5px 14px;border-radius:999px;text-transform:uppercase;letter-spacing:.6px}
+.exp-card h2{font-size:30px;line-height:1.15;font-weight:800;margin:14px 0 8px;letter-spacing:-.3px}
+.exp-card .list li{font-size:22px;margin:6px 0;padding:8px 12px;gap:12px;color:#fff}
+.exp-card.dense .list li{font-size:18px;margin:3px 0;padding:6px 10px}
+.exp-card .list li.off{opacity:.3}
+.exp-card .list li.on{opacity:.65}
+.exp-card .list li.current{opacity:1;background:rgba(255,255,255,.14);box-shadow:none;border-left:6px solid #4ADE80}
+.exp-card .list .num{flex:0 0 32px;height:32px;font-size:16px}
+.exp-card .list li .dot{margin-top:9px;background:#4ADE80}
 `;
 
 /**
@@ -463,6 +483,8 @@ h1.big{font-size:60px;line-height:1.1;margin:22px 0 14px;font-weight:800;letter-
 function layoutOf(scene, asset) {
   if (!asset) return 'none';
   if (scene.type === 'media' || scene.type === 'title') return 'full';
+  // Hands-on experiment steps: the clip fills the frame and the steps sit over it.
+  if (scene.type === 'experiment' && HANDS_ON_PHASES.includes(scene.phase)) return 'full';
   if (scene.type === 'bullets' || scene.type === 'experiment') return 'split';
   return 'none';
 }
@@ -494,6 +516,10 @@ function renderFrame(scene, state, ctx) {
   let inner;
   if (layout === 'full' && scene.type === 'title') {
     inner = `<div class="scrim title"></div>${brand}${disclosure}${body(scene, state, ctx)}<div class="full-credit">${esc(asset.credit)}</div>${footer}`;
+  } else if (layout === 'full' && scene.type === 'experiment') {
+    const dense = scene.items.length > 4 || scene.items.join('').length > 360;
+    const { phase, items } = experimentParts(scene, state);
+    inner = `<div class="scrim exp"></div>${brand}${disclosure}<div class="exp-card${dense ? ' dense' : ''}">${phase}<h2>${esc(scene.heading || '')}</h2>${items}</div><div class="full-credit">${esc(asset.credit)}</div>${footer}`;
   } else if (layout === 'full') {
     const chips = (scene.points || []).map((p, i) => `<div class="chip ${i < state.reveal ? (i === state.reveal - 1 ? 'on current' : 'on') : 'off'}">${esc(p)}</div>`).join('');
     inner = `<div class="scrim media"></div>${brand}${disclosure}<div class="lower"><div class="lt-bar"><h2>${esc(scene.heading || '')}</h2></div><div class="chips">${chips}</div></div><div class="full-credit">${esc(asset.credit)}</div>${footer}`;

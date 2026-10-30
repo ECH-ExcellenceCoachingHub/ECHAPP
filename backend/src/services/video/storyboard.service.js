@@ -1,6 +1,6 @@
 const katex = require('katex');
 const { parse: parseExpression } = require('../../utils/mathExpression');
-const { SCENE_TYPES, EXPERIMENT_SCENES, subjectByKey } = require('./subjects');
+const { SCENE_TYPES, EXPERIMENT_SCENES, HANDS_ON_PHASES, subjectByKey } = require('./subjects');
 const { SIMULATION_DISCLOSURE } = require('./experiment');
 
 /**
@@ -19,6 +19,13 @@ const WORDS_PER_SECOND = 2.0; // slow, beginner-friendly narration
 const MAX_SCENES = 14;
 const MAX_CHECKS = 3;
 const MEDIA_SCENES_HINT = '3-5';
+// Searched when no clip matches the scene's own phrase, so a step still shows real lab work.
+const GENERIC_LAB = {
+  apparatus: 'laboratory equipment glassware',
+  setup: 'scientist preparing laboratory experiment',
+  procedure: 'scientist doing laboratory experiment',
+  observation: 'laboratory experiment reaction',
+};
 const CHECKS_HINT = '1-2';
 const NOTES_CHARS = 7000;
 const MAX_FORMULA_STEPS = 6;
@@ -99,8 +106,9 @@ ${types.includes('media') && s.mediaOptional ? `- REAL-WORLD MEDIA (OPTIONAL): a
 ${types.includes('media') && !s.mediaOptional ? `- REAL-WORLD MEDIA (REQUIRED): licensed photos and video clips are searched for you from a short phrase, so the video SHOWS what the narration talks about (organisms, places, apparatus, people doing the activity). You MUST include:
   1. a "media" field on the "title" scene;
   2. at least 2 scenes of type "media" (real-world context between the explanations);
-  3. a "media" field on every "bullets" scene${variant === 'experiment' ? ' and on the apparatus, set-up and procedure "experiment" scenes' : ''}.
-  In total about ${MEDIA_SCENES_HINT} scenes with media.
+  3. a "media" field on every "bullets" scene${variant === 'experiment' ? ' and on EVERY apparatus, set-up, procedure and observation "experiment" scene' : ''}.
+  In total about ${variant === 'experiment' ? '5-8' : MEDIA_SCENES_HINT} scenes with media.${variant === 'experiment' ? `
+  EXPERIMENT CLIPS: the apparatus, set-up, procedure and observation scenes are shown FULL SCREEN over a real video clip, with the steps on top. For each of them use "kind": "video" and a "media.query" naming the hands-on action or apparatus visible in that step ("burette dripping into flask", "heating test tube over flame", "leaf in beaker of boiling water"). Put the experiment's short name ("titration", "starch test", "osmosis") in "alternatives", plus one simpler action ("pouring liquid into beaker").` : ''}
   "media.query" = 2-5 concrete English words naming exactly what should be visible ("quadrat frame on grass", "lake shore wetland"), never abstract ideas ("population density"). "kind": "video" when motion helps, otherwise "image". Give 1-2 simpler "alternatives".
   Never use media for formulas, labelled diagrams, graphs, tables or numbers — those are drawn exactly by the renderer.` : ''}
 ${types.includes('check') ? `- INTERACTIVE CHECKS: add ${CHECKS_HINT} "check" scenes right after key ideas. The app pauses the video at each one and lets the learner answer. Exactly one choice must be correct, following directly from the lesson; the other choices are plausible misconceptions. Keep the question and choices short.` : ''}
@@ -427,7 +435,12 @@ function validateStoryboard(raw, { allowedTypes, figures = [], variant = 'explai
           items = kept;
           if (!items.length) items = ['Observe and record what happens, as described in your textbook.'];
         }
-        scene = items.length ? { type, ...base, phase, items, media: phase === 'safety' ? null : cleanMedia(s.media) } : null;
+        const media = phase === 'safety' ? null : cleanMedia(s.media);
+        if (media && variant === 'experiment' && HANDS_ON_PHASES.includes(phase)) {
+          media.kind = 'video';
+          media.generic = GENERIC_LAB[phase];
+        }
+        scene = items.length ? { type, ...base, phase, items, media } : null;
         break;
       }
       default:
@@ -456,16 +469,21 @@ function validateStoryboard(raw, { allowedTypes, figures = [], variant = 'explai
   // The planner sometimes forgets media. Fall back to the scene heading as the
   // search phrase for a few slides; the relevance gate in the media search
   // still rejects anything that does not match.
+  // In an experiment video every hands-on step gets a clip (no minimum to stop at).
   if (allowed.has('media') && !mediaOptional) {
     const MIN_MEDIA = 3;
+    const handsOn = (s) => variant === 'experiment' && s.type === 'experiment' && HANDS_ON_PHASES.includes(s.phase);
     let count = scenes.filter(s => s.media).length;
     for (const s of scenes) {
-      if (count >= MIN_MEDIA) break;
-      const eligible = (s.type === 'bullets' || (s.type === 'experiment' && ['apparatus', 'setup', 'procedure'].includes(s.phase))) && !s.media;
+      if (count >= MIN_MEDIA && !handsOn(s)) continue;
+      const eligible = (s.type === 'bullets' || (s.type === 'experiment' && ['apparatus', 'setup', 'procedure'].includes(s.phase)) || handsOn(s)) && !s.media;
       const words = (s.heading || '').replace(/[^\p{L}\p{N}\s-]/gu, ' ').split(/\s+/)
         .filter(w => w.length > 2 && !/^(the|and|for|why|how|what|use|using|steps?|key|quick|check|about|with|from|your|our)$/i.test(w));
-      if (!eligible || words.length < 2) continue;
-      s.media = { query: words.slice(0, 4).join(' ').toLowerCase(), kind: 'image', alternatives: [], auto: true };
+      if (!eligible || (words.length < 2 && !handsOn(s))) continue;
+      const query = words.slice(0, 4).join(' ').toLowerCase();
+      s.media = handsOn(s)
+        ? { query: query || GENERIC_LAB[s.phase], kind: 'video', alternatives: lessonTitle ? [lessonTitle.toLowerCase().slice(0, 60)] : [], generic: GENERIC_LAB[s.phase], auto: true }
+        : { query, kind: 'image', alternatives: [], auto: true };
       count++;
     }
   }

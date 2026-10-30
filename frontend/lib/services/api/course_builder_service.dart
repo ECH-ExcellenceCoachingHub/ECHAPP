@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../config/api_config.dart';
 import '../../models/course_build.dart';
+import '../../models/lesson_demo.dart';
 import '../../models/lesson_video.dart';
 import '../infrastructure/api_client.dart';
 
@@ -227,6 +228,23 @@ class CourseBuilderService {
       experimentVideo: LessonVideo.fromJson(data['experimentVideo']),
     );
   }
+
+  // ─── Real experiment demonstrations (YouTube) ───────────────────────────────
+
+  Future<DemoDraft> itemDemo(String itemId) async =>
+      DemoDraft.fromJson(Map<String, dynamic>.from(_data(await _api.get('$_base/items/$itemId/demo'))));
+
+  Future<DemoDraft> searchDemos(String itemId, {String? query}) async =>
+      DemoDraft.fromJson(Map<String, dynamic>.from(_data(await _api.post('$_base/items/$itemId/demo/search', body: {if (query != null) 'query': query}))));
+
+  Future<DemoDraft> selectDemo(String itemId, String videoId) async =>
+      DemoDraft.fromJson(Map<String, dynamic>.from(_data(await _api.post('$_base/items/$itemId/demo/select', body: {'videoId': videoId}))));
+
+  Future<DemoDraft> saveDemoSteps(String itemId, List<DemoStep> steps) async =>
+      DemoDraft.fromJson(Map<String, dynamic>.from(_data(await _api.put('$_base/items/$itemId/demo/steps', body: {'steps': steps.map((s) => s.toJson()).toList()}))));
+
+  Future<DemoDraft> removeDemo(String itemId) async =>
+      DemoDraft.fromJson(Map<String, dynamic>.from(_data(await _api.delete('$_base/items/$itemId/demo'))));
 
   /// [mode]: retry | full | script | audio | visuals
   Future<String> requestItemVideo(String itemId, {String variant = 'explainer', String mode = 'retry'}) async {

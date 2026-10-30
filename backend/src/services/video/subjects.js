@@ -114,6 +114,9 @@ for (const s of [...SUBJECTS, GENERAL, GENERAL_SCIENCE]) {
 
 /** Scene types for experiment demonstration videos. */
 const EXPERIMENT_SCENES = ['title', 'experiment', 'figure', 'formula', 'media', 'check', 'summary'];
+// Experiment phases where the student should SEE the work being done: these
+// scenes ask for a clip and are shown full screen with the steps over it.
+const HANDS_ON_PHASES = ['apparatus', 'setup', 'procedure', 'observation'];
 
 /** Detect the subject template from book/course metadata. */
 function detectSubject(...texts) {
@@ -127,4 +130,4 @@ function subjectByKey(key) {
   return SUBJECTS.find(s => s.key === key) || (key === GENERAL_SCIENCE.key ? GENERAL_SCIENCE : GENERAL);
 }
 
-module.exports = { SCENE_TYPES, SUBJECTS, EXPERIMENT_SCENES, detectSubject, subjectByKey };
+module.exports = { SCENE_TYPES, SUBJECTS, EXPERIMENT_SCENES, HANDS_ON_PHASES, detectSubject, subjectByKey };

@@ -6,7 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-for (const k of ['MONGODB_URI', 'GROQ_API_KEY', 'ELEVENLABS_API_KEY', 'GEMINI_API_KEY', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'S3_BUCKET_NAME', 'PEXELS_API_KEY', 'PIXABAY_API_KEY']) {
+for (const k of ['MONGODB_URI', 'GROQ_API_KEY', 'ELEVENLABS_API_KEY', 'GEMINI_API_KEY', 'AWS_ACCESS_KEY_ID', 'AWS_SECRET_ACCESS_KEY', 'S3_BUCKET_NAME', 'PEXELS_API_KEY', 'PIXABAY_API_KEY', 'YOUTUBE_DATA_API_V3_KEY', 'YOUTUBE_API_KEY']) {
   delete process.env[k];
 }
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'ech-test-'));

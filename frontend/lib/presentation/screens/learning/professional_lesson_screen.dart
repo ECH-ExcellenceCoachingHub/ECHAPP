@@ -41,6 +41,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:excellencecoachinghub/utils/screen_wakelock.dart';
 import 'package:excellencecoachinghub/presentation/widgets/ai_lesson/ai_study_guide.dart';
 import 'package:excellencecoachinghub/presentation/widgets/ai_lesson/lesson_video_status.dart';
+import 'package:excellencecoachinghub/presentation/widgets/demo/guided_demo.dart';
 import 'package:excellencecoachinghub/services/api/course_builder_service.dart';
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
@@ -2108,6 +2109,11 @@ class _ProfessionalLessonScreenState
         _buildVideoPlayer(embedded: embedded),
         if (meta != null && (experiment || lesson.hasVideo))
           Padding(padding: pad, child: LessonVideoInfoCard(video: meta, isDark: _isDark)),
+        if (lesson.hasDemo)
+          Padding(
+            padding: pad.copyWith(top: 10),
+            child: DemoOpenCard(demo: lesson.demo!, lessonTitle: lesson.title, isDark: _isDark),
+          ),
       ],
     );
   }

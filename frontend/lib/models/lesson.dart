@@ -1,3 +1,4 @@
+import 'lesson_demo.dart';
 import 'lesson_video.dart';
 
 class Lesson {
@@ -25,6 +26,8 @@ class Lesson {
   final LessonVideo? aiVideo;
   /// Optional simulated experiment demonstration (science lessons).
   final LessonVideo? aiExperimentVideo;
+  /// Real experiment on YouTube with guided steps (null when none is ready).
+  final LessonDemo? demo;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -49,6 +52,7 @@ class Lesson {
     this.aiGenerated = false,
     this.aiVideo,
     this.aiExperimentVideo,
+    this.demo,
     this.createdAt,
     this.updatedAt,
   });
@@ -75,6 +79,7 @@ class Lesson {
       aiGenerated: json['aiGenerated'] == true,
       aiVideo: LessonVideo.fromJson(json['aiVideo']),
       aiExperimentVideo: LessonVideo.fromJson(json['aiExperimentVideo']),
+      demo: LessonDemo.fromJson(json['demo']),
       createdAt: _parseDateTime(json['createdAt']),
       updatedAt: _parseDateTime(json['updatedAt']),
     );
@@ -171,6 +176,7 @@ class Lesson {
       aiGenerated: aiGenerated ?? this.aiGenerated,
       aiVideo: aiVideo,
       aiExperimentVideo: aiExperimentVideo,
+      demo: demo,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -184,6 +190,7 @@ class Lesson {
   /// A generated video is being prepared and no playable video exists yet.
   bool get isVideoProcessing => !hasVideo && (aiVideo?.isProcessing ?? false);
   bool get hasExperimentVideo => aiExperimentVideo?.isWatchable ?? false;
+  bool get hasDemo => demo != null;
   bool get hasMaterials => materials != null && materials!.isNotEmpty;
   
   String get displayType {

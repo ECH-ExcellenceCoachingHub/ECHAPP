@@ -25,7 +25,7 @@ function config() {
   return {
     enabled: String(process.env.VIDEO_STOCK_MEDIA || 'true').toLowerCase() !== 'false',
     providers: String(process.env.VIDEO_STOCK_PROVIDERS || 'pexels,pixabay,wikimedia').split(',').map(s => s.trim().toLowerCase()).filter(n => PROVIDERS[n]),
-    maxItems: int(process.env.VIDEO_STOCK_MAX_ITEMS, 8),
+    maxItems: int(process.env.VIDEO_STOCK_MAX_ITEMS, 12),
     maxImageBytes: 15 * 1024 * 1024,
     maxVideoBytes: int(process.env.VIDEO_STOCK_MAX_VIDEO_MB, 60) * 1024 * 1024,
     minMatch: Number.isFinite(parseFloat(process.env.VIDEO_STOCK_MIN_MATCH)) ? parseFloat(process.env.VIDEO_STOCK_MIN_MATCH) : 0.5,
@@ -130,40 +130,59 @@ function judge(c, query, subject, cfg) {
 const cooldownUntil = new Map();
 const COOLDOWN_MS = 60000;
 
+/** Every enabled provider's results for one phrase (providers in cool-down are skipped). */
+async function searchAll(names, query, kind, { signal, errors }) {
+  const pool = [];
+  for (const name of names) {
+    if ((cooldownUntil.get(name) || 0) > Date.now()) continue;
+    try {
+      pool.push(...await cachedSearch(PROVIDERS[name], query, kind, { signal }));
+    } catch (e) {
+      if (signal?.aborted) throw e;
+      errors.push(`${name}: ${e.message}`);
+      if (e.status === 429) cooldownUntil.set(name, Date.now() + COOLDOWN_MS);
+    }
+  }
+  return pool;
+}
+
 /**
- * Best licensed match for one request ({ query, kind, alternatives }). A
- * request for a video falls back to a photo when no clip is relevant enough.
+ * Best licensed match for one request ({ query, kind, alternatives, generic }).
+ * A request for a video falls back to a photo when no clip is relevant enough.
+ * `generic` (experiment steps) is a last resort — general lab footage judged
+ * against that phrase, so the step still shows real hands-on work.
  * `topic` = lesson vocabulary (see topicTerms).
  */
 async function findMedia(request, { signal, exclude = new Set(), cfg = config(), topic = [] } = {}) {
   const names = availableProviders(cfg);
   const errors = [];
   let considered = 0;
+  const best = (pool, query, subject) => pool
+    .filter(c => !exclude.has(`${c.provider}:${c.id}`))
+    .map(c => ({ c, ...judge(c, query, subject, cfg) }))
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score)[0];
   const subject = topicIn(request.query, topic);
   for (const [qi, query] of queryVariants(request, topic).entries()) {
-    // Clips are searched with the main phrase only; fallbacks look for photos.
-    const kinds = request.kind === 'video' && qi === 0 ? ['video', 'image'] : ['image'];
+    // Clips are searched with the main phrase and the experiment's name; other fallbacks look for photos.
+    const kinds = request.kind === 'video' && (qi === 0 || request.generic) ? ['video', 'image'] : ['image'];
     for (const kind of kinds) {
-      const pool = [];
-      for (const name of names) {
-        if ((cooldownUntil.get(name) || 0) > Date.now()) continue;
-        try {
-          pool.push(...await cachedSearch(PROVIDERS[name], query, kind, { signal }));
-        } catch (e) {
-          if (signal?.aborted) throw e;
-          errors.push(`${name}: ${e.message}`);
-          if (e.status === 429) cooldownUntil.set(name, Date.now() + COOLDOWN_MS);
-        }
-      }
+      const pool = await searchAll(names, query, kind, { signal, errors });
       considered += pool.length;
-      // Relevance is always judged against the scene's full query, so a
-      // relaxed search cannot sneak in a loosely related picture.
-      const ranked = pool
-        .filter(c => !exclude.has(`${c.provider}:${c.id}`))
-        .map(c => ({ c, ...judge(c, request.query, subject, cfg) }))
-        .filter(x => x.score > 0)
-        .sort((a, b) => b.score - a.score);
-      if (ranked.length) return { candidate: ranked[0].c, relevance: Math.round(ranked[0].rel * 100) / 100, errors, considered, query };
+      // Relevance is judged against the scene's full query, or against the
+      // experiment's own name for that alternative (a Commons "Titration"
+      // recording) — never against a relaxed phrase alone.
+      const hit = best(pool, request.query, subject)
+        || (request.generic && qi > 0 && kind === 'video' ? best(pool, query, []) : null);
+      if (hit) return { candidate: hit.c, relevance: Math.round(hit.rel * 100) / 100, errors, considered, query };
+    }
+  }
+  if (request.generic) {
+    for (const kind of ['video', 'image']) {
+      const pool = await searchAll(names, request.generic, kind, { signal, errors });
+      considered += pool.length;
+      const hit = best(pool, request.generic, []);
+      if (hit) return { candidate: hit.c, relevance: Math.round(hit.rel * 100) / 100, errors, considered, query: request.generic, generic: true };
     }
   }
   return { candidate: null, relevance: 0, errors, considered };

@@ -4,6 +4,7 @@ const { protect } = require('../middleware/auth.middleware');
 const { authorize } = require('../middleware/role.middleware');
 const c = require('../controllers/courseBuilder.controller');
 const v = require('../controllers/lessonVideo.controller');
+const d = require('../controllers/demo.controller');
 const { generationLimiter } = require('../middleware/generationLimiter.middleware');
 
 // AI Course Builder — admins and teachers assigned to the course
@@ -48,5 +49,12 @@ router.post('/lessons/:lessonId/videos', generationLimiter, v.requestLessonVideo
 router.get('/video-jobs/:videoJobId', v.getVideoJob);
 router.post('/video-jobs/:videoJobId/cancel', v.cancelVideoJob);
 router.post('/video-jobs/:videoJobId/review', v.reviewVideoJob);
+
+// Real experiment demonstrations (YouTube) for a draft lesson
+router.get('/items/:itemId/demo', d.getDemo);
+router.post('/items/:itemId/demo/search', generationLimiter, d.searchDemos);
+router.post('/items/:itemId/demo/select', generationLimiter, d.selectDemo);
+router.put('/items/:itemId/demo/steps', d.saveDemoSteps);
+router.delete('/items/:itemId/demo', d.removeDemo);
 
 module.exports = router;

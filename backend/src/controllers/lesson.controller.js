@@ -208,6 +208,7 @@ const formatLessonUrls = (lesson, s3Service) => {
   const lessonObj = lesson.toObject();
   lessonObj.aiVideo = publicVideoMeta(lessonObj.aiVideo);
   lessonObj.aiExperimentVideo = publicVideoMeta(lessonObj.aiExperimentVideo);
+  lessonObj.demo = require('../services/demo/demo.service').publicDemo(lessonObj.demo);
   
   if (lessonObj.videoId && !lessonObj.videoId.startsWith('http')) {
     lessonObj.videoUrl = s3Service.getPublicUrl(lessonObj.videoId);
@@ -264,6 +265,7 @@ const updateLesson = async (req, res) => {
     // Generated-video bookkeeping is managed by the video pipeline only.
     delete updateData.aiVideo;
     delete updateData.aiExperimentVideo;
+    delete updateData.demo; // set from the course builder's Demo tab only
     delete updateData.contentVersion;
     if (updateData.aiContent !== undefined) {
       // Edited AI content → new content version; existing generated videos are outdated.

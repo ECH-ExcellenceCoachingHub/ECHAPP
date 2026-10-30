@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:excellencecoachinghub/models/lesson_video.dart';
 import 'package:excellencecoachinghub/services/api/course_builder_service.dart';
 import 'build_options_panel.dart' show builderGreen;
+import 'lesson_demo_card.dart';
 
 /// Admin/teacher panel for a draft lesson's generated videos: status per
 /// pipeline stage, errors, cost, quality checks, storyboard, preview, and
@@ -121,6 +122,8 @@ class _LessonVideoPanelState extends State<LessonVideoPanel> {
             onCancel: (id) => _act(() => widget.service.cancelVideoJob(id)),
             onReview: (id, s) => _act(() => widget.service.reviewVideoJob(id, s)),
           ),
+          const SizedBox(height: 16),
+          LessonDemoCard(itemId: widget.itemId, service: widget.service, onSnack: widget.onSnack),
         ],
       ),
     );

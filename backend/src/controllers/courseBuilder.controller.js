@@ -559,6 +559,7 @@ function withPreviewVideos(preview, item) {
   const aiExperimentVideo = previewVideoMeta(item.experimentVideo);
   preview.lesson.aiVideo = aiVideo;
   preview.lesson.aiExperimentVideo = aiExperimentVideo;
+  preview.lesson.demo = require('../services/demo/demo.service').publicDemo(item.demo);
   if (aiVideo?.s3Key) {
     preview.lesson.videoId = aiVideo.s3Key;
     preview.lesson.videoUrl = aiVideo.url;

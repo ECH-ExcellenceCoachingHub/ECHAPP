@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { aiVideoSchema } = require('./schemas/aiVideo.schema');
+const { demoSchema } = require('./schemas/demo.schema');
 
 /**
  * A single reviewable unit of an AI course draft: a lesson, a chapter test,
@@ -66,6 +67,8 @@ const courseBuildItemSchema = new mongoose.Schema({
   // Generated videos for this lesson (copied to the Lesson on publish).
   video: { type: aiVideoSchema, default: null },
   experimentVideo: { type: aiVideoSchema, default: null },
+  // Real experiment demonstration on YouTube (search results, choice, steps).
+  demo: { type: demoSchema, default: null },
   reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   reviewedAt: Date,
 }, { timestamps: true });

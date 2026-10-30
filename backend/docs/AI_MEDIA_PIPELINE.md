@@ -118,6 +118,16 @@ Chosen files are downloaded once, normalised (photos to JPEG, clips to 1280×720
 
 **Interactive checks.** The planner adds 1–2 `check` scenes (question, 2–4 choices, answer, explanation). Each becomes a question scene, which ends with a 3.5 s "pause and choose" hold showing all choices, followed by an answer-reveal scene. The job output and the lesson's video record carry `interactions` (`at`, `resumeAt`, question, choices, answer, explanation) and `credits`. The app pauses at `at`, shows the question over the player, gives feedback with the explanation and continues from the answer reveal. Answer keys whose numbers do not appear in the lesson are flagged in the storyboard warnings for review.
 
+**Experiment videos.** The apparatus, set-up, procedure and observation scenes of an experiment video always ask for a clip and are shown full screen, with the phase, heading and numbered steps on a dark card over it (the current step highlighted). Each asks for the step's action ("burette dripping into flask"), then the experiment's name ("titration", which finds real recordings on Wikimedia Commons), and finally general lab footage for that phase ("scientist doing laboratory experiment"), so a step still shows real hands-on work. Only these steps use the general fallback. Free stock libraries rarely have the exact textbook practical; the guided YouTube demonstration (6b) covers that.
+
+### 6b. Real experiment demonstrations (YouTube)
+
+A teacher can add a real demonstration video to a lesson from the draft's **Video** tab ("Real experiment (YouTube)"): search YouTube (`YOUTUBE_DATA_API_V3_KEY` on the **API** service), choose a video, and the AI writes the practical's steps **from the lesson** (with a short spoken explanation each and 1–2 check questions). Steps are placed in the video from its chapters when it has them; otherwise the teacher plays it and presses "Set to now" at each step (or types the time). Students see it once every step is placed: YouTube's embedded player with the steps beside it; at the start of each next step the video pauses, the explanation is read aloud (device TTS) and any check question must be answered before it continues.
+
+The video is never downloaded or altered (YouTube terms): it plays in YouTube's own player, our content sits beside it. Only embeddable, safe-search videos of 30 s–20 min are offered. A search costs 100 of the default 10,000 daily quota units, so searches run only when a teacher asks and are cached for 7 days. On Windows/Linux desktop builds (no embedded web view) students get the steps with "watch on YouTube at 1:15" links instead.
+
+Code: `src/services/demo/youtube.service.js`, `src/services/demo/demo.service.js`, `src/controllers/demo.controller.js`, `src/models/schemas/demo.schema.js` (`CourseBuildItem.demo`, `Lesson.demo`); Flutter `models/lesson_demo.dart`, `presentation/widgets/demo/guided_demo.dart`, `screens/course_builder/widgets/lesson_demo_card.dart`. Endpoints: `GET /items/:itemId/demo`, `POST /items/:itemId/demo/search`, `POST /items/:itemId/demo/select`, `PUT /items/:itemId/demo/steps`, `DELETE /items/:itemId/demo`.
+
 ## 7. Subject templates (`src/services/video/subjects.js`)
 
 | Subject | Scene emphasis |
@@ -181,10 +191,11 @@ Required on the worker: `MONGODB_URI`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_K
 | `GEMINI_API_KEY` | — | optional OCR of raster labels |
 | `VIDEO_STOCK_MEDIA` | true | licensed photos and clips in videos |
 | `VIDEO_STOCK_PROVIDERS` | `pexels,pixabay,wikimedia` | search order; providers without a key are skipped |
-| `PEXELS_API_KEY`, `PIXABAY_API_KEY` | — | free keys from pexels.com/api and pixabay.com/api/docs; strongly recommended for video clips |
+| `PEXELS_API_KEY`, `PIXABAY_API_KEY` | — | free keys from pexels.com/api and pixabay.com/api/docs; strongly recommended for video clips (Pexels has paused new keys) |
+| `YOUTUBE_DATA_API_V3_KEY` | — | **API service** (not the worker): YouTube search for guided experiment demonstrations (Google Cloud → YouTube Data API v3) |
 | `VIDEO_STOCK_USER_AGENT` | `ECH-CourseBuilder/1.0 (educational lesson videos)` | set to include a contact email or URL (Wikimedia API etiquette) |
 | `VIDEO_STOCK_ALLOW_SHARE_ALIKE` | false | also accept CC BY-SA photos from Wikimedia (check your licensing position first) |
-| `VIDEO_STOCK_MIN_MATCH`, `VIDEO_STOCK_MAX_ITEMS`, `VIDEO_STOCK_MAX_VIDEO_MB`, `VIDEO_STOCK_MAX_CLIP_SECONDS`, `VIDEO_STOCK_MIN_INTERVAL_MS` | 0.5 / 8 / 60 / 30 / 1000 | relevance threshold, media per video, download and clip limits, request pacing |
+| `VIDEO_STOCK_MIN_MATCH`, `VIDEO_STOCK_MAX_ITEMS`, `VIDEO_STOCK_MAX_VIDEO_MB`, `VIDEO_STOCK_MAX_CLIP_SECONDS`, `VIDEO_STOCK_MIN_INTERVAL_MS` | 0.5 / 12 / 60 / 30 / 1000 | relevance threshold, media per video, download and clip limits, request pacing |
 | `VIDEO_ANIM_FPS` | 15 | animation sampling rate (0 disables entrance animations) |
 | `GENERATION_RATE_LIMIT`, `GENERATION_RATE_WINDOW_MS` | 30 / 600000 | admin endpoint rate limit |
 

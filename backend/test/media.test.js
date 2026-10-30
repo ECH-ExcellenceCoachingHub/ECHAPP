@@ -292,13 +292,59 @@ test('experiment safety scenes never get stock media', () => {
   assert.equal(storyboard.scenes[1].media, null);
 });
 
+test('experiment videos: every hands-on step asks for a clip, with a lab-footage fallback', () => {
+  const { storyboard } = validateStoryboard({
+    scenes: [
+      { type: 'title', heading: 'Titration', narration: 'x' },
+      { type: 'experiment', phase: 'apparatus', heading: 'What you need', items: ['Burette'], narration: 'You need a burette.' },
+      { type: 'experiment', phase: 'procedure', heading: 'Procedure', items: ['Open the tap'], media: { query: 'burette dripping into flask', kind: 'image', alternatives: ['titration'] }, narration: 'Open the tap.' },
+      { type: 'experiment', phase: 'observation', heading: 'Watch the colour change', items: ['It turns pink'], narration: 'It turns pink.' },
+      { type: 'experiment', phase: 'conclusion', heading: 'Conclusion', items: ['Done'], narration: 'Done.' },
+    ],
+  }, { allowedTypes: ['title', 'experiment', 'media'], variant: 'experiment', lessonTitle: 'Acid-base titration' });
+  const [, apparatus, procedure, observation, conclusion] = storyboard.scenes;
+  assert.equal(procedure.media.kind, 'video', 'planner asked for a photo; hands-on steps always get a clip');
+  assert.equal(procedure.media.generic, 'scientist doing laboratory experiment');
+  for (const s of [apparatus, observation]) {
+    assert.equal(s.media.kind, 'video', `${s.phase} step filled in automatically`);
+    assert.ok(s.media.generic && s.media.alternatives.includes('acid-base titration'));
+  }
+  assert.ok(!conclusion.media?.generic, 'conclusions are not hands-on');
+});
+
+test('findMedia: an experiment step uses the experiment name, then general lab footage', async () => {
+  const providerList = process.env.VIDEO_STOCK_PROVIDERS;
+  process.env.VIDEO_STOCK_PROVIDERS = 'wikimedia';
+  providers.PROVIDERS.wikimedia.search = async (q, { kind }) => (kind !== 'video' ? [] : [
+    ...(q === 'titration' ? [cand(501, 'video', 'Titration')] : []),
+    ...(q === 'scientist doing laboratory experiment' ? [cand(502, 'video', 'Scientist doing an experiment in a laboratory')] : []),
+  ]);
+  const request = { query: 'burette dripping into flask', kind: 'video', alternatives: ['titration'], generic: 'scientist doing laboratory experiment' };
+  const named = await stock.findMedia(request);
+  assert.equal(named.candidate.id, '501', 'a recording of the experiment itself is preferred');
+  const generic = await stock.findMedia(request, { exclude: new Set(['wikimedia:501']) });
+  assert.equal(generic.candidate.id, '502');
+  assert.equal(generic.generic, true);
+  const plain = await stock.findMedia({ query: 'burette dripping into flask', kind: 'video' }, { exclude: new Set(['wikimedia:501']) });
+  assert.equal(plain.candidate, null, 'other scenes never fall back to unrelated footage');
+  providers.PROVIDERS.wikimedia.search = stubSearch;
+  if (providerList === undefined) delete process.env.VIDEO_STOCK_PROVIDERS;
+  else process.env.VIDEO_STOCK_PROVIDERS = providerList;
+});
+
 // ─── rendering + compositing ─────────────────────────────────────────────────
 
 test('layouts, frame states and transparent overlays', () => {
   const asset = { credit: 'Photo: A / Wikimedia Commons · CC BY 4.0' };
+  const ctx0 = () => ({ lessonTitle: 'L', subjectLabel: 'chemistry', totalScenes: 3, figures: new Map(), media: new Map([[1, asset]]) });
   assert.equal(layoutOf({ type: 'media' }, asset), 'full');
   assert.equal(layoutOf({ type: 'bullets' }, asset), 'split');
   assert.equal(layoutOf({ type: 'formula' }, asset), 'none', 'exact content never sits on stock media');
+  assert.equal(layoutOf({ type: 'experiment', phase: 'procedure' }, asset), 'full', 'hands-on steps run over the clip');
+  assert.equal(layoutOf({ type: 'experiment', phase: 'explanation' }, asset), 'split');
+  const exp = renderFrame({ type: 'experiment', n: 1, phase: 'procedure', heading: 'Procedure', items: ['Open the tap', 'Swirl'] }, { reveal: 1, first: true }, ctx0());
+  assert.match(exp, /class="exp-card"/);
+  assert.match(exp, /<li class="on current"><span class="num">1<\/span><span>Open the tap/);
   assert.equal(layoutOf({ type: 'media' }, null), 'none');
   const check = { type: 'check', n: 2, question: 'Q?', choices: ['a', 'b', 'c'], answerIndex: 1 };
   const states = framesFor(check);
@@ -415,8 +461,12 @@ test('worker renders a lesson with real-world media, a check question and credit
     assert.ok(lum(1.5) < 200, 'title scene shows the clip under a dark scrim');
     assert.ok(lum(o.durationSeconds - 1.5) > 200, 'credits slide at the end');
 
-    // Saved on the draft for the app.
-    const saved = await CourseBuildItem.findById(item._id).lean();
+    // Saved on the draft for the app (by the completion hook, just after the job completes).
+    let saved;
+    for (let i = 0; i < 50 && saved?.video?.status !== 'completed'; i++) {
+      saved = await CourseBuildItem.findById(item._id).lean();
+      if (saved?.video?.status !== 'completed') await sleep(100);
+    }
     assert.equal(saved.video.interactions.length, 1);
     assert.equal(saved.video.credits.length, 3);
   } finally {

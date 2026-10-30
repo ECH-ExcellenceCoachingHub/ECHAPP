@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const { aiVideoSchema } = require('./schemas/aiVideo.schema');
+const { demoSchema } = require('./schemas/demo.schema');
 
 const lessonSchema = new mongoose.Schema({
   sectionId: {
@@ -93,6 +94,11 @@ const lessonSchema = new mongoose.Schema({
   // Optional experiment-demonstration video for science lessons.
   aiExperimentVideo: {
     type: aiVideoSchema,
+    default: null
+  },
+  // Real experiment on YouTube with the lesson's steps placed in it (guided demonstration).
+  demo: {
+    type: demoSchema,
     default: null
   },
   // Lesson content version (incremented when aiContent changes).

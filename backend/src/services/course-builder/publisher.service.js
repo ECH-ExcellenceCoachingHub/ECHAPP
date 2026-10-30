@@ -105,6 +105,7 @@ async function publishItem(job, item, sectionId) {
     aiContent: content ? { ...content, kind: item.kind } : null,
     aiGenerated: true,
     buildItemId: item._id,
+    demo: require('../demo/demo.service').lessonDemo(item.demo),
     isPublished: true,
     status: 'completed',
   };
