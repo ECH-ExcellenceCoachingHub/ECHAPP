@@ -178,3 +178,93 @@ test('videos made in parallel reserve their cost, so together they cannot oversh
   assert.equal(await cost.reservedByOthers(course, b._id), 0);
   await cost.assertWithinBudget({ job: b, buildJob, estimateUsd: 0.5 });
 });
+
+test('pausing a course: its running video goes back to the queue, the worker makes another course\'s videos, resume continues it', async () => {
+  const Course = require('../src/models/Course');
+  const pauses = require('../src/services/video/pause.service');
+  // Clear what earlier tests left in the queue.
+  await GenerationJob.updateMany({ state: { $in: ['queued', 'retry_wait', 'running'] } }, { $set: { state: 'cancelled' } });
+  const user = oid();
+  const courseA = await Course.create({ title: 'Biology', description: 'b', createdBy: user, price: 0, duration: 1, level: 'beginner' });
+  const courseB = await Course.create({ title: 'Chemistry', description: 'c', createdBy: user, price: 0, duration: 1, level: 'beginner' });
+  const mk = async (course, key) => (await queue.enqueue({ type: 'lesson_video', key, courseId: course._id, buildJobId, variant: 'explainer', contentVersion: 1, priority: course === courseA ? 1 : 0 })).job;
+  const a1 = await mk(courseA, 'video:pause:a1');
+  const a2 = await mk(courseA, 'video:pause:a2');
+  const b1 = await mk(courseB, 'video:pause:b1');
+
+  const ran = [];
+  let releaseA1;
+  const worker = new JobWorker({ pollMs: 30, concurrency: 1, leaseMs: 900, heartbeatMs: 150, log: {} });
+  worker.register('lesson_video', async (job, ctx) => {
+    ran.push(String(job._id));
+    await ctx.stage('generating_audio', 'Recording');
+    await ctx.saveArtifacts({ script: `script for ${job._id}` });
+    // A1 waits (like a long render) until it is aborted or released.
+    if (String(job._id) === String(a1._id) && ran.filter(id => id === String(a1._id)).length === 1) {
+      await new Promise((resolve, reject) => {
+        releaseA1 = resolve;
+        ctx.signal.addEventListener('abort', () => reject(ctx.signal.reason), { once: true });
+      });
+    }
+    await ctx.stage('assembling', 'Assembling');
+    return { ok: true };
+  });
+  await worker.start();
+  try {
+    await waitFor(async () => (await GenerationJob.findById(a1._id).lean()).stage === 'generating_audio');
+
+    const paused = await pauses.pauseCourse(courseA._id, user);
+    assert.equal(paused.paused, true);
+    assert.equal(paused.returned, 1, 'the running video went back to the queue');
+    let a1Doc = await GenerationJob.findById(a1._id).lean();
+    assert.equal(a1Doc.state, 'queued');
+    assert.equal(a1Doc.attempts, 0, 'pausing is not counted as a failed attempt');
+    assert.equal(a1Doc.artifacts.script, `script for ${a1._id}`, 'finished stages are kept');
+
+    // The worker drops A1 and makes course B's video; course A's videos wait.
+    await waitFor(async () => (await GenerationJob.findById(b1._id).lean()).state === 'completed');
+    await sleep(300);
+    assert.equal((await GenerationJob.findById(a2._id).lean()).state, 'queued', 'paused course: not started');
+    a1Doc = await GenerationJob.findById(a1._id).lean();
+    assert.equal(a1Doc.state, 'queued', 'the dropped job stays queued (not cancelled or failed)');
+
+    const overview = await pauses.overview();
+    const rowA = overview.find(r => String(r.courseId) === String(courseA._id));
+    assert.equal(rowA.paused, true);
+    assert.equal(rowA.waiting, 2);
+    assert.equal(rowA.buildJobId, null);
+
+    await pauses.resumeCourse(courseA._id);
+    await waitFor(async () => (await GenerationJob.countDocuments({ _id: { $in: [a1._id, a2._id] }, state: 'completed' })) === 2);
+    assert.equal(ran.filter(id => id === String(a1._id)).length, 2, 'A1 ran again after resume');
+    assert.equal((await Course.findById(courseA._id).lean()).videoGeneration.paused, false);
+  } finally {
+    releaseA1?.();
+    await worker.stop(500);
+  }
+});
+
+test('pause / resume endpoints and the queue overview', async () => {
+  const Course = require('../src/models/Course');
+  const owner = oid();
+  const course = await Course.create({ title: 'Physics', description: 'p', createdBy: owner, price: 0, duration: 1, level: 'beginner' });
+  await queue.enqueue({ type: 'lesson_video', key: 'video:pause:physics', courseId: course._id, buildJobId, variant: 'explainer', contentVersion: 1 });
+
+  const res = mockRes();
+  await controller.pauseCourseVideos({ params: { courseId: String(course._id) }, user: { role: 'instructor', _id: owner } }, res);
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  assert.match(res.body.message, /Videos paused/);
+
+  const other = mockRes();
+  await controller.resumeCourseVideos({ params: { courseId: String(course._id) }, user: { role: 'instructor', _id: oid() } }, other);
+  assert.equal(other.statusCode, 403, 'another teacher cannot resume it');
+
+  const list = mockRes();
+  await controller.videoQueueOverview({ user: { role: 'instructor', _id: owner } }, list);
+  assert.deepEqual(list.body.data.map(r => r.title), ['Physics'], 'teachers only see their own courses');
+  assert.equal(list.body.data[0].paused, true);
+
+  const resumed = mockRes();
+  await controller.resumeCourseVideos({ params: { courseId: String(course._id) }, user: { role: 'admin', _id: oid() } }, resumed);
+  assert.equal(resumed.body.data.paused, false);
+});

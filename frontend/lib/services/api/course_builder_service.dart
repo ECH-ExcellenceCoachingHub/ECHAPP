@@ -267,6 +267,17 @@ class CourseBuilderService {
   Future<BuildVideoJobs> buildVideoJobs(String jobId) async =>
       BuildVideoJobs.fromJson(Map<String, dynamic>.from(_data(await _api.get('$_base/jobs/$jobId/video-jobs'))));
 
+  /// Courses with lesson videos waiting or running, and paused courses.
+  Future<List<CourseVideoQueue>> videoQueue() async =>
+      ((_data(await _api.get('$_base/video-queue')) as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => CourseVideoQueue.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+
+  /// Pause or resume lesson-video generation for a whole course.
+  Future<String> setCourseVideosPaused(String courseId, bool paused) async =>
+      _message(await _api.post('$_base/courses/$courseId/videos/${paused ? 'pause' : 'resume'}', body: {}));
+
   /// [action]: stop | force_stop | retry. Without [ids]: every active (stop) or failed (retry) video.
   Future<String> bulkVideoJobs(String jobId, String action, {List<String>? ids, bool stuckOnly = false}) async {
     final res = await _api.post('$_base/jobs/$jobId/video-jobs/bulk', body: {

@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const os = require('os');
 const GenerationJob = require('../../models/GenerationJob');
+const Course = require('../../models/Course');
 
 /**
  * MongoDB-backed persistent job queue.
@@ -96,13 +97,30 @@ async function requeue(jobId, { restartFrom = null, resetAttempts = true, reques
   );
 }
 
-/** Atomically claim the next runnable job of the given types. */
+// Courses whose lesson videos are paused (cached briefly: claim runs on every poll).
+const PAUSE_CACHE_MS = 3000;
+let pauseCache = { at: 0, ids: [] };
+
+async function pausedCourseIds() {
+  if (Date.now() - pauseCache.at < PAUSE_CACHE_MS) return pauseCache.ids;
+  const ids = await Course.find({ 'videoGeneration.paused': true }).distinct('_id');
+  pauseCache = { at: Date.now(), ids };
+  return ids;
+}
+
+function clearPauseCache() {
+  pauseCache = { at: 0, ids: [] };
+}
+
+/** Atomically claim the next runnable job of the given types (lesson videos of paused courses are skipped). */
 async function claim(owner, types, leaseMs = DEFAULT_LEASE_MS) {
   const now = new Date();
+  const paused = types.includes('lesson_video') ? await pausedCourseIds() : [];
   return GenerationJob.findOneAndUpdate(
     {
       type: { $in: types },
       cancelRequested: { $ne: true },
+      ...(paused.length ? { $nor: [{ type: 'lesson_video', courseId: { $in: paused } }] } : {}),
       $or: [
         { state: { $in: ['queued', 'retry_wait'] }, nextRunAt: { $lte: now } },
         // crash recovery: running, but the lease ran out
@@ -225,6 +243,23 @@ async function cancel(jobId) {
 }
 
 /**
+ * Put a running job back in the queue without counting it as a failure (its
+ * course was paused). The worker loses its lease at the next heartbeat and
+ * stops; the stage outputs saved so far are kept, so it resumes from there.
+ */
+async function pauseRunning(jobId) {
+  return GenerationJob.findOneAndUpdate(
+    { _id: jobId, state: 'running' },
+    {
+      $set: { state: 'queued', stage: 'queued', nextRunAt: new Date(), 'lease.owner': null, 'lease.expiresAt': null },
+      $inc: { attempts: -1 },
+      $push: { stageHistory: { $each: [{ stage: 'queued', status: 'paused', at: new Date(), message: 'course videos paused' }], $slice: -MAX_HISTORY } },
+    },
+    { new: true },
+  );
+}
+
+/**
  * Stop a job now, without waiting for its worker. A worker still running it
  * loses its lease at the next heartbeat, drops the job and moves on, so a
  * hung job can no longer hold up the queue.
@@ -259,6 +294,9 @@ module.exports = {
   release,
   cancel,
   forceCancel,
+  pauseRunning,
+  pausedCourseIds,
+  clearPauseCache,
   markCancelled,
   backoffMs,
   hashConfig,

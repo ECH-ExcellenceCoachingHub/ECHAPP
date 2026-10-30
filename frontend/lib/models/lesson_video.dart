@@ -360,8 +360,11 @@ class BuildVideoJobs {
   /// A media worker is holding a job or finished one in the last 10 minutes.
   final bool workerActive;
   final int stuckAfterMinutes;
+  final String? courseId;
+  /// Video generation is paused for this course.
+  final bool paused;
 
-  const BuildVideoJobs({this.active = const [], this.failed = const [], this.workerActive = false, this.stuckAfterMinutes = 15});
+  const BuildVideoJobs({this.active = const [], this.failed = const [], this.workerActive = false, this.stuckAfterMinutes = 15, this.courseId, this.paused = false});
 
   factory BuildVideoJobs.fromJson(Map<String, dynamic> j) {
     List<BuildVideoJob> list(String k) =>
@@ -371,8 +374,31 @@ class BuildVideoJobs {
       failed: list('failed'),
       workerActive: j['workerActive'] == true,
       stuckAfterMinutes: (j['stuckAfterMinutes'] as num?)?.toInt() ?? 15,
+      courseId: j['courseId'] as String?,
+      paused: (j['pause'] as Map?)?['paused'] == true,
     );
   }
 
   List<BuildVideoJob> get stuck => active.where((j) => j.stuck != null).toList();
+}
+
+/// A course in the lesson-video queue (GET /course-builder/video-queue).
+class CourseVideoQueue {
+  final String courseId;
+  final String title;
+  final String? buildJobId;
+  final bool paused;
+  final int running;
+  final int waiting;
+
+  const CourseVideoQueue({required this.courseId, required this.title, this.buildJobId, this.paused = false, this.running = 0, this.waiting = 0});
+
+  factory CourseVideoQueue.fromJson(Map<String, dynamic> j) => CourseVideoQueue(
+        courseId: '${j['courseId'] ?? ''}',
+        title: j['title'] as String? ?? 'Course',
+        buildJobId: j['buildJobId'] as String?,
+        paused: j['paused'] == true,
+        running: (j['running'] as num?)?.toInt() ?? 0,
+        waiting: (j['waiting'] as num?)?.toInt() ?? 0,
+      );
 }

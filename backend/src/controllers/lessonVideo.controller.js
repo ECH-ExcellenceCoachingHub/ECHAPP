@@ -10,6 +10,7 @@ const videoJobs = require('../services/video/video-jobs.service');
 const figures = require('../services/course-builder/figures.service');
 const cost = require('../services/video/cost.service');
 const storage = require('../services/video/storage.service');
+const pauses = require('../services/video/pause.service');
 const { sendSuccess, sendError, sendNotFound, sendForbidden } = require('../utils/response.utils');
 
 /**
@@ -89,6 +90,8 @@ const getBuildMedia = async (req, res) => {
       budget: { ...cost.limits(job), courseSpentUsd: Math.round(courseSpent * 10000) / 10000 },
       policy: videoJobs.policy(),
       generateVideos: job.options?.generateVideos !== false,
+      courseId: job.courseId,
+      pause: pauses.status(await Course.findById(job.courseId).select('videoGeneration').lean()),
     });
   } catch (err) {
     sendError(res, 'Failed to load media status', 500, err.message);
@@ -249,7 +252,8 @@ const listBuildVideoJobs = async (req, res) => {
   try {
     const job = await load(CourseBuildJob, req.params.jobId, res, 'Build');
     if (!job || !(await guard(req, res, job.courseId))) return;
-    sendSuccess(res, await videoJobs.jobsForBuild(job._id));
+    const course = await Course.findById(job.courseId).select('videoGeneration').lean();
+    sendSuccess(res, { ...(await videoJobs.jobsForBuild(job._id)), courseId: job.courseId, pause: pauses.status(course) });
   } catch (err) {
     sendError(res, 'Failed to load video jobs', 500, err.message);
   }
@@ -286,6 +290,36 @@ const bulkVideoJobs = async (req, res) => {
   }
 };
 
+/** Pause / resume lesson-video generation for a whole course. */
+const setCoursePause = (paused) => async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    if (!mongoose.isValidObjectId(courseId)) return sendNotFound(res, 'Course not found');
+    if (!(await guard(req, res, courseId))) return;
+    const result = paused ? await pauses.pauseCourse(courseId, req.user._id || req.user.id) : await pauses.resumeCourse(courseId);
+    const message = paused
+      ? `Videos paused for this course${result.returned ? ` — ${result.returned} running video${result.returned === 1 ? '' : 's'} went back to the queue` : ''}`
+      : 'Videos resumed for this course';
+    sendSuccess(res, result, message);
+  } catch (err) {
+    sendError(res, err.message, err.status || 500);
+  }
+};
+
+/** Courses with videos waiting or running, and paused courses (instructors: their own). */
+const videoQueueOverview = async (req, res) => {
+  try {
+    let courseIds = null;
+    if (req.user.role !== 'admin') {
+      const uid = req.user._id || req.user.id;
+      courseIds = await Course.find({ $or: [{ createdBy: uid }, { assignedTeacherIds: uid }] }).distinct('_id');
+    }
+    sendSuccess(res, await pauses.overview({ courseIds }));
+  } catch (err) {
+    sendError(res, 'Failed to load the video queue', 500, err.message);
+  }
+};
+
 const reviewVideoJob = async (req, res) => {
   try {
     const job = await loadVideoJob(req, res);
@@ -311,4 +345,7 @@ module.exports = {
   reviewVideoJob,
   listBuildVideoJobs,
   bulkVideoJobs,
+  pauseCourseVideos: setCoursePause(true),
+  resumeCourseVideos: setCoursePause(false),
+  videoQueueOverview,
 };

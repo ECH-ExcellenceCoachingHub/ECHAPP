@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:excellencecoachinghub/models/lesson_video.dart';
 import 'package:excellencecoachinghub/services/api/course_builder_service.dart';
 import 'course_build_item_screen.dart';
+import 'course_build_job_screen.dart';
 import 'widgets/build_options_panel.dart' show builderGreen;
 
 /// Every lesson video of a build that is running, waiting or failed: which
@@ -20,6 +21,7 @@ class VideoJobsScreen extends StatefulWidget {
 
 class _VideoJobsScreenState extends State<VideoJobsScreen> {
   BuildVideoJobs? _jobs;
+  List<CourseVideoQueue> _queue = const [];
   String? _error;
   bool _busy = false;
   Timer? _poll;
@@ -40,9 +42,12 @@ class _VideoJobsScreenState extends State<VideoJobsScreen> {
     _poll?.cancel();
     try {
       final j = await widget.service.buildVideoJobs(widget.jobId);
+      // The cross-course queue is optional: the screen works without it.
+      final q = await widget.service.videoQueue().catchError((_) => _queue);
       if (!mounted) return;
       setState(() {
         _jobs = j;
+        _queue = q;
         _error = null;
       });
     } catch (e) {
@@ -114,6 +119,13 @@ class _VideoJobsScreenState extends State<VideoJobsScreen> {
     if (ok == true) await _act(() => widget.service.bulkVideoJobs(widget.jobId, 'retry'));
   }
 
+  Future<void> _setPaused(String courseId, bool paused) =>
+      _act(() => widget.service.setCourseVideosPaused(courseId, paused));
+
+  void _openBuild(String buildJobId) {
+    Navigator.of(context).push(MaterialPageRoute(builder: (_) => CourseBuildJobScreen(jobId: buildJobId))).then((_) => _load());
+  }
+
   void _open(BuildVideoJob j) {
     if (j.itemId == null) return;
     Navigator.of(context).push(MaterialPageRoute(builder: (_) => CourseBuildItemScreen(itemId: j.itemId!))).then((_) => _load());
@@ -127,7 +139,16 @@ class _VideoJobsScreenState extends State<VideoJobsScreen> {
         title: const Text('Lesson videos in progress'),
         backgroundColor: builderGreen,
         foregroundColor: Colors.white,
-        actions: [IconButton(tooltip: 'Refresh', icon: const Icon(Icons.refresh), onPressed: _busy ? null : _load)],
+        actions: [
+          if (j?.courseId != null)
+            TextButton.icon(
+              style: TextButton.styleFrom(foregroundColor: Colors.white),
+              onPressed: _busy ? null : () => _setPaused(j!.courseId!, !j.paused),
+              icon: Icon(j!.paused ? Icons.play_arrow : Icons.pause),
+              label: Text(j.paused ? 'Resume this course' : 'Pause this course'),
+            ),
+          IconButton(tooltip: 'Refresh', icon: const Icon(Icons.refresh), onPressed: _busy ? null : _load),
+        ],
       ),
       body: j == null
           ? Center(child: _error != null ? Text(_error!) : const CircularProgressIndicator(color: builderGreen))
@@ -137,7 +158,8 @@ class _VideoJobsScreenState extends State<VideoJobsScreen> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   if (_busy) const LinearProgressIndicator(color: builderGreen),
-                  _workerBanner(j),
+                  if (j.paused) _pausedBanner(j),
+                  if (!j.paused) _workerBanner(j),
                   if (j.stuck.isNotEmpty) _stuckBanner(j.stuck),
                   _header('Running and waiting (${j.active.length})', null),
                   if (j.active.isEmpty) _empty('Nothing is being made right now.'),
@@ -151,9 +173,55 @@ class _VideoJobsScreenState extends State<VideoJobsScreen> {
                   ),
                   if (j.failed.isEmpty) _empty('No failed videos.'),
                   ..._failedGroups(j.failed),
+                  if (_queue.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    _header('All courses in the video queue', null),
+                    Text('Pause a course to let the workers make another course\'s videos first.', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                    const SizedBox(height: 8),
+                    for (final c in _queue) _courseTile(c, current: c.courseId == j.courseId),
+                  ],
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _pausedBanner(BuildVideoJobs j) {
+    return _banner(
+      Colors.blue,
+      Icons.pause_circle_outline,
+      'Videos are paused for this course',
+      'Its videos wait in the queue and the workers make other courses\' videos. Videos that were running went back to the queue and continue from their last finished step when you resume.',
+      action: FilledButton.icon(
+        style: FilledButton.styleFrom(backgroundColor: builderGreen),
+        onPressed: _busy ? null : () => _setPaused(j.courseId!, false),
+        icon: const Icon(Icons.play_arrow),
+        label: const Text('Resume videos'),
+      ),
+    );
+  }
+
+  Widget _courseTile(CourseVideoQueue c, {required bool current}) {
+    final counts = [
+      if (c.running > 0) '${c.running} being made',
+      if (c.waiting > 0) '${c.waiting} waiting',
+      if (c.running == 0 && c.waiting == 0) 'nothing waiting',
+    ].join(' · ');
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: current ? builderGreen : Colors.grey.shade300)),
+      child: ListTile(
+        leading: Icon(c.paused ? Icons.pause_circle_filled : (c.running > 0 ? Icons.play_circle_fill : Icons.schedule),
+            color: c.paused ? Colors.blue.shade700 : (c.running > 0 ? builderGreen : Colors.grey.shade600)),
+        title: Text(current ? '${c.title} (this course)' : c.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text(c.paused ? 'Paused · $counts' : counts),
+        onTap: !current && c.buildJobId != null ? () => _openBuild(c.buildJobId!) : null,
+        trailing: TextButton.icon(
+          onPressed: _busy ? null : () => _setPaused(c.courseId, !c.paused),
+          icon: Icon(c.paused ? Icons.play_arrow : Icons.pause, size: 18),
+          label: Text(c.paused ? 'Resume' : 'Pause'),
+        ),
+      ),
     );
   }
 

@@ -26,6 +26,15 @@ void main() {
     expect(j.failed.single.errorStage, 'generating_audio');
   });
 
+  test('paused course and the cross-course queue', () {
+    final j = BuildVideoJobs.fromJson({'courseId': 'c1', 'pause': {'paused': true}, 'active': [], 'failed': []});
+    expect(j.paused, isTrue);
+    expect(j.courseId, 'c1');
+    final q = CourseVideoQueue.fromJson({'courseId': 'c2', 'title': 'Chemistry', 'buildJobId': 'b2', 'paused': false, 'running': 1, 'waiting': 12});
+    expect(q.running + q.waiting, 13);
+    expect(q.buildJobId, 'b2');
+  });
+
   test('empty or missing lists', () {
     final j = BuildVideoJobs.fromJson({});
     expect(j.active, isEmpty);

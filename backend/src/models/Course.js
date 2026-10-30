@@ -90,7 +90,14 @@ const courseSchema = new mongoose.Schema({
   assignedTeacherIds: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
-  }]
+  }],
+  // Lesson-video generation paused by an admin: its videos wait in the queue
+  // and workers make other courses' videos instead.
+  videoGeneration: {
+    paused: { type: Boolean, default: false },
+    pausedAt: { type: Date, default: null },
+    pausedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+  }
 }, {
   timestamps: true
 });

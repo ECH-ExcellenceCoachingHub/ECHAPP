@@ -8,10 +8,12 @@ import 'build_options_panel.dart' show builderGreen;
 /// Build overview of textbook figures and generated lesson videos.
 class BuildMediaCard extends StatefulWidget {
   final String jobId;
+  /// The build's course (for pausing its videos).
+  final String? courseId;
   final CourseBuilderService service;
   final void Function(String message, {bool error})? onSnack;
 
-  const BuildMediaCard({super.key, required this.jobId, required this.service, this.onSnack});
+  const BuildMediaCard({super.key, required this.jobId, this.courseId, required this.service, this.onSnack});
 
   @override
   State<BuildMediaCard> createState() => _BuildMediaCardState();
@@ -62,6 +64,18 @@ class _BuildMediaCardState extends State<BuildMediaCard> {
     }
   }
 
+  Future<void> _setPaused(String courseId, bool paused) async {
+    setState(() => _busy = true);
+    try {
+      widget.onSnack?.call(await widget.service.setCourseVideosPaused(courseId, paused));
+      await _load();
+    } catch (e) {
+      widget.onSnack?.call(e.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   void _manageVideos() {
     Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) => VideoJobsScreen(jobId: widget.jobId, service: widget.service)))
@@ -83,6 +97,8 @@ class _BuildMediaCardState extends State<BuildMediaCard> {
     final limit = (budget['perCourse'] as num?)?.toDouble() ?? 0;
     final stuck = (videos['stuck'] as num?)?.toInt() ?? 0;
     final failed = (byStatus['failed'] as num?)?.toInt() ?? 0;
+    final paused = (d['pause'] as Map?)?['paused'] == true;
+    final courseId = (d['courseId'] as String?) ?? (widget.courseId?.isNotEmpty == true ? widget.courseId : null);
 
     return Card(
       elevation: 0,
@@ -114,17 +130,25 @@ class _BuildMediaCardState extends State<BuildMediaCard> {
               else '${byStatus['completed'] ?? 0} ready · $processing in progress · ${byStatus['failed'] ?? 0} failed',
               if ((videos['pendingReview'] ?? 0) > 0) '${videos['pendingReview']} waiting for your review',
               'Spent \$${spent.toStringAsFixed(2)} of \$${limit.toStringAsFixed(2)} course budget',
+              if (paused) '⏸ Paused — this course\'s videos wait while other courses\' videos are made',
             ],
             warning: stuck > 0 ? '$stuck video${stuck == 1 ? ' looks' : 's look'} stuck and may be blocking the others' : null,
-            action: (videos['total'] ?? 0) == 0
-                ? null
-                : TextButton.icon(
-                    style: stuck > 0 ? TextButton.styleFrom(foregroundColor: Colors.red.shade700) : null,
-                    onPressed: _manageVideos,
-                    icon: Icon(stuck > 0 ? Icons.warning_amber_rounded : Icons.tune, size: 18),
-                    label: Text(stuck > 0 ? 'Find and stop stuck videos' : processing + failed > 0 ? 'Manage videos' : 'View videos'),
-                  ),
-            busy: processing > 0,
+            action: Wrap(spacing: 4, children: [
+              if ((videos['total'] ?? 0) > 0)
+                TextButton.icon(
+                  style: stuck > 0 ? TextButton.styleFrom(foregroundColor: Colors.red.shade700) : null,
+                  onPressed: _manageVideos,
+                  icon: Icon(stuck > 0 ? Icons.warning_amber_rounded : Icons.tune, size: 18),
+                  label: Text(stuck > 0 ? 'Find and stop stuck videos' : processing + failed > 0 ? 'Manage videos' : 'View videos'),
+                ),
+              if (courseId != null && (paused || (videos['total'] ?? 0) > 0))
+                TextButton.icon(
+                  onPressed: _busy ? null : () => _setPaused(courseId, !paused),
+                  icon: Icon(paused ? Icons.play_arrow : Icons.pause, size: 18),
+                  label: Text(paused ? 'Resume videos' : 'Pause videos'),
+                ),
+            ]),
+            busy: processing > 0 && !paused,
           );
           return wide
               ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: [Expanded(child: figures), const SizedBox(width: 24), Expanded(child: vids)])
