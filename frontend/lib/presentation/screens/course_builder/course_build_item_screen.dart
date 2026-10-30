@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:excellencecoachinghub/models/course_build.dart';
 import 'package:excellencecoachinghub/services/api/course_builder_service.dart';
+import 'package:excellencecoachinghub/services/image_upload_service.dart';
 import 'package:excellencecoachinghub/presentation/widgets/ai_lesson/ai_study_guide.dart';
 import 'package:excellencecoachinghub/presentation/widgets/ai_lesson/ai_activities.dart';
 import 'widgets/build_options_panel.dart';
@@ -1393,7 +1394,8 @@ class _SourceTabState extends State<_SourceTab>
 }
 
 
-/// Lesson pictures: preview, remove, or find a better one by keywords.
+/// Lesson pictures: preview, remove, find a better one by keywords, or upload
+/// the teacher's own.
 class _PicturesEditor extends StatefulWidget {
   final String itemId;
   final List<Map<String, dynamic>> images;
@@ -1460,22 +1462,58 @@ class _PicturesEditorState extends State<_PicturesEditor> {
     }
   }
 
+  /// Upload a picture from the device, as a new one or replacing [index].
+  Future<void> _upload(int? index) async {
+    final current = index == null ? null : widget.images[index];
+    setState(() => _searching = index ?? -1);
+    try {
+      final url = await ImageUploadService.pickAndUploadImage();
+      if (url == null) return; // picker cancelled
+      setState(() {
+        final img = {
+          'url': url,
+          'kind': 'upload',
+          'caption': current?['caption'] ?? '',
+          'afterHeading': current?['afterHeading'] ?? '',
+        };
+        if (index == null) {
+          widget.images.add(img);
+        } else {
+          widget.images[index] = img;
+        }
+      });
+      widget.onChanged();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red[700]));
+      }
+    } finally {
+      if (mounted) setState(() => _searching = null);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = AiGuidePalette.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(children: [
-          const Expanded(child: Text('Pictures', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15))),
+        Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
+          const Text('Pictures', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+          const SizedBox(width: 8),
           TextButton.icon(
             onPressed: _searching != null ? null : () => _find(null),
             icon: const Icon(Icons.add_photo_alternate_outlined),
-            label: const Text('Add picture'),
+            label: const Text('Find picture'),
+          ),
+          TextButton.icon(
+            onPressed: _searching != null ? null : () => _upload(null),
+            icon: const Icon(Icons.upload_outlined),
+            label: const Text('Upload picture'),
           ),
         ]),
         const Text(
-          'Free, licensed pictures from Wikimedia Commons, shown under the heading they illustrate. Check each one is correct.',
+          'Free, licensed pictures from Wikimedia Commons, or your own uploads, shown under the heading they illustrate. Check each one is correct.',
           style: TextStyle(color: builderMuted, fontSize: 12.5),
         ),
         const SizedBox(height: 10),
@@ -1510,11 +1548,16 @@ class _PicturesEditorState extends State<_PicturesEditor> {
                   widget.onChanged();
                 },
               ),
-              Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+              Wrap(alignment: WrapAlignment.end, children: [
                 TextButton.icon(
                   onPressed: _searching != null ? null : () => _find(i),
                   icon: const Icon(Icons.image_search),
                   label: const Text('Find another'),
+                ),
+                TextButton.icon(
+                  onPressed: _searching != null ? null : () => _upload(i),
+                  icon: const Icon(Icons.upload_outlined),
+                  label: const Text('Upload new'),
                 ),
                 TextButton.icon(
                   onPressed: () {
