@@ -25,9 +25,13 @@ async function completeJson(prompt, { maxTokens = 4096, temperature = 0.3, syste
 
   let lastError;
   for (let attempt = 1; attempt <= 5; attempt++) {
+    const model = await GrokService.pickModel();
+    if (!model) {
+      throw new Error('All AI models have reached their daily usage limit. Please try again later.');
+    }
     try {
       const params = {
-        model: await GrokService.resolveModel(),
+        model,
         messages,
         temperature,
         max_tokens: maxTokens,
@@ -47,18 +51,33 @@ async function completeJson(prompt, { maxTokens = 4096, temperature = 0.3, syste
         jsonModeSupported = false; // model doesn't support JSON mode — retry without it
         continue;
       }
+      if (status === 404 || /decommissioned|model_not_found|does not exist/i.test(err.message || '')) {
+        GrokService.markExhausted(model, 24 * 60 * 60 * 1000);
+        continue;
+      }
       if (status === 429 || status >= 500 || /rate limit|timeout|ECONNRESET|Empty response|JSON/i.test(err.message || '')) {
-        const retryAfter = Number(err.headers?.['retry-after']);
-        const wait = Number.isFinite(retryAfter) && retryAfter > 0
-          ? Math.min(retryAfter * 1000, 45000)
-          : Math.min(1500 * 2 ** (attempt - 1), 30000);
-        await sleep(wait);
+        const retryAfterMs = retryAfterOf(err);
+        // A daily quota (or any long wait) won't clear by retrying — move on to the next model
+        if (status === 429 && (/per day/i.test(err.message || '') || retryAfterMs > 45000)) {
+          GrokService.markExhausted(model, retryAfterMs || 60 * 60 * 1000);
+          continue;
+        }
+        await sleep(retryAfterMs ? Math.min(retryAfterMs, 45000) : Math.min(1500 * 2 ** (attempt - 1), 30000));
         continue;
       }
       throw err;
     }
   }
   throw lastError;
+}
+
+/** Wait requested by a 429, in ms: the Retry-After header, else Groq's "try again in 9m40.17s". */
+function retryAfterOf(err) {
+  const header = Number(err.headers?.['retry-after']);
+  if (Number.isFinite(header) && header > 0) return header * 1000;
+  const m = /try again in (?:(\d+)h)?(?:(\d+)m)?(?:([\d.]+)s)?/i.exec(err.message || '');
+  if (!m || !(m[1] || m[2] || m[3])) return 0;
+  return ((Number(m[1]) || 0) * 3600 + (Number(m[2]) || 0) * 60 + (Number(m[3]) || 0)) * 1000;
 }
 
 function parseJson(raw) {

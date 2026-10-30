@@ -326,8 +326,13 @@ class _LessonDemoCardState extends State<LessonDemoCard> {
           Expanded(child: TextField(controller: f.text, onChanged: changed, decoration: const InputDecoration(isDense: true, labelText: 'Step'))),
           const SizedBox(width: 8),
           SizedBox(
-            width: 76,
-            child: TextField(controller: f.time, onChanged: changed, decoration: const InputDecoration(isDense: true, labelText: 'Starts at', hintText: '0:00')),
+            width: 120,
+            child: TextField(
+              controller: f.time,
+              onChanged: changed,
+              keyboardType: TextInputType.datetime,
+              decoration: const InputDecoration(isDense: true, labelText: 'Starts at (m:ss)', hintText: '0:42'),
+            ),
           ),
           if (_player != null) ...[
             IconButton(tooltip: 'Set to the video\'s current time', icon: const Icon(Icons.my_location, color: builderGreen), onPressed: () => _setNow(f)),

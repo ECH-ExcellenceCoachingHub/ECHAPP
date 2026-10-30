@@ -81,7 +81,8 @@ ${chapters.length ? `- "chapterIndex": index of the VIDEO CHAPTER where this ste
 VIDEO CHAPTERS:
 ${chapters.map((c, i) => `${i}: ${c.title}`).join('\n')}` : ''}
 
-Use ONLY the lesson. If the lesson has no hands-on procedure, return { "steps": [] }.
+Use ONLY the lesson. A step is something a person physically does with apparatus or materials that a camera can film (boil, pour, heat, add drops, measure, observe a colour). Processes inside cells or molecules (enzymes, ATP, ion pumps, reactions in the body) are NOT steps.
+If the lesson describes no such hands-on experiment or practical, return { "steps": [] }.
 
 LESSON: ${title}
 ${contentText(content).slice(0, 7000)}
@@ -104,7 +105,7 @@ async function select(item, videoId) {
   if (!video.embeddable) throw Object.assign(new Error('The owner of that video does not allow it to be embedded in other apps'), { status: 400 });
   const { embeddable, madeForKids, ...selected } = video;
   const steps = await planSteps(item.title, item.content, selected);
-  if (!steps.length) throw Object.assign(new Error('This lesson has no hands-on procedure to follow along with'), { status: 400 });
+  if (!steps.length) throw Object.assign(new Error('This lesson has no hands-on experiment to follow along with. Real-experiment videos are for practical lessons (e.g. a starch test or a titration).'), { status: 400 });
   return save(item, { selected, steps });
 }
 

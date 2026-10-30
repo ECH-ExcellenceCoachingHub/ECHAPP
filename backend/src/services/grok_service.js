@@ -27,6 +27,9 @@ class GrokService {
     // Resolved once per extraction run — avoids mid-run model switches
     this._activeModel = null;
 
+    // Groq quotas are per model: a model that hit its daily limit is skipped until it resets
+    this._exhaustedUntil = new Map();
+
     console.log("GrokService initialized:", this.isConfigured() ? "Ready" : "Not configured");
     console.log("Current AI model:", this.currentModel);
   }
@@ -135,6 +138,22 @@ class GrokService {
       this._activeModel = await this.autoUpdateModel();
     }
     return this._activeModel;
+  }
+
+  markExhausted(model, ms) {
+    this._exhaustedUntil.set(model, Date.now() + ms);
+    console.warn(`Model ${model} is over its quota — skipping it for ${Math.round(ms / 1000)}s`);
+  }
+
+  isExhausted(model) {
+    return (this._exhaustedUntil.get(model) || 0) > Date.now();
+  }
+
+  /** The resolved model, or the first preferred fallback that still has quota (null when none has). */
+  async pickModel() {
+    const primary = await this.resolveModel();
+    if (!this.isExhausted(primary)) return primary;
+    return GrokService.PREFERRED_MODELS.find(m => !this.isExhausted(m)) || null;
   }
 
   async forceModelUpdate() {
