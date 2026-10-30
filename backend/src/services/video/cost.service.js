@@ -50,7 +50,23 @@ async function courseSpend(courseId) {
 }
 
 /**
+ * Money other videos of the course have reserved but not spent yet: videos
+ * made in parallel each reserve their estimate before paying for anything.
+ */
+async function reservedByOthers(courseId, jobId) {
+  if (!courseId) return 0;
+  const [r] = await GenerationJob.aggregate([
+    { $match: { courseId: new mongoose.Types.ObjectId(String(courseId)), type: 'lesson_video', state: 'running', _id: { $ne: new mongoose.Types.ObjectId(String(jobId)) } } },
+    { $group: { _id: null, usd: { $sum: { $max: [0, { $subtract: [{ $ifNull: ['$cost.estimatedUsd', 0] }, { $ifNull: ['$cost.actualUsd', 0] }] }] } } } },
+  ]);
+  return r?.usd || 0;
+}
+
+/**
  * Throw (non-retryable) if spending `estimateUsd` more would exceed a limit.
+ * The estimate is reserved on the job first, then checked against what is
+ * spent plus what other running videos have reserved, so videos made in
+ * parallel cannot overshoot the course budget together.
  */
 async function assertWithinBudget({ job, buildJob, estimateUsd }) {
   const l = limits(buildJob);
@@ -58,11 +74,14 @@ async function assertWithinBudget({ job, buildJob, estimateUsd }) {
   if (jobSpent + estimateUsd > l.perLesson + 1e-9) {
     throw Object.assign(new Error(`Spending limit: this video would cost about $${(jobSpent + estimateUsd).toFixed(2)}, above the per-lesson limit of $${l.perLesson.toFixed(2)} (VIDEO_MAX_COST_PER_LESSON_USD).`), { retryable: false, code: 'BUDGET_EXCEEDED' });
   }
-  const spent = await courseSpend(job.courseId);
+  await GenerationJob.updateOne({ _id: job._id }, { $set: { 'cost.estimatedUsd': jobSpent + estimateUsd } });
+  const [actual, reserved] = await Promise.all([courseSpend(job.courseId), reservedByOthers(job.courseId, job._id)]);
+  const spent = actual + reserved;
   if (spent + estimateUsd > l.perCourse + 1e-9) {
-    throw Object.assign(new Error(`Spending limit: course video spend would reach $${(spent + estimateUsd).toFixed(2)}, above the course limit of $${l.perCourse.toFixed(2)}. Raise the course video budget to continue.`), { retryable: false, code: 'BUDGET_EXCEEDED' });
+    await GenerationJob.updateOne({ _id: job._id }, { $set: { 'cost.estimatedUsd': jobSpent } });
+    throw Object.assign(new Error(`Spending limit: course video spend would reach $${(spent + estimateUsd).toFixed(2)}, above the course limit of $${l.perCourse.toFixed(2)}${reserved > 0 ? ` (including $${reserved.toFixed(2)} reserved by videos being made right now)` : ''}. Raise the course video budget to continue.`), { retryable: false, code: 'BUDGET_EXCEEDED' });
   }
   return { limits: l, courseSpent: spent };
 }
 
-module.exports = { limits, llmCost, ttsCost, courseSpend, assertWithinBudget };
+module.exports = { limits, llmCost, ttsCost, courseSpend, reservedByOthers, assertWithinBudget };

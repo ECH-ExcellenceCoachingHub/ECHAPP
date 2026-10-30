@@ -40,6 +40,8 @@ router.post('/items/:itemId/preview-submit', c.previewSubmit);
 
 // Textbook figures + generated lesson videos
 router.get('/jobs/:jobId/media', v.getBuildMedia);
+router.get('/jobs/:jobId/video-jobs', v.listBuildVideoJobs);
+router.post('/jobs/:jobId/video-jobs/bulk', v.bulkVideoJobs);
 router.get('/jobs/:jobId/figures', v.listFigures);
 router.post('/jobs/:jobId/figures/extract', generationLimiter, v.extractFigures);
 router.get('/items/:itemId/videos', v.getItemVideos);

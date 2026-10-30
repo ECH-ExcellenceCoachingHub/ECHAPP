@@ -318,19 +318,92 @@ async function notify(jobId, outcome) {
 }
 
 /** Summary for the admin build screen. */
+const ACTIVE_STATES = ['queued', 'retry_wait', 'running'];
+// A running video whose stage has not changed for this long is reported as stuck.
+const stuckMinutes = () => Math.max(1, parseInt(process.env.VIDEO_STUCK_MINUTES || '15', 10) || 15);
+
+function stageSince(job) {
+  const last = (job.stageHistory || []).filter(h => h.at).slice(-1)[0];
+  return last ? new Date(last.at) : (job.startedAt ? new Date(job.startedAt) : null);
+}
+
+/** Why a running job looks stuck, or null. */
+function stuckReason(job, now = Date.now()) {
+  if (job.state !== 'running') return null;
+  if (job.lease?.expiresAt && new Date(job.lease.expiresAt).getTime() < now) {
+    return 'The worker stopped responding (it crashed or was restarted)';
+  }
+  if (job.cancelRequested) return 'Cancel requested, but the worker has not stopped yet';
+  const since = stageSince(job);
+  const minutes = since ? Math.floor((now - since.getTime()) / 60000) : 0;
+  if (minutes >= stuckMinutes()) return `No progress for ${minutes} min (stage: ${job.stage})`;
+  return null;
+}
+
+/**
+ * Video jobs of a build that are waiting, running or failed, with the
+ * lesson title, how long the current stage has run and why a job looks
+ * stuck, so an admin can find and stop the one blocking the queue.
+ */
+async function jobsForBuild(buildJobId) {
+  const jobs = await GenerationJob.find({ buildJobId, type: 'lesson_video', state: { $in: [...ACTIVE_STATES, 'failed'] } })
+    .select('state stage variant buildItemId lessonId attempts maxAttempts nextRunAt lease cancelRequested error startedAt finishedAt createdAt stageHistory cost.actualUsd')
+    .sort({ updatedAt: -1 })
+    .limit(500)
+    .lean();
+  const items = await CourseBuildItem.find({ _id: { $in: jobs.map(j => j.buildItemId).filter(Boolean) } }).select('title').lean();
+  const titles = new Map(items.map(i => [String(i._id), i.title]));
+  const now = Date.now();
+  // The worker is alive when it holds an unexpired lease, or finished something recently.
+  const holding = await GenerationJob.exists({ type: 'lesson_video', state: 'running', 'lease.expiresAt': { $gt: new Date(now) } });
+  const recent = await GenerationJob.exists({ type: 'lesson_video', state: { $in: ['completed', 'failed'] }, finishedAt: { $gte: new Date(now - 10 * 60000) } });
+  const view = (j) => ({
+    _id: j._id,
+    itemId: j.buildItemId,
+    title: titles.get(String(j.buildItemId)) || 'Lesson',
+    variant: j.variant,
+    state: j.state,
+    status: statusFromJob(j),
+    stage: j.stage,
+    attempts: j.attempts,
+    maxAttempts: j.maxAttempts,
+    startedAt: j.startedAt,
+    stageSince: stageSince(j),
+    nextRunAt: j.state === 'retry_wait' ? j.nextRunAt : null,
+    worker: j.state === 'running' ? (j.lease?.owner || null) : null,
+    cancelRequested: !!j.cancelRequested,
+    stuck: stuckReason(j, now),
+    error: j.error?.message ? { message: j.error.message, stage: j.error.stage || null } : null,
+    finishedAt: j.finishedAt,
+    actualUsd: j.cost?.actualUsd || 0,
+  });
+  const order = { running: 0, retry_wait: 1, queued: 2 };
+  const active = jobs.filter(j => ACTIVE_STATES.includes(j.state)).map(view)
+    .sort((a, b) => (b.stuck ? 1 : 0) - (a.stuck ? 1 : 0) || order[a.state] - order[b.state] || new Date(a.startedAt || 0) - new Date(b.startedAt || 0));
+  return {
+    active,
+    failed: jobs.filter(j => j.state === 'failed').map(view),
+    workerActive: !!(holding || recent),
+    stuckAfterMinutes: stuckMinutes(),
+  };
+}
+
 async function summaryForBuild(buildJobId) {
   const jobs = await GenerationJob.find({ buildJobId, type: 'lesson_video' })
-    .select('state stage variant cost.actualUsd buildItemId error review contentVersion attempts createdAt finishedAt').lean();
+    .select('state stage variant cost.actualUsd buildItemId error review contentVersion attempts createdAt finishedAt startedAt lease cancelRequested stageHistory').lean();
   const byStatus = {};
   let usd = 0;
   let pendingReview = 0;
+  let stuck = 0;
+  const now = Date.now();
   for (const j of jobs) {
+    if (stuckReason(j, now)) stuck++;
     const s = statusFromJob(j);
     byStatus[s] = (byStatus[s] || 0) + 1;
     usd += j.cost?.actualUsd || 0;
     if (j.state === 'completed' && j.review?.required && j.review.status === 'pending') pendingReview++;
   }
-  return { total: jobs.length, byStatus, actualUsd: Math.round(usd * 10000) / 10000, pendingReview };
+  return { total: jobs.length, byStatus, actualUsd: Math.round(usd * 10000) / 10000, pendingReview, stuck };
 }
 
 module.exports = {
@@ -345,6 +418,8 @@ module.exports = {
   statusFromJob,
   staleFlags,
   summaryForBuild,
+  jobsForBuild,
+  stuckReason,
   notify,
   videoConfig,
   policy,

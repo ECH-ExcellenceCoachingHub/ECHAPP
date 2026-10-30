@@ -224,6 +224,22 @@ async function cancel(jobId) {
   return GenerationJob.findOneAndUpdate({ _id: jobId, state: 'running' }, { $set: { cancelRequested: true } }, { new: true });
 }
 
+/**
+ * Stop a job now, without waiting for its worker. A worker still running it
+ * loses its lease at the next heartbeat, drops the job and moves on, so a
+ * hung job can no longer hold up the queue.
+ */
+async function forceCancel(jobId) {
+  return GenerationJob.findOneAndUpdate(
+    { _id: jobId, state: { $in: ['queued', 'retry_wait', 'running'] } },
+    {
+      $set: { state: 'cancelled', cancelRequested: true, finishedAt: new Date(), 'lease.owner': null, 'lease.expiresAt': null },
+      $push: { stageHistory: { $each: [{ stage: 'cancelled', status: 'forced', at: new Date(), message: 'stopped by an admin' }], $slice: -MAX_HISTORY } },
+    },
+    { new: true },
+  );
+}
+
 async function markCancelled(jobId, owner) {
   return GenerationJob.findOneAndUpdate(
     { _id: jobId, 'lease.owner': owner },
@@ -242,6 +258,7 @@ module.exports = {
   fail,
   release,
   cancel,
+  forceCancel,
   markCancelled,
   backoffMs,
   hashConfig,

@@ -235,12 +235,54 @@ const cancelVideoJob = async (req, res) => {
   try {
     const job = await loadVideoJob(req, res);
     if (!job) return;
-    const updated = await queue.cancel(job._id);
+    const updated = req.body?.force === true ? await queue.forceCancel(job._id) : await queue.cancel(job._id);
     if (!updated) return sendError(res, 'This video job has already finished', 409);
     await videoJobs.applyJobStatus(job._id);
     sendSuccess(res, jobView(updated.toObject()), updated.state === 'cancelled' ? 'Cancelled' : 'Cancelling — it will stop at the next step');
   } catch (err) {
     sendError(res, 'Failed to cancel video job', 500, err.message);
+  }
+};
+
+/** Waiting, running and failed videos of a build (with stuck detection). */
+const listBuildVideoJobs = async (req, res) => {
+  try {
+    const job = await load(CourseBuildJob, req.params.jobId, res, 'Build');
+    if (!job || !(await guard(req, res, job.courseId))) return;
+    sendSuccess(res, await videoJobs.jobsForBuild(job._id));
+  } catch (err) {
+    sendError(res, 'Failed to load video jobs', 500, err.message);
+  }
+};
+
+/**
+ * Bulk actions on a build's video jobs. body: { action: 'stop' | 'force_stop' | 'retry',
+ * ids?: [...], stuckOnly?: bool }. Without ids: every active job (stop) or
+ * every failed job (retry) of the build.
+ */
+const bulkVideoJobs = async (req, res) => {
+  try {
+    const job = await load(CourseBuildJob, req.params.jobId, res, 'Build');
+    if (!job || !(await guard(req, res, job.courseId))) return;
+    const { action, ids, stuckOnly } = req.body || {};
+    if (!['stop', 'force_stop', 'retry'].includes(action)) return sendError(res, 'Unknown action', 400);
+    const filter = { buildJobId: job._id, type: 'lesson_video', state: action === 'retry' ? 'failed' : { $in: ['queued', 'retry_wait', 'running'] } };
+    if (Array.isArray(ids)) filter._id = { $in: ids.filter(id => mongoose.isValidObjectId(id)) };
+    let targets = await GenerationJob.find(filter).lean();
+    if (stuckOnly) targets = targets.filter(j => videoJobs.stuckReason(j));
+    let count = 0;
+    for (const t of targets) {
+      const updated = action === 'retry'
+        ? await queue.requeue(t._id, { requestedBy: req.user._id || req.user.id })
+        : action === 'force_stop' ? await queue.forceCancel(t._id) : await queue.cancel(t._id);
+      if (!updated) continue;
+      count++;
+      await videoJobs.applyJobStatus(t._id);
+    }
+    const verb = { stop: 'Stopping', force_stop: 'Stopped', retry: 'Retrying' }[action];
+    sendSuccess(res, { count }, `${verb} ${count} video${count === 1 ? '' : 's'}`);
+  } catch (err) {
+    sendError(res, 'Failed to update video jobs', 500, err.message);
   }
 };
 
@@ -267,4 +309,6 @@ module.exports = {
   getVideoJob,
   cancelVideoJob,
   reviewVideoJob,
+  listBuildVideoJobs,
+  bulkVideoJobs,
 };

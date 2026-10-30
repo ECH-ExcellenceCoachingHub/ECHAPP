@@ -203,8 +203,8 @@ async function runLessonVideo(job, ctx) {
     const audioHash = (s) => sha(`${voiceSig}|${s.parts?.length > 1 ? `parts:${assembler.stepPause()}:${s.parts.join('\u241e')}` : s.narration}`);
     const charsToBuy = storyboard.scenes.filter(s => existingAudio.get(s.n)?.hash !== audioHash(s)).reduce((a, s) => a + s.narration.length, 0);
     const estimate = cost.ttsCost(tts, charsToBuy);
+    // Also reserves the estimate on the job (videos made in parallel share the course budget).
     await cost.assertWithinBudget({ job: await refreshCost(job), buildJob: src.buildJob, estimateUsd: estimate });
-    await ctx.update({ 'cost.estimatedUsd': (job.cost?.actualUsd || 0) + estimate });
 
     const audio = [];
     let narrated = true;

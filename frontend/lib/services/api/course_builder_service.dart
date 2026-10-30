@@ -256,8 +256,24 @@ class CourseBuilderService {
   Future<VideoJobView?> videoJob(String videoJobId) async =>
       VideoJobView.fromJson(_data(await _api.get('$_base/video-jobs/$videoJobId')));
 
-  Future<String> cancelVideoJob(String videoJobId) async {
-    final res = await _api.post('$_base/video-jobs/$videoJobId/cancel', body: {});
+  /// [force]: stop at once, even if the worker is hung (it drops the job at its next heartbeat).
+  Future<String> cancelVideoJob(String videoJobId, {bool force = false}) async {
+    final res = await _api.post('$_base/video-jobs/$videoJobId/cancel', body: {if (force) 'force': true});
+    _data(res);
+    return _message(res);
+  }
+
+  /// Waiting, running and failed videos of a build: {active, failed, workerActive, stuckAfterMinutes}.
+  Future<BuildVideoJobs> buildVideoJobs(String jobId) async =>
+      BuildVideoJobs.fromJson(Map<String, dynamic>.from(_data(await _api.get('$_base/jobs/$jobId/video-jobs'))));
+
+  /// [action]: stop | force_stop | retry. Without [ids]: every active (stop) or failed (retry) video.
+  Future<String> bulkVideoJobs(String jobId, String action, {List<String>? ids, bool stuckOnly = false}) async {
+    final res = await _api.post('$_base/jobs/$jobId/video-jobs/bulk', body: {
+      'action': action,
+      if (ids != null) 'ids': ids,
+      if (stuckOnly) 'stuckOnly': true,
+    });
     _data(res);
     return _message(res);
   }

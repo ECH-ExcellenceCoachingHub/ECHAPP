@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:excellencecoachinghub/models/lesson_video.dart';
 import 'package:excellencecoachinghub/services/api/course_builder_service.dart';
+import '../video_jobs_screen.dart';
 import 'build_options_panel.dart' show builderGreen;
 
 /// Build overview of textbook figures and generated lesson videos.
@@ -61,6 +62,12 @@ class _BuildMediaCardState extends State<BuildMediaCard> {
     }
   }
 
+  void _manageVideos() {
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => VideoJobsScreen(jobId: widget.jobId, service: widget.service)))
+        .then((_) => _load());
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = _data;
@@ -74,6 +81,8 @@ class _BuildMediaCardState extends State<BuildMediaCard> {
     final processing = byStatus.entries.where((e) => LessonVideo.processingStatuses.contains(e.key)).fold<int>(0, (a, e) => a + ((e.value as num?)?.toInt() ?? 0));
     final spent = (budget['courseSpentUsd'] as num?)?.toDouble() ?? 0;
     final limit = (budget['perCourse'] as num?)?.toDouble() ?? 0;
+    final stuck = (videos['stuck'] as num?)?.toInt() ?? 0;
+    final failed = (byStatus['failed'] as num?)?.toInt() ?? 0;
 
     return Card(
       elevation: 0,
@@ -106,6 +115,15 @@ class _BuildMediaCardState extends State<BuildMediaCard> {
               if ((videos['pendingReview'] ?? 0) > 0) '${videos['pendingReview']} waiting for your review',
               'Spent \$${spent.toStringAsFixed(2)} of \$${limit.toStringAsFixed(2)} course budget',
             ],
+            warning: stuck > 0 ? '$stuck video${stuck == 1 ? ' looks' : 's look'} stuck and may be blocking the others' : null,
+            action: (videos['total'] ?? 0) == 0
+                ? null
+                : TextButton.icon(
+                    style: stuck > 0 ? TextButton.styleFrom(foregroundColor: Colors.red.shade700) : null,
+                    onPressed: _manageVideos,
+                    icon: Icon(stuck > 0 ? Icons.warning_amber_rounded : Icons.tune, size: 18),
+                    label: Text(stuck > 0 ? 'Find and stop stuck videos' : processing + failed > 0 ? 'Manage videos' : 'View videos'),
+                  ),
             busy: processing > 0,
           );
           return wide
@@ -133,7 +151,9 @@ class _BuildMediaCardState extends State<BuildMediaCard> {
     }
   }
 
-  Widget _section({required IconData icon, required String title, required List<String> lines, Widget? action, bool busy = false}) {
+  Widget _section({required IconData icon, required String title, required List<String> lines, Widget? action, String? warning, bool busy = false}) {
+    // Readable on both light and dark card backgrounds.
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Icon(icon, color: builderGreen),
       const SizedBox(width: 10),
@@ -143,7 +163,12 @@ class _BuildMediaCardState extends State<BuildMediaCard> {
           if (busy) ...[const SizedBox(width: 8), const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2, color: builderGreen))],
         ]),
         const SizedBox(height: 4),
-        ...lines.map((l) => Padding(padding: const EdgeInsets.only(top: 2), child: Text(l, style: TextStyle(color: Colors.grey.shade700, fontSize: 13)))),
+        ...lines.map((l) => Padding(padding: const EdgeInsets.only(top: 2), child: Text(l, style: TextStyle(color: muted, fontSize: 13)))),
+        if (warning != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text('⚠ $warning', style: TextStyle(color: Colors.red.shade400, fontSize: 13, fontWeight: FontWeight.w700)),
+          ),
         if (action != null) action,
       ])),
     ]);

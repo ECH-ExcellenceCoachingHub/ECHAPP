@@ -284,3 +284,95 @@ class VideoJobView {
     );
   }
 }
+
+/// One lesson video in a build's job list (GET /course-builder/jobs/:jobId/video-jobs).
+class BuildVideoJob {
+  final String id;
+  final String? itemId;
+  final String title;
+  final String variant;
+  /// queued | retry_wait | running | failed
+  final String state;
+  final String status;
+  final int attempts;
+  final int maxAttempts;
+  final DateTime? startedAt;
+  final DateTime? stageSince;
+  final DateTime? nextRunAt;
+  final String? worker;
+  final bool cancelRequested;
+  /// Why the job looks stuck (null when it is fine).
+  final String? stuck;
+  final String? errorMessage;
+  final String? errorStage;
+  final DateTime? finishedAt;
+
+  const BuildVideoJob({
+    required this.id,
+    this.itemId,
+    required this.title,
+    required this.variant,
+    required this.state,
+    required this.status,
+    this.attempts = 0,
+    this.maxAttempts = 0,
+    this.startedAt,
+    this.stageSince,
+    this.nextRunAt,
+    this.worker,
+    this.cancelRequested = false,
+    this.stuck,
+    this.errorMessage,
+    this.errorStage,
+    this.finishedAt,
+  });
+
+  factory BuildVideoJob.fromJson(Map<String, dynamic> j) {
+    DateTime? date(String k) => j[k] is String ? DateTime.tryParse(j[k] as String)?.toLocal() : null;
+    final error = j['error'] is Map ? Map<String, dynamic>.from(j['error'] as Map) : null;
+    return BuildVideoJob(
+      id: '${j['_id'] ?? ''}',
+      itemId: j['itemId'] as String?,
+      title: j['title'] as String? ?? 'Lesson',
+      variant: j['variant'] as String? ?? 'explainer',
+      state: j['state'] as String? ?? 'queued',
+      status: j['status'] as String? ?? 'queued',
+      attempts: (j['attempts'] as num?)?.toInt() ?? 0,
+      maxAttempts: (j['maxAttempts'] as num?)?.toInt() ?? 0,
+      startedAt: date('startedAt'),
+      stageSince: date('stageSince'),
+      nextRunAt: date('nextRunAt'),
+      worker: j['worker'] as String?,
+      cancelRequested: j['cancelRequested'] == true,
+      stuck: j['stuck'] as String?,
+      errorMessage: error?['message'] as String?,
+      errorStage: error?['stage'] as String?,
+      finishedAt: date('finishedAt'),
+    );
+  }
+
+  bool get isRunning => state == 'running';
+}
+
+class BuildVideoJobs {
+  final List<BuildVideoJob> active;
+  final List<BuildVideoJob> failed;
+  /// A media worker is holding a job or finished one in the last 10 minutes.
+  final bool workerActive;
+  final int stuckAfterMinutes;
+
+  const BuildVideoJobs({this.active = const [], this.failed = const [], this.workerActive = false, this.stuckAfterMinutes = 15});
+
+  factory BuildVideoJobs.fromJson(Map<String, dynamic> j) {
+    List<BuildVideoJob> list(String k) =>
+        (j[k] as List? ?? []).whereType<Map>().map((e) => BuildVideoJob.fromJson(Map<String, dynamic>.from(e))).toList();
+    return BuildVideoJobs(
+      active: list('active'),
+      failed: list('failed'),
+      workerActive: j['workerActive'] == true,
+      stuckAfterMinutes: (j['stuckAfterMinutes'] as num?)?.toInt() ?? 15,
+    );
+  }
+
+  List<BuildVideoJob> get stuck => active.where((j) => j.stuck != null).toList();
+}

@@ -89,6 +89,9 @@ services:
         sync: false
       - key: VIDEO_STOCK_USER_AGENT # include a contact email/URL (Wikimedia API etiquette)
         sync: false
+      # Videos made at the same time by one worker. Each render peaks at ~0.9 GB
+      # (Chromium + FFmpeg), so allow ~1 GB per video: 1 on a 2 GB plan, 3 on 4 GB.
+      # Or keep 1 and add worker instances (Scaling) — the queue shares work safely.
       - key: MEDIA_WORKER_CONCURRENCY
         value: "1"
       - key: VIDEO_MAX_COST_PER_LESSON_USD # slow, step-by-step narration is longer
