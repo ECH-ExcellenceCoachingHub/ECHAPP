@@ -1577,64 +1577,96 @@ class _ProfessionalLessonScreenState
       (_Tab.ai, Icons.psychology_outlined, 'AI Help'),
     ];
 
+    void onTap(_Tab tab) {
+      // Check if this is a quiz-only lesson and user is trying to navigate away from quiz
+      if (_isQuizOnlyLesson() && _activeTab == _Tab.quiz && tab != _Tab.quiz) {
+        _showQuizOnlyNotification();
+      } else {
+        _setActiveTab(tab);
+      }
+    }
+
+    // Segmented control spanning the full width; same 44px height as before.
     return Container(
       height: 44,
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 5, 12, 5),
       decoration: BoxDecoration(
         color: _surfaceColor,
         border: Border(bottom: BorderSide(color: _borderColor)),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Row(
-          children: tabs.map((tabData) {
-            final (tab, icon, label) = tabData;
-            final active = _activeTab == tab;
-            return GestureDetector(
-              onTap: () {
-                // Check if this is a quiz-only lesson and user is trying to navigate away from quiz
-                if (_isQuizOnlyLesson() && _activeTab == _Tab.quiz && tab != _Tab.quiz) {
-                  _showQuizOnlyNotification();
-                } else {
-                  _setActiveTab(tab);
-                }
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(
-                      color: active ? _T.green : Colors.transparent,
-                      width: 2,
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: _isDark ? _T.darkBg : const Color(0xFFF1F4F2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: LayoutBuilder(builder: (context, constraints) {
+          // On narrow phones only the selected tab keeps its label.
+          final roomy = constraints.maxWidth / tabs.length >= 80;
+          return Row(
+            children: [
+              for (final (tab, icon, label) in tabs)
+                Expanded(
+                  flex: !roomy && _activeTab == tab ? 2 : 1,
+                  child: _segment(icon, label, _activeTab == tab,
+                      showLabel: roomy || _activeTab == tab, onTap: () => onTap(tab)),
+                ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _segment(IconData icon, String label, bool active,
+      {required bool showLabel, required VoidCallback onTap}) {
+    final color = active ? _T.green : _mutedColor;
+    return Semantics(
+      button: true,
+      selected: active,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: active ? _surfaceColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(9),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: _isDark ? 0.3 : 0.08),
+                      blurRadius: 6,
+                      offset: const Offset(0, 1),
+                    ),
+                  ]
+                : const [],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 17, color: color),
+              if (showLabel) ...[
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                      color: active ? _textColor : _mutedColor,
                     ),
                   ),
                 ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      icon,
-                      size: 18,
-                      color: active ? _T.green : _mutedColor,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: active
-                            ? FontWeight.w600
-                            : FontWeight.w500,
-                        color: active ? _T.green : _mutedColor,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
+              ],
+            ],
+          ),
         ),
       ),
     );
@@ -2749,7 +2781,7 @@ class _ProfessionalLessonScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildLessonPath(),
-                const SizedBox(height: 20),
+                const SizedBox(height: 14),
                 _buildNotesBody(
                   beforePractice: KeyedSubtree(key: _embeddedVideoKey, child: _buildEmbeddedVideo()),
                 ),
@@ -2821,103 +2853,53 @@ class _ProfessionalLessonScreenState
     return (experiment ? lesson.aiExperimentVideo : lesson.aiVideo)?.durationSeconds;
   }
 
-  /// Top of the Learn tab on phones: the order to work through it
-  /// (read -> watch -> quiz), with shortcuts down to the video and the quiz.
+  /// Slim row at the top of the Learn tab on phones: quick jumps down to the
+  /// video (with its length or resume point) and the quiz.
   Widget _buildLessonPath() {
-    final lesson = _lesson!;
     final secs = _selectedVideoSeconds;
     final minutes = secs == null || secs <= 0 ? null : (secs / 60).ceil();
     final quizDone = _quizAttempts.isNotEmpty;
-    Widget arrow() => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2),
-          child: Icon(Icons.chevron_right_rounded, size: 18, color: _mutedColor),
-        );
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 820),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: _surfaceColor,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _borderColor),
+      child: Wrap(spacing: 8, runSpacing: 8, children: [
+        FutureBuilder<Duration>(
+          future: _videoResume(),
+          builder: (context, snap) {
+            final resume = snap.data ?? Duration.zero;
+            final label = resume > const Duration(seconds: 5)
+                ? 'Continue video · ${_clock(resume)}'
+                : minutes == null ? 'Watch video' : 'Watch video · $minutes min';
+            return _jumpChip(Icons.play_arrow_rounded, label, _T.green,
+                () => _jumpTo(_embeddedVideoKey, playVideo: true));
+          },
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('IN THIS LESSON',
-                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: _mutedColor)),
-            const SizedBox(height: 10),
-            Row(children: [
-              Expanded(
-                child: _pathStep(Icons.menu_book_outlined, 'Read',
-                    lesson.hasAiGuide ? 'Study guide' : 'Notes', _T.green, null),
-              ),
-              arrow(),
-              Expanded(
-                child: _pathStep(Icons.play_circle_outline, 'Watch',
-                    minutes == null ? 'Video' : '$minutes min video', _T.blue,
-                    () => _jumpTo(_embeddedVideoKey, playVideo: true)),
-              ),
-              if (lesson.hasQuiz) ...[
-                arrow(),
-                Expanded(
-                  child: _pathStep(quizDone ? Icons.check_circle_outline : Icons.quiz_outlined, 'Quiz',
-                      quizDone ? 'Attempted' : 'Test yourself', _T.orange, () => _jumpTo(_practiceKey)),
-                ),
-              ],
-            ]),
-            const SizedBox(height: 12),
-            FutureBuilder<Duration>(
-              future: _videoResume(),
-              builder: (context, snap) {
-                final resume = snap.data ?? Duration.zero;
-                final label = resume > const Duration(seconds: 5)
-                    ? 'Continue video at ${_clock(resume)}'
-                    : 'Watch the lesson video';
-                return SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: _T.green,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
-                    onPressed: () => _jumpTo(_embeddedVideoKey, playVideo: true),
-                    icon: const Icon(Icons.play_arrow_rounded),
-                    label: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
-      ),
+        if (_lesson!.hasQuiz)
+          _jumpChip(quizDone ? Icons.check_rounded : Icons.quiz_outlined,
+              quizDone ? 'Quiz attempted' : 'Quiz', _mutedColor, () => _jumpTo(_practiceKey)),
+      ]),
     );
   }
 
-  Widget _pathStep(IconData icon, String label, String sub, Color color, VoidCallback? onTap) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
-        child: Column(children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
-            child: Icon(icon, size: 20, color: color),
+  Widget _jumpChip(IconData icon, String label, Color color, VoidCallback onTap) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _borderColor),
           ),
-          const SizedBox(height: 6),
-          Text(label,
-              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _textColor)),
-          Text(sub,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 11, color: _mutedColor)),
-        ]),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 4),
+            Text(label,
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: _textColor)),
+          ]),
+        ),
       ),
     );
   }
