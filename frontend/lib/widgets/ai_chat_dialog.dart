@@ -11,7 +11,7 @@ import 'package:excellencecoachinghub/widgets/ai_chat_messages_list.dart';
 import 'package:excellencecoachinghub/widgets/ai_chat_input_widget.dart';
 import 'package:excellencecoachinghub/widgets/voice_chat_widget.dart';
 import 'package:excellencecoachinghub/widgets/student_guide_widget.dart';
-import 'package:flutter_tts/flutter_tts.dart';
+import 'package:excellencecoachinghub/services/assistant_voice.dart';
 
 /// Modern AI Chat Dialog Widget with Enhanced Glass Morphism Effect
 class ModernAIChatDialog extends StatefulWidget {
@@ -59,7 +59,7 @@ class _ModernAIChatDialogState extends State<ModernAIChatDialog> with TickerProv
   bool _isMuted = false;
   bool _showScrollToBottom = false;
   final ScrollController _chatScrollController = ScrollController();
-  late FlutterTts _flutterTts;
+  late AssistantVoice _voice;
   
   @override
   void initState() {
@@ -87,46 +87,8 @@ class _ModernAIChatDialogState extends State<ModernAIChatDialog> with TickerProv
       curve: Curves.easeOut,
     ));
 
-    _flutterTts = FlutterTts();
-    _flutterTts.setLanguage("en-GB");
-    _flutterTts.setSpeechRate(0.5); // Natural speed
-    _flutterTts.setVolume(1.0);
-    _flutterTts.setPitch(1.0); // Normal pitch for a male voice
-    _flutterTts.setStartHandler(() {
-      if (mounted) setState(() => _isSpeaking = true);
-    });
-    _flutterTts.setCompletionHandler(() {
-      if (mounted) setState(() => _isSpeaking = false);
-    });
-    _flutterTts.setCancelHandler(() {
-      if (mounted) setState(() => _isSpeaking = false);
-    });
-    _flutterTts.setErrorHandler((_) {
-      if (mounted) setState(() => _isSpeaking = false);
-    });
-    
-    // Try to set a male British voice explicitly if available
-    _flutterTts.getVoices.then((voices) {
-      try {
-        final maleVoice = voices.firstWhere(
-          (voice) => 
-            (voice['name'].toString().toLowerCase().contains('male') || 
-             voice['name'].toString().toLowerCase().contains('daniel') ||
-             voice['name'].toString().toLowerCase().contains('george') ||
-             voice['name'].toString().toLowerCase().contains('arthur')) &&
-            (voice['locale'].toString().toLowerCase().contains('gb') || 
-             voice['name'].toString().toLowerCase().contains('british')),
-          orElse: () => voices.firstWhere(
-            (voice) => 
-              voice['name'].toString().toLowerCase().contains('male') || 
-              voice['name'].toString().toLowerCase().contains('daniel'),
-            orElse: () => voices.first,
-          ),
-        );
-        _flutterTts.setVoice({"name": maleVoice['name'], "locale": maleVoice['locale']});
-      } catch (e) {
-        print('Error setting male voice: $e');
-      }
+    _voice = AssistantVoice(onSpeakingChanged: (speaking) {
+      if (mounted) setState(() => _isSpeaking = speaking);
     });
     
     _animationController.forward().then((_) {
@@ -142,14 +104,13 @@ class _ModernAIChatDialogState extends State<ModernAIChatDialog> with TickerProv
     _animationController.dispose();
     _headerAnimationController.dispose();
     _chatScrollController.dispose();
-    _flutterTts.stop();
+    _voice.dispose();
     super.dispose();
   }
 
   void _speakMessage(String message) {
     if (_isMuted) return;
-    _flutterTts.stop();
-    _flutterTts.speak(message);
+    _voice.speak(message);
   }
 
   void _toggleMute() {
@@ -157,7 +118,7 @@ class _ModernAIChatDialogState extends State<ModernAIChatDialog> with TickerProv
       _isMuted = !_isMuted;
     });
     if (_isMuted) {
-      _flutterTts.stop();
+      _voice.stop();
     }
   }
 
@@ -261,7 +222,7 @@ class _ModernAIChatDialogState extends State<ModernAIChatDialog> with TickerProv
     });
 
     _updateGuideState(aiMessage.message);
-    await _flutterTts.speak(aiMessage.message);
+    _speakMessage(aiMessage.message);
   }
 
   Future<void> _handleSendWithFile(String message, File file, String fileType, String fileName) async {
@@ -309,7 +270,7 @@ class _ModernAIChatDialogState extends State<ModernAIChatDialog> with TickerProv
       });
 
       _updateGuideState(aiResponse.message);
-      await _flutterTts.speak(aiResponse.message);
+      _speakMessage(aiResponse.message);
     } catch (e) {
       print('Error sending file message: $e');
       setState(() {
@@ -361,7 +322,7 @@ class _ModernAIChatDialogState extends State<ModernAIChatDialog> with TickerProv
       });
 
       _updateGuideState(aiResponse.message);
-      await _flutterTts.speak(aiResponse.message);
+      _speakMessage(aiResponse.message);
     } catch (e) {
       print('Error sending message: $e');
       setState(() {

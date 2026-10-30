@@ -38,16 +38,26 @@ class _ExamQuestionDetailsScreenState extends State<ExamQuestionDetailsScreen> {
     }
   }
 
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+
   Color _getScoreColor(bool isCorrect) {
+    if (_isDark) return isCorrect ? Colors.green.shade400 : Colors.red.shade400;
     return isCorrect ? Colors.green.shade600 : Colors.red.shade600;
   }
 
   String _formatAnswer(Map<String, dynamic> question, dynamic userAnswer) {
     final questionType = question['questionType'];
-    final selectedOption = userAnswer?['selectedOption'];
-    final answerText = userAnswer?['answerText'];
+    // Older submissions may store the answer as a bare string
+    if (userAnswer is String) {
+      return userAnswer.trim().isEmpty ? 'Not answered' : userAnswer;
+    }
+    final selectedOption = userAnswer is Map ? userAnswer['selectedOption'] : null;
+    final answerText = userAnswer is Map ? userAnswer['answerText'] : null;
     final options = question['options'] as List<dynamic>?;
     
+    if (questionType == 'mcq' && selectedOption is! int && answerText is String && answerText.trim().isNotEmpty) {
+      return answerText;
+    }
     if (questionType == 'mcq') {
       if (selectedOption != null && options != null && selectedOption < options.length) {
         final option = options[selectedOption];
@@ -60,9 +70,14 @@ class _ExamQuestionDetailsScreenState extends State<ExamQuestionDetailsScreen> {
         return selectedOption == 0 ? 'True' : 'False';
       }
       return 'Not answered';
-    } else if (questionType == 'fill_blank' || questionType == 'open') {
-      return answerText?.toString() ?? 'Not answered';
     } else if (questionType == 'drag_drop') {
+      // handled below
+    } else {
+      // Written answers: fill_blank, essay/open, programming, etc.
+      final text = (answerText ?? selectedOption)?.toString() ?? '';
+      return text.trim().isEmpty ? 'Not answered' : text;
+    }
+    if (questionType == 'drag_drop') {
       final dragAnswers = userAnswer?['dragAnswers'] as List<dynamic>?;
       if (dragAnswers == null || dragAnswers.isEmpty) {
         return 'Not answered';
@@ -266,7 +281,9 @@ class _ExamQuestionDetailsScreenState extends State<ExamQuestionDetailsScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
-                        color: passed ? Colors.green.shade100 : Colors.red.shade100,
+                        color: _isDark
+                            ? (passed ? Colors.green : Colors.red).withOpacity(0.2)
+                            : (passed ? Colors.green.shade100 : Colors.red.shade100),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -274,7 +291,9 @@ class _ExamQuestionDetailsScreenState extends State<ExamQuestionDetailsScreen> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: passed ? Colors.green.shade700 : Colors.red.shade700,
+                          color: _isDark
+                              ? (passed ? Colors.green.shade300 : Colors.red.shade300)
+                              : (passed ? Colors.green.shade700 : Colors.red.shade700),
                         ),
                       ),
                     ),
@@ -450,9 +469,9 @@ class _ExamQuestionDetailsScreenState extends State<ExamQuestionDetailsScreen> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.green.shade50,
+                                color: _isDark ? Colors.green.withOpacity(0.12) : Colors.green.shade50,
                                 borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.green.shade200),
+                                border: Border.all(color: _isDark ? Colors.green.withOpacity(0.4) : Colors.green.shade200),
                               ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -461,7 +480,7 @@ class _ExamQuestionDetailsScreenState extends State<ExamQuestionDetailsScreen> {
                                     'Correct Answer:',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.green.shade700,
+                                      color: _isDark ? Colors.green.shade300 : Colors.green.shade700,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -470,7 +489,7 @@ class _ExamQuestionDetailsScreenState extends State<ExamQuestionDetailsScreen> {
                                     _getCorrectAnswer(result),
                                     style: TextStyle(
                                       fontSize: 14,
-                                      color: Colors.green.shade700,
+                                      color: _isDark ? Colors.green.shade300 : Colors.green.shade700,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -482,9 +501,9 @@ class _ExamQuestionDetailsScreenState extends State<ExamQuestionDetailsScreen> {
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
+                                  color: _isDark ? Colors.blue.withOpacity(0.12) : Colors.blue.shade50,
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.blue.shade200),
+                                  border: Border.all(color: _isDark ? Colors.blue.withOpacity(0.4) : Colors.blue.shade200),
                                 ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -492,13 +511,13 @@ class _ExamQuestionDetailsScreenState extends State<ExamQuestionDetailsScreen> {
                                     Icon(
                                       result['gradedBy'] == 'ai' ? Icons.auto_awesome : Icons.rate_review_outlined,
                                       size: 16,
-                                      color: Colors.blue.shade700,
+                                      color: _isDark ? Colors.blue.shade300 : Colors.blue.shade700,
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
                                         result['feedback'].toString(),
-                                        style: TextStyle(fontSize: 13.5, color: Colors.blue.shade900, height: 1.4),
+                                        style: TextStyle(fontSize: 13.5, color: _isDark ? Colors.blue.shade100 : Colors.blue.shade900, height: 1.4),
                                       ),
                                     ),
                                   ],
@@ -528,7 +547,10 @@ class _ExamQuestionDetailsScreenState extends State<ExamQuestionDetailsScreen> {
       case 'fill_blank':
         return 'Fill in the Blank';
       case 'essay':
-        return 'Essay';
+      case 'open':
+        return 'Open Question';
+      case 'programming':
+        return 'Programming';
       case 'drag_drop':
         return 'Drag and Drop';
       default:

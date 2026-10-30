@@ -161,11 +161,9 @@ class _VoiceChatWidgetState extends State<VoiceChatWidget> {
           _isProcessing = false;
         });
 
-        // Automatically play the response audio if available
-        if (_audioResponseUrl != null) {
-          _playAudioResponse();
-        }
-
+        // The chat dialog speaks the reply via onAIResponse (same ElevenLabs
+        // audio, served from the backend cache); playing it here too would
+        // overlap. The replay button still uses _audioResponseUrl.
         if (widget.onAIResponse != null && responseData['textResponse'] != null) {
           widget.onAIResponse!(responseData['textResponse']);
         }

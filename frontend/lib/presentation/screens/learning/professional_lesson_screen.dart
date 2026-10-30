@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderAbstractViewport;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -23,6 +24,8 @@ import 'package:excellencecoachinghub/widgets/student_guide_widget.dart';
 import 'package:flutter/foundation.dart';
 import 'package:excellencecoachinghub/presentation/widgets/video_player/custom_video_player.dart';
 import 'package:excellencecoachinghub/presentation/widgets/video_player/optimized_video_player.dart';
+import 'package:excellencecoachinghub/presentation/widgets/video_player/video_playback_requests.dart';
+import 'package:excellencecoachinghub/services/video_progress_service.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:excellencecoachinghub/models/download.dart';
@@ -124,6 +127,16 @@ class _ProfessionalLessonScreenState
   // Video tab: lesson explainer (default) or the simulated experiment demo.
   bool _showExperimentVideo = false;
   _NotesView _notesTab = _NotesView.pdf;
+  // Learn tab with the video under the notes (phones/tablets): jump targets,
+  // play/pause of that video and the floating "Watch video" shortcut.
+  late final _notesScroll = ScrollController()..addListener(_onNotesScroll);
+  final _embeddedVideoKey = GlobalKey();
+  final _practiceKey = GlobalKey();
+  final _videoRequests = VideoPlaybackRequests();
+  bool _embeddedVideoInView = false;
+  bool _showVideoShortcut = false;
+  String? _resumeKey;
+  Future<Duration>? _resumeAt;
   bool _isChatOpen = false;
   String? _chatPrompt; // question handed to the AI tutor from the study guide
   bool _sidebarCollapsed = false;
@@ -179,6 +192,8 @@ class _ProfessionalLessonScreenState
     final downloadService = ref.read(downloadServiceProvider);
     downloadService.removeListener(_onDownloadsChanged);
     _feedbackController.dispose();
+    _notesScroll.dispose();
+    _videoRequests.dispose();
     super.dispose();
   }
 
@@ -235,6 +250,7 @@ class _ProfessionalLessonScreenState
       setState(() {
         _lesson = lesson;
         _notesTab = lesson.hasAiGuide ? _NotesView.guide : _NotesView.pdf;
+        _resetEmbeddedVideo();
         _exam = data['quiz'] is Map ? Map<String, dynamic>.from(data['quiz']) : null;
         _previousLesson = index > 0 ? siblings[index - 1] : null;
         _nextLesson = index >= 0 && index < siblings.length - 1 ? siblings[index + 1] : null;
@@ -293,6 +309,7 @@ class _ProfessionalLessonScreenState
       setState(() {
         _lesson = lesson;
         _notesTab = lesson.hasAiGuide ? _NotesView.guide : _NotesView.pdf;
+        _resetEmbeddedVideo();
         _video = video;
         _exam = exam;
         _previousLesson = prev;
@@ -345,10 +362,11 @@ class _ProfessionalLessonScreenState
     return tab == _Tab.video && _embedsVideo(lesson) ? _Tab.notes : tab;
   }
 
-  /// Generated lesson videos are shown inside the notes (no separate Video
-  /// tab), so students read and watch on one page without switching tabs.
+  /// Generated lesson videos are shown inside the AI study guide (no separate
+  /// Video tab), so students read and watch on one page without switching
+  /// tabs. Lessons whose notes are only an uploaded PDF keep a Video tab.
   bool _embedsVideo(Lesson lesson) =>
-      lesson.hasNotes && (lesson.aiVideo != null || lesson.aiExperimentVideo != null);
+      lesson.hasAiGuide && (lesson.aiVideo != null || lesson.aiExperimentVideo != null);
 
   bool get _videoInNotes => _lesson != null && _embedsVideo(_lesson!);
 
@@ -730,7 +748,7 @@ class _ProfessionalLessonScreenState
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _T.greenLight,
+                    color: _greenSoftColor,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
@@ -956,9 +974,9 @@ class _ProfessionalLessonScreenState
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: _T.greenLight,
+                  color: _greenSoftColor,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _T.greenMid),
+                  border: Border.all(color: _greenBorderColor),
                 ),
                 child: Row(
                   children: [
@@ -1059,6 +1077,10 @@ class _ProfessionalLessonScreenState
   Color get _borderColor => _isDark ? _T.darkBorder : _T.border;
   Color get _textColor => _isDark ? _T.darkText : _T.text;
   Color get _mutedColor => _isDark ? _T.darkMuted : _T.muted;
+  Color get _greenSoftColor =>
+      _isDark ? _T.green.withOpacity(0.12) : _T.greenLight;
+  Color get _greenBorderColor =>
+      _isDark ? _T.green.withOpacity(0.45) : _T.greenMid;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Build
@@ -1226,7 +1248,9 @@ class _ProfessionalLessonScreenState
                             setState(() => _activeTab = _Tab.video);
                           }
                         }, color: _T.blue),
-                    _SidebarItem(Icons.description_outlined, 'Notes',
+                    _SidebarItem(
+                        _videoInNotes ? Icons.auto_stories_outlined : Icons.description_outlined,
+                        _videoInNotes ? 'Learn' : 'Notes',
                         _activeTab == _Tab.notes,
                         () {
                           if (_isQuizOnlyLesson() && _activeTab == _Tab.quiz) {
@@ -1262,8 +1286,7 @@ class _ProfessionalLessonScreenState
                     _SidebarLesson('Introduction', true, false),
                     _SidebarLesson(
                         _lesson?.title ?? 'Current lesson', false, true),
-                    _SidebarLesson('Advanced topics', false, false,
-                        locked: true),
+                    _SidebarLesson('Advanced topics', false, false),
                   ]),
                 ],
               ),
@@ -1479,7 +1502,7 @@ class _ProfessionalLessonScreenState
             padding:
                 const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: _T.greenLight,
+              color: _greenSoftColor,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -1547,7 +1570,9 @@ class _ProfessionalLessonScreenState
       if (_lesson?.hasQuiz == true)
         (_Tab.quiz, Icons.quiz_outlined, 'Quiz'),
       if (_lesson?.hasNotes == true)
-        (_Tab.notes, Icons.description_outlined, 'Notes'),
+        _videoInNotes
+            ? (_Tab.notes, Icons.auto_stories_outlined, 'Learn')
+            : (_Tab.notes, Icons.description_outlined, 'Notes'),
       (_Tab.feedback, Icons.rate_review_outlined, 'Feedback'),
       (_Tab.ai, Icons.psychology_outlined, 'AI Help'),
     ];
@@ -1776,7 +1801,7 @@ class _ProfessionalLessonScreenState
           padding:
               const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
-            color: _T.greenLight,
+            color: _greenSoftColor,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Text(
@@ -2100,6 +2125,7 @@ class _ProfessionalLessonScreenState
                 description: _lesson!.description ?? '',
                 showAppBar: false,
                 interactions: interactions,
+                playbackRequests: embedded ? _videoRequests : null,
               )
             : (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS
                 ? OptimizedVideoPlayer(
@@ -2111,6 +2137,7 @@ class _ProfessionalLessonScreenState
                     showAppBar: false,
                     aspectRatio: 16 / 9,
                     interactions: interactions,
+                    playbackRequests: embedded ? _videoRequests : null,
                   )
                 : CustomVideoPlayer(
                     key: ValueKey('player-$activeKey'),
@@ -2120,6 +2147,7 @@ class _ProfessionalLessonScreenState
                     description: _lesson!.description ?? '',
                     showAppBar: false,
                     interactions: interactions,
+                    playbackRequests: embedded ? _videoRequests : null,
                   )))
         : _buildVideoPlaceholder();
 
@@ -2621,7 +2649,7 @@ class _ProfessionalLessonScreenState
             child: Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: _T.greenLight,
+                color: _greenSoftColor,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
@@ -2688,7 +2716,8 @@ class _ProfessionalLessonScreenState
       );
     }
     // The generated video sits with the notes: beside them on wide screens
-    // (staying in view while the notes scroll), above them on phones/tablets.
+    // (staying in view while the notes scroll); on phones/tablets it follows
+    // the notes, ahead of the practice section.
     return LayoutBuilder(builder: (context, constraints) {
       if (constraints.maxWidth >= 960) {
         final videoWidth = (constraints.maxWidth * 0.42).clamp(380.0, 560.0);
@@ -2711,18 +2740,221 @@ class _ProfessionalLessonScreenState
           ],
         );
       }
-      return SingleChildScrollView(
-        padding: EdgeInsets.all(pad),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildEmbeddedVideo(),
-            const SizedBox(height: 24),
-            _buildNotesBody(),
-          ],
-        ),
+      return Stack(
+        children: [
+          SingleChildScrollView(
+            controller: _notesScroll,
+            padding: EdgeInsets.all(pad),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildLessonPath(),
+                const SizedBox(height: 20),
+                _buildNotesBody(
+                  beforePractice: KeyedSubtree(key: _embeddedVideoKey, child: _buildEmbeddedVideo()),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 20,
+            child: Center(child: _buildVideoShortcut()),
+          ),
+        ],
       );
     });
+  }
+
+  void _resetEmbeddedVideo() {
+    _videoRequests.pause();
+    _embeddedVideoInView = false;
+    _showVideoShortcut = false;
+  }
+
+  /// Tracks where the embedded video is: pauses it once it scrolls out of
+  /// view and shows the "Watch video" shortcut while it is still further down.
+  void _onNotesScroll() {
+    final box = _embeddedVideoKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || !_notesScroll.hasClients) return;
+    final pos = _notesScroll.position;
+    final viewport = pos.viewportDimension;
+    final top = RenderAbstractViewport.of(box).getOffsetToReveal(box, 0).offset - pos.pixels;
+    final bottom = top + box.size.height;
+    final visible = (bottom.clamp(0.0, viewport) - top.clamp(0.0, viewport)) / box.size.height;
+
+    final inView = visible > 0.3;
+    if (_embeddedVideoInView && !inView) _videoRequests.pause();
+    _embeddedVideoInView = inView;
+
+    // Only once the overview card (which has its own button) is scrolled away.
+    final showShortcut = pos.pixels > 240 && top > viewport;
+    if (showShortcut != _showVideoShortcut) setState(() => _showVideoShortcut = showShortcut);
+  }
+
+  /// Scrolls the Learn tab to [key]; starts the video when [playVideo].
+  Future<void> _jumpTo(GlobalKey key, {bool playVideo = false}) async {
+    final ctx = key.currentContext;
+    if (ctx == null) return;
+    await Scrollable.ensureVisible(ctx,
+        duration: const Duration(milliseconds: 450), curve: Curves.easeInOutCubic, alignment: 0.04);
+    if (playVideo) _videoRequests.play();
+  }
+
+  /// Saved position of the selected video, cached so rebuilds don't reload it.
+  Future<Duration> _videoResume() {
+    final key = _activeVideoSource().key;
+    if (_resumeAt == null || key != _resumeKey) {
+      _resumeKey = key;
+      _resumeAt = key == null ? Future.value(Duration.zero) : videoProgressService.getProgress(key);
+    }
+    return _resumeAt!;
+  }
+
+  static String _clock(Duration d) =>
+      '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
+
+  double? get _selectedVideoSeconds {
+    final lesson = _lesson!;
+    final experiment = _showExperimentVideo && lesson.hasExperimentVideo;
+    return (experiment ? lesson.aiExperimentVideo : lesson.aiVideo)?.durationSeconds;
+  }
+
+  /// Top of the Learn tab on phones: the order to work through it
+  /// (read -> watch -> quiz), with shortcuts down to the video and the quiz.
+  Widget _buildLessonPath() {
+    final lesson = _lesson!;
+    final secs = _selectedVideoSeconds;
+    final minutes = secs == null || secs <= 0 ? null : (secs / 60).ceil();
+    final quizDone = _quizAttempts.isNotEmpty;
+    Widget arrow() => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Icon(Icons.chevron_right_rounded, size: 18, color: _mutedColor),
+        );
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 820),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: _surfaceColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _borderColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('IN THIS LESSON',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: _mutedColor)),
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(
+                child: _pathStep(Icons.menu_book_outlined, 'Read',
+                    lesson.hasAiGuide ? 'Study guide' : 'Notes', _T.green, null),
+              ),
+              arrow(),
+              Expanded(
+                child: _pathStep(Icons.play_circle_outline, 'Watch',
+                    minutes == null ? 'Video' : '$minutes min video', _T.blue,
+                    () => _jumpTo(_embeddedVideoKey, playVideo: true)),
+              ),
+              if (lesson.hasQuiz) ...[
+                arrow(),
+                Expanded(
+                  child: _pathStep(quizDone ? Icons.check_circle_outline : Icons.quiz_outlined, 'Quiz',
+                      quizDone ? 'Attempted' : 'Test yourself', _T.orange, () => _jumpTo(_practiceKey)),
+                ),
+              ],
+            ]),
+            const SizedBox(height: 12),
+            FutureBuilder<Duration>(
+              future: _videoResume(),
+              builder: (context, snap) {
+                final resume = snap.data ?? Duration.zero;
+                final label = resume > const Duration(seconds: 5)
+                    ? 'Continue video at ${_clock(resume)}'
+                    : 'Watch the lesson video';
+                return SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: _T.green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    onPressed: () => _jumpTo(_embeddedVideoKey, playVideo: true),
+                    icon: const Icon(Icons.play_arrow_rounded),
+                    label: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _pathStep(IconData icon, String label, String sub, Color color, VoidCallback? onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(10),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+        child: Column(children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
+            child: Icon(icon, size: 20, color: color),
+          ),
+          const SizedBox(height: 6),
+          Text(label,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: _textColor)),
+          Text(sub,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 11, color: _mutedColor)),
+        ]),
+      ),
+    );
+  }
+
+  /// Floating pill shown while the video is still below the screen.
+  Widget _buildVideoShortcut() {
+    final show = _showVideoShortcut;
+    return IgnorePointer(
+      ignoring: !show,
+      child: AnimatedSlide(
+        offset: show ? Offset.zero : const Offset(0, 1.5),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        child: AnimatedOpacity(
+          opacity: show ? 1 : 0,
+          duration: const Duration(milliseconds: 180),
+          child: Material(
+            color: _T.green,
+            elevation: 6,
+            shape: const StadiumBorder(),
+            child: InkWell(
+              customBorder: const StadiumBorder(),
+              onTap: () => _jumpTo(_embeddedVideoKey, playVideo: true),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.play_arrow_rounded, color: Colors.white, size: 20),
+                  SizedBox(width: 6),
+                  Text('Watch video',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                ]),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   /// Video block shown inside the notes page.
@@ -2735,6 +2967,9 @@ class _ProfessionalLessonScreenState
           const SizedBox(width: 8),
           Text('Lesson video',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: _textColor)),
+          if (_selectedVideoSeconds case final secs? when secs > 0)
+            Text('  ·  ${_clock(Duration(seconds: secs.round()))}',
+                style: TextStyle(fontSize: 13, color: _mutedColor)),
         ]),
         const SizedBox(height: 10),
         _buildVideoSection(embedded: true),
@@ -2746,7 +2981,9 @@ class _ProfessionalLessonScreenState
     );
   }
 
-  Widget _buildNotesBody() {
+  /// [beforePractice] is placed between the notes content and the practice
+  /// section (used for the embedded video on narrow screens).
+  Widget _buildNotesBody({Widget? beforePractice}) {
     final hasPdf =
         _lesson!.notesPdfUrl?.isNotEmpty == true;
     final hasText = _lesson!.notes?.isNotEmpty == true;
@@ -2809,7 +3046,15 @@ class _ProfessionalLessonScreenState
             else
               _buildNoNotes(),
             const SizedBox(height: 16),
-            if (_lesson!.hasQuiz) _buildVideoQuizSection(),
+            if (beforePractice != null) ...[
+              const SizedBox(height: 8),
+              beforePractice,
+              const SizedBox(height: 24),
+            ],
+            if (_lesson!.hasQuiz)
+              beforePractice != null
+                  ? KeyedSubtree(key: _practiceKey, child: _buildVideoQuizSection())
+                  : _buildVideoQuizSection(),
             const SizedBox(height: 80),
           ],
         ),
@@ -2958,7 +3203,7 @@ class _ProfessionalLessonScreenState
             border: Border.all(color: _borderColor),
           ),
           blockquoteDecoration: BoxDecoration(
-            color: _T.greenLight,
+            color: _greenSoftColor,
             border: const Border(
                 left: BorderSide(color: _T.green, width: 4)),
             borderRadius: const BorderRadius.only(
@@ -3188,9 +3433,9 @@ class _ProfessionalLessonScreenState
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
-                    color: _T.greenLight,
+                    color: _greenSoftColor,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: _T.greenMid),
+                    border: Border.all(color: _greenBorderColor),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -3306,7 +3551,7 @@ class _ProfessionalLessonScreenState
                 width: 72,
                 height: 72,
                 decoration: BoxDecoration(
-                  color: _T.greenLight,
+                  color: _greenSoftColor,
                   borderRadius: BorderRadius.circular(22),
                 ),
                 child: Icon(
@@ -3378,9 +3623,9 @@ class _ProfessionalLessonScreenState
       width: double.infinity,
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: _T.greenLight,
+        color: _greenSoftColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _T.greenMid),
+        border: Border.all(color: _greenBorderColor),
       ),
       child: Column(
         children: [
@@ -3599,7 +3844,9 @@ class _ProfessionalLessonScreenState
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: isPassed ? _T.greenLight : _T.orangeLight,
+                      color: isPassed
+                          ? _greenSoftColor
+                          : (_isDark ? _T.orange.withOpacity(0.15) : _T.orangeLight),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Icon(
@@ -3896,9 +4143,9 @@ class _ProfessionalLessonScreenState
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: _T.greenLight,
+        color: _greenSoftColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _T.greenMid),
+        border: Border.all(color: _greenBorderColor),
       ),
       child: Column(
         children: [

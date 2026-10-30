@@ -152,3 +152,6 @@ Thumbs.db
 /python/.venv/
 /python/**/__pycache__/
 /media-local/
+
+# Generated assistant / voice-chat speech
+uploads/voice/

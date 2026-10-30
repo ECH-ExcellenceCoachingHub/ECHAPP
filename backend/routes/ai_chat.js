@@ -21,6 +21,9 @@ router.post('/chat/send', protect, ChatController.sendMessage);
 // Endpoint to send a message with a file attachment (document/image)
 router.post('/chat/send-with-file', protect, ChatController.sendMessageWithFile);
 
+// Endpoint to turn assistant text into speech (ElevenLabs, same voice as videos)
+router.post('/tts', protect, ChatController.synthesizeSpeech);
+
 // Endpoint to update conversation context
 router.put('/conversations/:conversationId/context', protect, async (req, res) => {
   try {

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:excellencecoachinghub/config/app_theme.dart';
 import 'package:excellencecoachinghub/services/ai_chat_service.dart';
 import 'package:excellencecoachinghub/utils/media_proxy.dart';
-import 'package:flutter_tts/flutter_tts.dart';
+import 'package:excellencecoachinghub/services/assistant_voice.dart';
 
 /// Modern Widget to display individual chat messages with avatars and animations
 class AIChatMessageWidget extends StatefulWidget {
@@ -25,7 +25,7 @@ class _AIChatMessageWidgetState extends State<AIChatMessageWidget>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
-  late FlutterTts _flutterTts;
+  late AssistantVoice _voice;
   bool _isSpeaking = false;
 
   @override
@@ -52,27 +52,8 @@ class _AIChatMessageWidgetState extends State<AIChatMessageWidget>
       curve: Curves.easeOutBack,
     ));
 
-    _flutterTts = FlutterTts();
-    _flutterTts.setLanguage("en-GB");
-    _flutterTts.setSpeechRate(0.45); // Slower for more natural feel
-    _flutterTts.setVolume(1.0);
-    _flutterTts.setPitch(1.0); // Normal pitch for a male voice
-
-    // Try to set a male voice explicitly
-    _flutterTts.getVoices.then((voices) {
-      try {
-        final maleVoice = voices.firstWhere(
-          (voice) => 
-            voice['name'].toString().toLowerCase().contains('male') || 
-            voice['name'].toString().toLowerCase().contains('daniel') ||
-            voice['name'].toString().toLowerCase().contains('george') ||
-            voice['name'].toString().toLowerCase().contains('arthur'),
-          orElse: () => voices.first,
-        );
-        _flutterTts.setVoice({"name": maleVoice['name'], "locale": maleVoice['locale']});
-      } catch (e) {
-        print('Error setting male voice: $e');
-      }
+    _voice = AssistantVoice(onSpeakingChanged: (speaking) {
+      if (mounted) setState(() => _isSpeaking = speaking);
     });
 
     // Staggered animation for better visual flow
@@ -84,21 +65,13 @@ class _AIChatMessageWidgetState extends State<AIChatMessageWidget>
   @override
   void dispose() {
     _animationController.dispose();
-    _flutterTts.stop();
+    _voice.dispose();
     super.dispose();
   }
 
   Future<void> _speak() async {
     if (widget.message.sender == 'ai' && !_isSpeaking) {
-      setState(() {
-        _isSpeaking = true;
-      });
-      
-      await _flutterTts.speak(widget.message.message);
-      
-      setState(() {
-        _isSpeaking = false;
-      });
+      await _voice.speak(widget.message.message);
     }
   }
 

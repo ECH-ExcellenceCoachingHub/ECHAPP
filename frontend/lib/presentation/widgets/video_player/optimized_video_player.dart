@@ -8,6 +8,7 @@ import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/utils/screen_wakelock.dart';
 import 'package:excellencecoachinghub/models/lesson_video.dart';
 import 'package:excellencecoachinghub/presentation/widgets/video_player/video_checkpoints.dart';
+import 'package:excellencecoachinghub/presentation/widgets/video_player/video_playback_requests.dart';
 import 'dart:async';
 
 class OptimizedVideoPlayer extends StatefulWidget {
@@ -20,6 +21,8 @@ class OptimizedVideoPlayer extends StatefulWidget {
   final double? aspectRatio;
   /// "Pause and think" questions of a generated lesson video (empty for normal videos).
   final List<VideoInteraction> interactions;
+  /// Play/pause requests from the hosting screen (optional).
+  final VideoPlaybackRequests? playbackRequests;
 
   const OptimizedVideoPlayer({
     super.key,
@@ -31,6 +34,7 @@ class OptimizedVideoPlayer extends StatefulWidget {
     this.onFullScreen,
     this.aspectRatio,
     this.interactions = const [],
+    this.playbackRequests,
   }) : assert(videoUrl != null);
 
   @override
@@ -71,8 +75,24 @@ class _OptimizedVideoPlayerState extends State<OptimizedVideoPlayer> {
   @override
   void initState() {
     super.initState();
+    widget.playbackRequests?.addListener(_onPlaybackRequest);
     _initConnectivityListener();
     _initPlayer();
+  }
+
+  @override
+  void didUpdateWidget(OptimizedVideoPlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.playbackRequests != widget.playbackRequests) {
+      oldWidget.playbackRequests?.removeListener(_onPlaybackRequest);
+      widget.playbackRequests?.addListener(_onPlaybackRequest);
+    }
+  }
+
+  void _onPlaybackRequest() {
+    // A check question owns playback until it is answered.
+    if (_activeCheck != null || _betterPlayerController == null) return;
+    widget.playbackRequests!.wantsPlay ? _betterPlayerController!.play() : _betterPlayerController!.pause();
   }
 
   void _initConnectivityListener() {
@@ -326,6 +346,7 @@ class _OptimizedVideoPlayerState extends State<OptimizedVideoPlayer> {
             break;
         }
       });
+      if (widget.playbackRequests?.wantsPlay == true) _onPlaybackRequest();
 
       if (mounted) {
         setState(() {
@@ -358,6 +379,7 @@ class _OptimizedVideoPlayerState extends State<OptimizedVideoPlayer> {
 
   @override
   void dispose() {
+    widget.playbackRequests?.removeListener(_onPlaybackRequest);
     _wakelock.release();
     _connectivitySubscription?.cancel();
     _betterPlayerController?.removeEventsListener((event) {});

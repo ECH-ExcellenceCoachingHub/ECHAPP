@@ -302,7 +302,7 @@ class ChatController {
       // Save AI message and bump counter in parallel
       await Promise.all([aiMessage.save(), conversation.incrementMessageCount()]);
 
-      // Respond immediately — TTS runs in background
+      // Speech is requested separately by the app (POST /api/ai/tts)
       res.json({
         success: true,
         conversation: { id: conversation._id, title: conversation.title },
@@ -326,32 +326,29 @@ class ChatController {
         ]
       });
 
-      // Fire TTS async — does not block the response
-      ChatController._generateTTSBackground(aiResponse, aiMessage._id, req.protocol, req.get('host'));
-
     } catch (error) {
       console.error('Error sending message:', error);
       res.status(500).json({ error: 'Failed to send message', details: error.message });
     }
   }
 
-  // Background TTS generation — fire-and-forget
-  static _generateTTSBackground(text, messageId, protocol, host) {
+  // Assistant speech in the ElevenLabs narration voice. 204 when ElevenLabs is
+  // not available, so the app falls back to device TTS.
+  static async synthesizeSpeech(req, res) {
     try {
-      const audioDir = path.join(__dirname, '../../uploads/voice');
-      if (!fs.existsSync(audioDir)) fs.mkdirSync(audioDir, { recursive: true });
-      const audioFileName = `chat-response-${Date.now()}.mp3`;
-      const audioFilePath = path.join(audioDir, audioFileName);
-      TTSService.generateSpeech(text, audioFilePath)
-        .then(generated => {
-          if (generated) {
-            const audioUrl = `${protocol}://${host}/uploads/voice/${audioFileName}`;
-            ChatMessage.findByIdAndUpdate(messageId, { audioUrl }).catch(() => {});
-          }
-        })
-        .catch(err => console.error('Background TTS error:', err));
-    } catch (e) {
-      console.error('TTS setup error:', e);
+      const text = typeof req.body?.text === 'string' ? req.body.text : '';
+      if (!text.trim()) {
+        return res.status(400).json({ error: 'text is required' });
+      }
+      const fileName = await TTSService.speechFileFor(text);
+      if (!fileName) return res.status(204).end();
+      // Behind Render's proxy req.protocol is "http"; an http URL would be
+      // blocked on the https web app and by Android's cleartext policy.
+      const protocol = (req.get('x-forwarded-proto') || req.protocol).split(',')[0].trim();
+      res.json({ audioUrl: `${protocol}://${req.get('host')}/uploads/voice/${fileName}` });
+    } catch (error) {
+      console.error('Error synthesizing speech:', error);
+      res.status(500).json({ error: 'Failed to synthesize speech' });
     }
   }
 
@@ -513,9 +510,6 @@ class ChatController {
             }
           ]
         });
-
-        // Background TTS
-        ChatController._generateTTSBackground(aiResponse, aiMessage._id, req.protocol, req.get('host'));
 
       } catch (error) {
         console.error('Error sending message with file:', error);

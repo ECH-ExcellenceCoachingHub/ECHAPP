@@ -6,7 +6,7 @@ import 'package:excellencecoachinghub/models/course.dart';
 import 'package:excellencecoachinghub/models/section.dart';
 import 'package:excellencecoachinghub/services/ai_chat_service.dart';
 import 'package:excellencecoachinghub/widgets/ai_chat_dialog.dart';
-import 'package:flutter_tts/flutter_tts.dart';
+import 'package:excellencecoachinghub/services/assistant_voice.dart';
 
 /// Floating AI Chat Button that expands to full chat when clicked
 class AIFloatingChatButton extends ConsumerStatefulWidget {
@@ -40,7 +40,7 @@ class _AIFloatingChatButtonState extends ConsumerState<AIFloatingChatButton>
   late Animation<double> _welcomeScaleAnimation;
   bool _isExpanded = false;
   bool _showWelcomeBubble = false;
-  late FlutterTts _flutterTts;
+  late AssistantVoice _voice;
   late RealAIChatService _aiChatService;
   late String _conversationId;
 
@@ -79,35 +79,7 @@ class _AIFloatingChatButtonState extends ConsumerState<AIFloatingChatButton>
       curve: Curves.easeOutBack,
     );
 
-    _flutterTts = FlutterTts();
-    _flutterTts.setLanguage("en-GB");
-    _flutterTts.setSpeechRate(0.5); // Natural speed
-    _flutterTts.setVolume(1.0);
-    _flutterTts.setPitch(1.0); // Normal pitch for a male voice
-
-    // Try to set a male British voice explicitly
-    _flutterTts.getVoices.then((voices) {
-      try {
-        final maleVoice = voices.firstWhere(
-          (voice) => 
-            (voice['name'].toString().toLowerCase().contains('male') || 
-             voice['name'].toString().toLowerCase().contains('daniel') ||
-             voice['name'].toString().toLowerCase().contains('george') ||
-             voice['name'].toString().toLowerCase().contains('arthur')) &&
-            (voice['locale'].toString().toLowerCase().contains('gb') || 
-             voice['name'].toString().toLowerCase().contains('british')),
-          orElse: () => voices.firstWhere(
-            (voice) => 
-              voice['name'].toString().toLowerCase().contains('male') || 
-              voice['name'].toString().toLowerCase().contains('daniel'),
-            orElse: () => voices.first,
-          ),
-        );
-        _flutterTts.setVoice({"name": maleVoice['name'], "locale": maleVoice['locale']});
-      } catch (e) {
-        print('Error setting male voice: $e');
-      }
-    });
+    _voice = AssistantVoice();
 
     if (widget.showWelcome) {
       Future.delayed(const Duration(seconds: 1), () {
@@ -137,7 +109,7 @@ class _AIFloatingChatButtonState extends ConsumerState<AIFloatingChatButton>
 
   void _speakWelcome() {
     String welcomeText = "Hello! I'm your AI learning assistant. I can help you summarize lessons, explain concepts, or answer any questions about your course. Just click me if you need help!";
-    _flutterTts.speak(welcomeText);
+    _voice.speak(welcomeText);
   }
 
   @override
@@ -145,11 +117,13 @@ class _AIFloatingChatButtonState extends ConsumerState<AIFloatingChatButton>
     _animationController.dispose();
     _pulseController.dispose();
     _welcomeController.dispose();
-    _flutterTts.stop();
+    _voice.dispose();
     super.dispose();
   }
 
   void _toggleChat() {
+    // The chat dialog greets the student itself; don't talk over it.
+    _voice.stop();
     setState(() {
       _isExpanded = !_isExpanded;
       if (_isExpanded && _showWelcomeBubble) {

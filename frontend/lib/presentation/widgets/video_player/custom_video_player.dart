@@ -13,6 +13,7 @@ import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/utils/screen_wakelock.dart';
 import 'package:excellencecoachinghub/models/lesson_video.dart';
 import 'package:excellencecoachinghub/presentation/widgets/video_player/video_checkpoints.dart';
+import 'package:excellencecoachinghub/presentation/widgets/video_player/video_playback_requests.dart';
 import 'dart:io';
 import 'dart:async';
 
@@ -26,6 +27,8 @@ class CustomVideoPlayer extends StatefulWidget {
   final VoidCallback? onFullScreen;
   /// "Pause and think" questions of a generated lesson video (empty for normal videos).
   final List<VideoInteraction> interactions;
+  /// Play/pause requests from the hosting screen (optional).
+  final VideoPlaybackRequests? playbackRequests;
 
   const CustomVideoPlayer({
     super.key,
@@ -37,6 +40,7 @@ class CustomVideoPlayer extends StatefulWidget {
     this.showAppBar = false,
     this.onFullScreen,
     this.interactions = const [],
+    this.playbackRequests,
   }) : assert(videoUrl != null || externalPlayer != null);
 
   @override
@@ -147,8 +151,30 @@ class _CustomVideoPlayerState extends State<CustomVideoPlayer> {
   @override
   void initState() {
     super.initState();
+    widget.playbackRequests?.addListener(_onPlaybackRequest);
     _initConnectivityListener();
     _initPlayer();
+  }
+
+  @override
+  void didUpdateWidget(CustomVideoPlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.playbackRequests != widget.playbackRequests) {
+      oldWidget.playbackRequests?.removeListener(_onPlaybackRequest);
+      widget.playbackRequests?.addListener(_onPlaybackRequest);
+    }
+  }
+
+  void _onPlaybackRequest() {
+    // A check question owns playback until it is answered.
+    if (_activeCheck != null) return;
+    final play = widget.playbackRequests!.wantsPlay;
+    if (_mkPlayer != null) {
+      play ? _mkPlayer!.play() : _mkPlayer!.pause();
+    } else if (_vpController?.value.isInitialized == true) {
+      // Browsers may refuse to start playback; the play button still works then.
+      (play ? _vpController!.play() : _vpController!.pause()).catchError((_) {});
+    }
   }
 
   void _initConnectivityListener() {
@@ -269,6 +295,7 @@ class _CustomVideoPlayerState extends State<CustomVideoPlayer> {
       );
 
       _vpController!.addListener(_mobilePlayerListener);
+      if (widget.playbackRequests?.wantsPlay == true) _onPlaybackRequest();
 
       if (mounted) {
         setState(() {
@@ -494,6 +521,7 @@ class _CustomVideoPlayerState extends State<CustomVideoPlayer> {
 
   @override
   void dispose() {
+    widget.playbackRequests?.removeListener(_onPlaybackRequest);
     _wakelock.release();
     _connectivitySubscription?.cancel();
     for (final s in _subscriptions) {

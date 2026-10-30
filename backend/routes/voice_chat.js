@@ -64,11 +64,11 @@ async function transcribeAudio(audioFilePath) {
 }
 
 /**
- * Text-to-Speech using ElevenLabs for high-quality British male voice
+ * Text-to-Speech using ElevenLabs, same voice as video narration
  */
-async function generateSpeech(text, outputFile) {
+async function speechFileFor(text) {
   try {
-    return await TTSService.generateSpeech(text, outputFile);
+    return await TTSService.speechFileFor(text);
   } catch (error) {
     console.error('TTS error:', error);
     return null;
@@ -132,17 +132,13 @@ router.post('/send', upload.single('audio'), async (req, res) => {
     
     const aiResponse = await ChatController.generateAIResponse(messagesForAI, enrichedContext);
     
-    // Generate audio response
-    const audioFileName = `response-${Date.now()}.mp3`;
-    const audioFilePath = path.join('uploads/voice', audioFileName);
-    const fullAudioPath = path.join(__dirname, '../', audioFilePath);
-    
-    const generatedAudio = await generateSpeech(aiResponse, fullAudioPath);
-    
+    // Generate audio response (cached by text, shared with POST /api/ai/tts)
+    const audioFileName = await speechFileFor(aiResponse);
+
     // Construct full URL for audio response
-    const protocol = req.protocol;
+    const protocol = (req.get('x-forwarded-proto') || req.protocol).split(',')[0].trim();
     const host = req.get('host');
-    const audioUrl = generatedAudio ? `${protocol}://${host}/uploads/voice/${audioFileName}` : null;
+    const audioUrl = audioFileName ? `${protocol}://${host}/uploads/voice/${audioFileName}` : null;
     
     res.json({
       textResponse: aiResponse,

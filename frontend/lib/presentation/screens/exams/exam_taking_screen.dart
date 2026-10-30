@@ -863,6 +863,8 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
     );
   }
 
+  bool get _isDark => Theme.of(context).brightness == Brightness.dark;
+
   Widget _buildProgressSection(double progress) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -896,7 +898,7 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
               LinearProgressIndicator(
                 value: progress,
                 minHeight: 8,
-                backgroundColor: Colors.grey.shade200,
+                backgroundColor: _isDark ? Colors.white.withOpacity(0.12) : Colors.grey.shade200,
                 valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primary),
                 borderRadius: BorderRadius.circular(4),
               ),
@@ -946,11 +948,13 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
                           : isAnswered 
                             ? Colors.green 
                             : isVisited 
-                              ? Colors.grey.shade300 
-                              : Colors.grey.shade200,
+                              ? (_isDark ? const Color(0xFF475569) : Colors.grey.shade300)
+                              : (_isDark ? const Color(0xFF334155) : Colors.grey.shade200),
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(
-                          color: isCurrent ? AppTheme.primary : Colors.transparent,
+                          color: isCurrent
+                            ? AppTheme.primary
+                            : (_isDark ? const Color(0xFF64748B) : Colors.transparent),
                           width: 1.5,
                         ),
                       ),
@@ -1102,8 +1106,8 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
                           width: isSelected ? 2 : 1,
                         ),
                         color: isSelected 
-                          ? AppTheme.primary.withOpacity(0.08) 
-                          : AppTheme.getCardColor(context),
+                          ? AppTheme.primary.withOpacity(_isDark ? 0.2 : 0.08) 
+                          : (_isDark ? const Color(0xFF1E293B) : AppTheme.getCardColor(context)),
                       ),
                       child: Material(
                         color: Colors.transparent,
@@ -1121,12 +1125,12 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
                                   decoration: BoxDecoration(
                                     color: isSelected 
                                       ? AppTheme.primary 
-                                      : AppTheme.getBorderColor(context).withOpacity(0.3),
+                                      : Colors.transparent,
                                     borderRadius: BorderRadius.circular(11),
                                     border: Border.all(
                                       color: isSelected 
                                         ? AppTheme.primary 
-                                        : AppTheme.getBorderColor(context),
+                                        : (_isDark ? const Color(0xFF94A3B8) : AppTheme.getBorderColor(context)),
                                       width: 1.5,
                                     ),
                                   ),
@@ -1150,7 +1154,7 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
                                         ? FontWeight.w600 
                                         : FontWeight.normal,
                                       color: isSelected 
-                                        ? AppTheme.primary 
+                                        ? (_isDark ? const Color(0xFF6EE7B7) : AppTheme.primary)
                                         : AppTheme.getTextColor(context),
                                       height: 1.3,
                                     ),
@@ -1178,23 +1182,28 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
                     hintText: 'Fill in the blank...',
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     hintStyle: TextStyle(
-                      color: Colors.grey.shade500,
+                      color: _isDark ? const Color(0xFF94A3B8) : Colors.grey.shade500,
                       fontStyle: FontStyle.italic,
                     ),
                     filled: true,
-                    fillColor: Colors.grey.shade50,
+                    fillColor: _isDark ? const Color(0xFF1E293B) : Colors.grey.shade50,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: BorderSide(color: _isDark ? const Color(0xFF475569) : Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _isDark ? const Color(0xFF475569) : Colors.grey.shade300),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(color: AppTheme.primary, width: 2),
                     ),
                   ),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     height: 1.4,
+                    color: AppTheme.getTextColor(context),
                   ),
                 ),
               )
@@ -1223,23 +1232,28 @@ class _ExamTakingScreenState extends State<ExamTakingScreen> with WidgetsBinding
                     hintText: 'Type your answer here...',
                     contentPadding: const EdgeInsets.all(16),
                     hintStyle: TextStyle(
-                      color: Colors.grey.shade500,
+                      color: _isDark ? const Color(0xFF94A3B8) : Colors.grey.shade500,
                       fontStyle: FontStyle.italic,
                     ),
                     filled: true,
-                    fillColor: Colors.grey.shade50,
+                    fillColor: _isDark ? const Color(0xFF1E293B) : Colors.grey.shade50,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: BorderSide(color: _isDark ? const Color(0xFF475569) : Colors.grey.shade300),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: _isDark ? const Color(0xFF475569) : Colors.grey.shade300),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(color: AppTheme.primary, width: 2),
                     ),
                   ),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     height: 1.4,
+                    color: AppTheme.getTextColor(context),
                   ),
                 ),
               ),

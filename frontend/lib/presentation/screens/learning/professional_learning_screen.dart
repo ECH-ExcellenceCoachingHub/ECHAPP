@@ -450,10 +450,8 @@ class _ProfessionalLearningScreenState
       _chapterCompletionStatus[chapter.id] = true;
       _completedChaptersCount = _chapterCompletionStatus.values.where((v) => v).length;
 
-      // Unlock next chapter
+      // Move on to the next chapter (all chapters are already open)
       if (_chapters != null && chapterIndex + 1 < _chapters!.length) {
-        final nextChapter = _chapters![chapterIndex + 1];
-        _chapterUnlockedStatus[nextChapter.id] = true;
         _currentSectionIndex = chapterIndex + 1;
       }
 
@@ -515,7 +513,7 @@ class _ProfessionalLearningScreenState
         onClose: () => Navigator.of(ctx).pop(),
         onContinue: () {
           Navigator.of(ctx).pop();
-          // "Continue to Chapter N" goes straight to the newly unlocked chapter;
+          // "Continue to Chapter N" goes straight to the next chapter;
           // on the last chapter "View my progress" opens the Progress tab.
           if (isLastChapter) {
             _tabController.animateTo(_progressTabIndex);
@@ -530,15 +528,11 @@ class _ProfessionalLearningScreenState
   void _initializeCompletionStatus() {
     if (_chapters == null) return;
     
-    // Initialize all chapters as not completed
+    // Initialize all chapters as not completed. Every chapter is open from
+    // the start: students may study them in any order.
     for (int i = 0; i < _chapters!.length; i++) {
       _chapterCompletionStatus[_chapters![i].id] = false;
-      _chapterUnlockedStatus[_chapters![i].id] = false;
-    }
-    
-    // First chapter is always unlocked
-    if (_chapters!.isNotEmpty) {
-      _chapterUnlockedStatus[_chapters![0].id] = true;
+      _chapterUnlockedStatus[_chapters![i].id] = true;
     }
     
     if (_courseAccessData?['completedLessons'] != null) {
@@ -560,20 +554,7 @@ class _ProfessionalLearningScreenState
         _chapterCompletionStatus[id.toString()] = true;
       }
       
-      // Unlock chapters based on completion
       if (_chapters != null) {
-        for (int i = 0; i < _chapters!.length; i++) {
-          // First chapter is always unlocked
-          if (i == 0) {
-            _chapterUnlockedStatus[_chapters![i].id] = true;
-          }
-          // Unlock next chapter if current is completed
-          if (completedSet.contains(_chapters![i].id) &&
-              i + 1 < _chapters!.length) {
-            _chapterUnlockedStatus[_chapters![i + 1].id] = true;
-          }
-        }
-        
         // Find current section index (first incomplete chapter)
         _currentSectionIndex = _chapters!.length - 1;
         for (int i = 0; i < _chapters!.length; i++) {
@@ -1341,7 +1322,7 @@ class _ProfessionalLearningScreenState
                     section: s,
                     chapterIndex: numberOf(s),
                     lessons: _chapterLessons[s.id] ?? [],
-                    isUnlocked: _chapterUnlockedStatus[s.id] ?? false,
+                    isUnlocked: _chapterUnlockedStatus[s.id] ?? true,
                     isCurrent: numberOf(s) == _currentSectionIndex,
                     isChapterCompleted: _chapterCompletionStatus[s.id] ?? false,
                     lessonCompletionStatus: _lessonCompletionStatus,
@@ -1450,7 +1431,7 @@ class _ProfessionalLearningScreenState
                   completedCount: lessons
                       .where((l) => _lessonCompletionStatus[l.id] == true)
                       .length,
-                  isUnlocked: _chapterUnlockedStatus[s.id] ?? false,
+                  isUnlocked: _chapterUnlockedStatus[s.id] ?? true,
                   isCompleted: _chapterCompletionStatus[s.id] ?? false,
                   isSelected: i == selected,
                   isDark: _isDark,
@@ -1484,7 +1465,7 @@ class _ProfessionalLearningScreenState
                 section: s,
                 chapterIndex: idx,
                 lessons: _chapterLessons[s.id] ?? [],
-                isUnlocked: _chapterUnlockedStatus[s.id] ?? false,
+                isUnlocked: _chapterUnlockedStatus[s.id] ?? true,
                 isCurrent: idx == _currentSectionIndex,
                 isChapterCompleted: _chapterCompletionStatus[s.id] ?? false,
                 lessonCompletionStatus: _lessonCompletionStatus,
@@ -7001,7 +6982,7 @@ class _ChapterCompletionDialogState extends State<_ChapterCompletionDialog>
               color: _DT.primary.withOpacity(0.18),
               borderRadius: _DT.r12,
             ),
-            child: const Icon(Icons.lock_open_rounded,
+            child: const Icon(Icons.arrow_forward_rounded,
                 color: _DT.primary, size: 20),
           ),
           const SizedBox(width: 12),
@@ -7010,7 +6991,7 @@ class _ChapterCompletionDialogState extends State<_ChapterCompletionDialog>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'UP NEXT · UNLOCKED',
+                  'UP NEXT',
                   style: TextStyle(
                     fontSize: 10.5,
                     fontWeight: FontWeight.w800,
