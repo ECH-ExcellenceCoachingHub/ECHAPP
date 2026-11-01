@@ -76,6 +76,13 @@ class Section {
   }
   
   // Helper methods
-  String get displayName => 'Chapter $order: $title';
+  String get displayName => chapterLabel(order, title);
   bool get isChapter => true; // Always true for consistency
 }
+
+final _numberedTitle = RegExp(r'^\s*(chapter|unit|module|part|topic)\s+[0-9ivxlc]+\b', caseSensitive: false);
+
+/// "Chapter 3: Title", unless the title already carries its own number
+/// (book-built courses: "Chapter 5: Energy from Respiration").
+String chapterLabel(int number, String title) =>
+    _numberedTitle.hasMatch(title) ? title : 'Chapter $number: $title';

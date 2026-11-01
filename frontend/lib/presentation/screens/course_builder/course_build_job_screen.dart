@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:excellencecoachinghub/models/course_build.dart';
 import 'package:excellencecoachinghub/services/api/course_builder_service.dart';
+import 'package:excellencecoachinghub/services/infrastructure/api_client.dart' show ApiException;
 import 'widgets/build_options_panel.dart';
 import 'widgets/build_media_card.dart';
 
@@ -149,8 +150,14 @@ class _CourseBuildJobScreenState extends State<CourseBuildJobScreen> {
     );
     if (ok != true) return;
     await _run(() async {
-      final n = await _service.publish(widget.jobId, chapterIndex: chapterIndex);
-      if (mounted) _snack('$n item(s) published to the course');
+      try {
+        final n = await _service.publish(widget.jobId, chapterIndex: chapterIndex);
+        if (mounted) _snack('$n item(s) published to the course');
+      } on ApiException catch (e) {
+        // Publishing a whole book outlasts the request timeout but keeps going on the server
+        if (e.statusCode != -2) rethrow;
+        if (mounted) _snack('Still publishing on the server — refresh in a few minutes to see it finish');
+      }
     });
   }
 

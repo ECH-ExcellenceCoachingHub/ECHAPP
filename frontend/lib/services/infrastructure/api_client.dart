@@ -121,7 +121,7 @@ class ApiClient {
       Uri.parse(url),
       headers: mergedHeaders,
       body: encodedBody,
-    ));
+    ), retryOnTimeout: false);
   }
 
   /// Make HTTP PUT request
@@ -139,7 +139,7 @@ class ApiClient {
       Uri.parse(url),
       headers: mergedHeaders,
       body: encodedBody,
-    ));
+    ), retryOnTimeout: false);
   }
 
   /// Make HTTP PATCH request
@@ -157,7 +157,7 @@ class ApiClient {
       Uri.parse(url),
       headers: mergedHeaders,
       body: encodedBody,
-    ));
+    ), retryOnTimeout: false);
   }
 
   /// Make HTTP DELETE request
@@ -212,6 +212,9 @@ class ApiClient {
   Future<http.Response> _makeRequest(
     Future<http.Response> Function() requestFn, {
     bool isRetry = false,
+    // A timed-out request may still be running on the server; resending a
+    // POST/PUT/PATCH would run it twice (e.g. duplicate publishes, payments).
+    bool retryOnTimeout = true,
   }) async {
     int maxRetries = 2;
     int retryCount = 0;
@@ -320,7 +323,7 @@ class ApiClient {
         print('Request timeout: $e');
         
         // Retry logic for timeouts
-        if (retryCount < maxRetries) {
+        if (retryOnTimeout && retryCount < maxRetries) {
           retryCount++;
           print('Retrying request due to timeout... Attempt $retryCount of $maxRetries');
           await Future.delayed(Duration(milliseconds: 1000 * retryCount)); // Exponential backoff

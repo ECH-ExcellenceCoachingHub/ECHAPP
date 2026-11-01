@@ -466,7 +466,7 @@ class _ProfessionalLearningScreenState
     try {
       await PushNotificationService.sendCongratulatoryNotification(
         'Chapter Complete! 🎉',
-        'Congratulations! You completed "Chapter ${chapterIndex + 1}: ${chapter.title}"',
+        'Congratulations! You completed "${chapterLabel(chapterIndex + 1, chapter.title)}"',
       );
       debugPrint('Chapter completion notification sent');
     } catch (e) {
@@ -483,7 +483,7 @@ class _ProfessionalLearningScreenState
     final totalChapters = _chapters?.length ?? 1;
     final isLastChapter = chapterIndex + 1 >= totalChapters;
     final nextChapterName = (!isLastChapter && _chapters != null)
-        ? 'Chapter ${chapterIndex + 2}: ${_chapters![chapterIndex + 1].title}'
+        ? chapterLabel(chapterIndex + 2, _chapters![chapterIndex + 1].title)
         : null;
 
     AchievementSoundService.instance.play(isLastChapter
@@ -501,7 +501,7 @@ class _ProfessionalLearningScreenState
         child: FadeTransition(opacity: anim, child: child),
       ),
       pageBuilder: (ctx, _, __) => _ChapterCompletionDialog(
-        chapterName: 'Chapter ${chapterIndex + 1}: ${chapter.title}',
+        chapterName: chapterLabel(chapterIndex + 1, chapter.title),
         chapterNumber: chapterIndex + 1,
         xpEarned: xpEarned,
         totalXp: _xpPoints,
@@ -2371,7 +2371,7 @@ class _ProfessionalLearningScreenState
 
             return _ChapterProgressRow(
               index: i + 1,
-              title: 'Chapter ${i + 1}: ${s.title}',
+              title: chapterLabel(i + 1, s.title),
               done: done,
               total: lessons.length,
               pct: pct,
@@ -4813,7 +4813,7 @@ class _ChapterCard extends StatelessWidget {
               SizedBox(width: isCompact ? 8 : 12),
               Expanded(
                 child: Text(
-                  'Chapter ${chapterIndex + 1}: ${section.title}',
+                  chapterLabel(chapterIndex + 1, section.title),
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: isCompact ? 13 : 17,
@@ -5079,7 +5079,7 @@ class _ChapterCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        'Chapter ${chapterIndex + 2}: ${nextChapterTitle ?? ''}',
+                        chapterLabel(chapterIndex + 2, nextChapterTitle ?? ''),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -5651,7 +5651,7 @@ class _ChapterDetailsSheet extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Chapter ${chapterIndex + 1}: ${section.title}',
+                      Text(chapterLabel(chapterIndex + 1, section.title),
                           style: const TextStyle(
                               color: Colors.white,
                               fontSize: 17,
@@ -5781,7 +5781,7 @@ class _ChapterMaterialsCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text('Chapter ${chapterIndex + 1}: ${section.title}',
+                  child: Text(chapterLabel(chapterIndex + 1, section.title),
                       style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 14,

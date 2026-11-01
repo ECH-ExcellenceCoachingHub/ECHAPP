@@ -306,6 +306,7 @@ const publishJob = async (req, res) => {
     });
     sendSuccess(res, result, result.published ? `${result.published} item(s) published to the course` : 'Nothing approved to publish');
   } catch (err) {
+    if (err.code === 'PUBLISH_BUSY') return sendError(res, err.message, 409);
     sendError(res, 'Failed to publish', 500, err.message);
   }
 };

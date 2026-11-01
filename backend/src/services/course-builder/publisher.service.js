@@ -17,11 +17,38 @@ const CourseBuildItem = require('../../models/CourseBuildItem');
  */
 
 const SECONDS_PER_QUESTION = 90;
+// A publish that crashed without releasing its lock stops blocking after this
+const PUBLISH_LOCK_MS = 30 * 60 * 1000;
 
-async function publishApproved(jobId, { chapterIndex = null, itemIds = null } = {}) {
-  const job = await CourseBuildJob.findById(jobId);
-  if (!job) throw new Error('Job not found');
+class PublishBusyError extends Error {
+  constructor() {
+    super('This build is already being published — wait for it to finish, then refresh');
+    this.code = 'PUBLISH_BUSY';
+  }
+}
 
+async function publishApproved(jobId, opts = {}) {
+  const job = await CourseBuildJob.findOneAndUpdate(
+    {
+      _id: jobId,
+      $or: [{ publishLockedAt: null }, { publishLockedAt: { $lt: new Date(Date.now() - PUBLISH_LOCK_MS) } }],
+    },
+    { $set: { publishLockedAt: new Date() } },
+    { new: true },
+  );
+  if (!job) {
+    if (await CourseBuildJob.exists({ _id: jobId })) throw new PublishBusyError();
+    throw new Error('Job not found');
+  }
+  try {
+    return await publishLocked(job, opts);
+  } finally {
+    await CourseBuildJob.updateOne({ _id: jobId }, { $set: { publishLockedAt: null } });
+  }
+}
+
+async function publishLocked(job, { chapterIndex = null, itemIds = null }) {
+  const jobId = job._id;
   const filter = {
     jobId,
     $or: [{ status: 'approved' }, { status: 'published', dirtyAfterPublish: true }],
@@ -38,16 +65,18 @@ async function publishApproved(jobId, { chapterIndex = null, itemIds = null } = 
     await publishItem(job, item, sectionId);
     published++;
   }
-  await job.save();
   await fillCourseDetails(job);
   return { published };
 }
 
+// Section ids are saved as soon as the section exists, so a publish that fails
+// part-way never leaves sections the next publish doesn't know about.
 async function ensureSection(job, item) {
   if (item.kind === 'mock_exam') {
     if (job.mockSectionId && await Section.exists({ _id: job.mockSectionId })) return job.mockSectionId;
     const s = await Section.create({ courseId: job.courseId, title: 'Exam Preparation', order: await nextSectionOrder(job.courseId) });
     job.mockSectionId = s._id;
+    await CourseBuildJob.updateOne({ _id: job._id }, { $set: { mockSectionId: s._id } });
     return s._id;
   }
   const chapter = job.outline.chapters.find(c => c.index === item.chapterIndex);
@@ -55,14 +84,20 @@ async function ensureSection(job, item) {
   if (chapter.publishedSectionId && await Section.exists({ _id: chapter.publishedSectionId })) {
     return chapter.publishedSectionId;
   }
-  const s = await Section.create({
+  const title = chapter.title.slice(0, 200);
+  // Another build of the same book may already have published this chapter
+  const existing = await Section.findOne({ courseId: job.courseId, title }).select('_id').lean();
+  const sectionId = existing?._id || (await Section.create({
     courseId: job.courseId,
-    title: chapter.title.slice(0, 200),
+    title,
     order: await nextSectionOrder(job.courseId),
-  });
-  chapter.publishedSectionId = s._id;
-  job.markModified('outline');
-  return s._id;
+  }))._id;
+  chapter.publishedSectionId = sectionId;
+  await CourseBuildJob.updateOne(
+    { _id: job._id, 'outline.chapters.index': chapter.index },
+    { $set: { 'outline.chapters.$.publishedSectionId': sectionId } },
+  );
+  return sectionId;
 }
 
 async function nextSectionOrder(courseId) {

@@ -116,6 +116,8 @@ const courseBuildJobSchema = new mongoose.Schema({
   }],
 
   mockSectionId: { type: mongoose.Schema.Types.ObjectId, ref: 'Section', default: null },
+  // Set while a publish runs so overlapping requests can't publish the same items twice
+  publishLockedAt: { type: Date, default: null },
   cancelRequested: { type: Boolean, default: false },
   error: { type: String, default: null },
 }, { timestamps: true });
