@@ -170,8 +170,8 @@ class _ProfessionalLearningScreenState
   int _courseDownloadFailed = 0;
 
   late TabController _tabController;
-  // Order matches the TabBar: Chapters, Live, Progress, Community, Lessons, Library.
-  static const int _progressTabIndex = 2;
+  // Order matches the TabBar: Chapters, Live, Library, Community, Lessons, Progress.
+  static const int _progressTabIndex = 5;
   late AnimationController _heroAnimCtrl;
   late AnimationController _fabAnimCtrl;
   late AnimationController _fabPulseCtrl;
@@ -780,10 +780,10 @@ class _ProfessionalLearningScreenState
         children: [
           _buildChaptersTab(),
           _buildLiveSessionsTab(),
-          _buildProgressTab(),
+          _buildLibraryTab(),
           _buildCommunityTab(),
           _buildMaterialsTab(),
-          _buildLibraryTab(),
+          _buildProgressTab(),
         ],
       ),
     );
@@ -1166,10 +1166,10 @@ class _ProfessionalLearningScreenState
             tabs: const [
               Tab(icon: Icon(Icons.menu_book_rounded, size: 18), text: 'Chapters'),
               Tab(icon: Icon(Icons.live_tv_rounded, size: 18), text: 'Live'),
-              Tab(icon: Icon(Icons.bar_chart_rounded, size: 18), text: 'Progress'),
+              Tab(icon: Icon(Icons.local_library_rounded, size: 18), text: 'Library'),
               Tab(icon: Icon(Icons.groups_rounded, size: 18), text: 'Community'),
               Tab(icon: Icon(Icons.play_lesson_rounded, size: 18), text: 'Lessons'),
-              Tab(icon: Icon(Icons.local_library_rounded, size: 18), text: 'Library'),
+              Tab(icon: Icon(Icons.bar_chart_rounded, size: 18), text: 'Progress'),
             ],
           ),
         ],
@@ -1305,7 +1305,17 @@ class _ProfessionalLearningScreenState
         children: [
           SizedBox(
             width: sidebarW,
-            child: _buildChapterOutline(chapters, selected, numberOf),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Flexible(
+                  child: _buildChapterOutline(chapters, selected, numberOf),
+                ),
+                const _ExamPracticeCard(),
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
           const SizedBox(width: 24),
           Expanded(
@@ -1317,25 +1327,33 @@ class _ProfessionalLearningScreenState
                 alignment: Alignment.topLeft,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 960),
-                  child: _ChapterCard(
-                    key: ValueKey('chapter-detail-${s.id}'),
-                    section: s,
-                    chapterIndex: numberOf(s),
-                    lessons: _chapterLessons[s.id] ?? [],
-                    isUnlocked: _chapterUnlockedStatus[s.id] ?? true,
-                    isCurrent: numberOf(s) == _currentSectionIndex,
-                    isChapterCompleted: _chapterCompletionStatus[s.id] ?? false,
-                    lessonCompletionStatus: _lessonCompletionStatus,
-                    isDark: _isDark,
-                    isCompact: false,
-                    showLessonNumbers: true,
-                    isLastChapter: _isLastChapter(s),
-                    nextChapterTitle: _nextChapterOf(s)?.title,
-                    onNextChapter: _goToNextChapter(s),
-                    onLessonTap: _openLesson,
-                    onMoreTap: () => _openChapterDetails(s, numberOf(s)),
-                    onMarkComplete: () => _markChapterComplete(s, numberOf(s)),
-                    isLoading: _markingCompleteChapterId == s.id,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (_buildStartHereHint() case final hint?) hint,
+                      _ChapterCard(
+                        key: ValueKey('chapter-detail-${s.id}'),
+                        section: s,
+                        chapterIndex: numberOf(s),
+                        lessons: _chapterLessons[s.id] ?? [],
+                        isUnlocked: _chapterUnlockedStatus[s.id] ?? true,
+                        isCurrent: numberOf(s) == _currentSectionIndex,
+                        isChapterCompleted:
+                            _chapterCompletionStatus[s.id] ?? false,
+                        lessonCompletionStatus: _lessonCompletionStatus,
+                        isDark: _isDark,
+                        isCompact: false,
+                        showLessonNumbers: true,
+                        isLastChapter: _isLastChapter(s),
+                        nextChapterTitle: _nextChapterOf(s)?.title,
+                        onNextChapter: _goToNextChapter(s),
+                        onLessonTap: _openLesson,
+                        onMoreTap: () => _openChapterDetails(s, numberOf(s)),
+                        onMarkComplete: () =>
+                            _markChapterComplete(s, numberOf(s)),
+                        isLoading: _markingCompleteChapterId == s.id,
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -1455,6 +1473,7 @@ class _ProfessionalLearningScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (_buildStartHereHint() case final hint?) hint,
           for (final s in chapters) ...[
             if (s != chapters.first) const SizedBox(height: 20),
             Builder(builder: (_) {
@@ -1480,6 +1499,68 @@ class _ProfessionalLearningScreenState
                 isLoading: _markingCompleteChapterId == s.id,
               );
             }),
+          ],
+          const SizedBox(height: 28),
+          const _ExamPracticeCard(isCompact: true),
+        ],
+      ),
+    );
+  }
+
+  /// First-visit tip: until the student finishes a lesson, point them at
+  /// Chapter 1 so the chapter list isn't a guess.
+  Widget? _buildStartHereHint() {
+    if (_completedLessonsCount > 0 || _chapters == null || _chapters!.isEmpty)
+      return null;
+    final first = _chapters!.first;
+    final firstLessons = _chapterLessons[first.id] ?? const <Lesson>[];
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: _DT.primary.withOpacity(_isDark ? 0.12 : 0.08),
+        borderRadius: _DT.r12,
+        border: Border.all(color: _DT.primary.withOpacity(0.35)),
+      ),
+      child: Row(
+        children: [
+          const Text('👋', style: TextStyle(fontSize: 20)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text.rich(
+              TextSpan(children: [
+                const TextSpan(
+                  text: 'New here? Start with Chapter 1. ',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+                const TextSpan(
+                  text:
+                      'Go through the lessons in order — your progress shows on each chapter.',
+                ),
+              ]),
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.35,
+                color: _isDark ? Colors.white : _DT.textPrimary,
+              ),
+            ),
+          ),
+          if (firstLessons.isNotEmpty) ...[
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: () => _openLesson(firstLessons.first),
+              style: TextButton.styleFrom(
+                backgroundColor: _DT.primary,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: const RoundedRectangleBorder(borderRadius: _DT.r12),
+              ),
+              child: const Text('Start',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+            ),
           ],
         ],
       ),
@@ -4680,6 +4761,127 @@ class _ProfessionalLearningScreenState
 }
 
 // ═════════════════════════════════════════════
+//  REAL EXAM PRACTICE (end of the chapter list)
+// ═════════════════════════════════════════════
+/// Sends students to the eExams marketplace, like the dashboard's
+/// "Exam Preparation" card, once they reach the end of the course content.
+class _ExamPracticeCard extends StatelessWidget {
+  final bool isCompact;
+
+  const _ExamPracticeCard({this.isCompact = false});
+
+  static const _grad = [Color(0xFF8B5CF6), Color(0xFF6366F1)];
+
+  Future<void> _open(BuildContext context) async {
+    final url = AppLocalizations.of(context)?.examMarketplaceUrl ??
+        'https://www.eexams.net/marketplace';
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pad = isCompact ? 16.0 : 20.0;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => _open(context),
+        borderRadius: _DT.r20,
+        child: Ink(
+          padding: EdgeInsets.all(pad),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: _grad,
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: _DT.r20,
+            boxShadow: [
+              BoxShadow(
+                  color: _grad.first.withOpacity(0.35),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8)),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: _DT.r12,
+                    ),
+                    child: const Icon(Icons.workspace_premium_rounded,
+                        color: Colors.white, size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Finished studying? Test yourself',
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Real Exam Practice',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w800),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Sit past papers and practice tests set like the real exam, '
+                'then see where you still need revision. Opens eExams.',
+                style:
+                    TextStyle(color: Colors.white, fontSize: 13, height: 1.45),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: _DT.r32,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Start practising',
+                        style: TextStyle(
+                            color: _grad.last,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800)),
+                    const SizedBox(width: 6),
+                    Icon(Icons.arrow_forward_rounded,
+                        color: _grad.last, size: 16),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════
 //  CHAPTER CARD
 // ═════════════════════════════════════════════
 class _ChapterCard extends StatelessWidget {
@@ -4864,6 +5066,19 @@ class _ChapterCard extends StatelessWidget {
                 backgroundColor: Colors.white.withOpacity(0.3),
                 valueColor:
                     const AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              completedCount == 0
+                  ? 'Not started · ${lessons.length} ${lessons.length == 1 ? "lesson" : "lessons"}'
+                  : isFullyCompleted
+                      ? 'Completed ✓'
+                      : '${(chapterProgress * 100).round()}% complete · $completedCount of ${lessons.length} lessons',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.9),
+                fontSize: isCompact ? 10.5 : 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],

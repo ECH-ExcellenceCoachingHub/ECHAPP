@@ -891,7 +891,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     _buildHeroAvatar(
                       context,
                       user,
-                      isSmall ? 46 : 52,
+                      isSmall ? 50 : 58,
                       opensMenu: isMobile,
                     ),
                     SizedBox(width: isSmall ? 12 : 14),
@@ -919,8 +919,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               _titleCase(_displayName(user)),
                               style: TextStyle(
                                 color: Colors.white,
-                                fontSize: isSmall ? 17 : 19,
-                                fontWeight: FontWeight.w700,
+                                fontSize: isSmall ? 18 : 21,
+                                fontWeight: FontWeight.w800,
                                 letterSpacing: -0.3,
                                 height: 1.15,
                               ),
@@ -988,7 +988,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   border: Border.all(
-                      color: Colors.white.withOpacity(0.35), width: 1),
+                      color: Colors.white.withOpacity(0.85), width: 2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _Dx.mintGlow.withOpacity(0.25),
+                      blurRadius: 14,
+                    ),
+                  ],
                 ),
                 child: ClipOval(
                   child: hasPicture
@@ -1268,8 +1274,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     void open() =>
         CourseNavigationUtils.navigateToCourseWithContext(context, ref, course);
 
-    final thumbnail = ClipRRect(
-      borderRadius: BorderRadius.circular(wide ? 22 : 18),
+    final thumbnail = SizedBox.expand(
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -1292,27 +1297,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.transparent, Colors.black.withOpacity(0.35)],
+                colors: [Colors.transparent, Colors.black.withOpacity(0.25)],
+                stops: const [0.6, 1],
               ),
-            ),
-          ),
-          Center(
-            child: Container(
-              width: wide ? 58 : 46,
-              height: wide ? 58 : 46,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.25),
-                    blurRadius: 16,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Icon(Icons.play_arrow_rounded,
-                  color: _Dx.emerald, size: wide ? 32 : 26),
             ),
           ),
         ],
@@ -1391,7 +1378,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 child: Stack(
                   children: [
                     Container(
-                      height: 8,
+                      height: 10,
                       color: isDark
                           ? Colors.white.withOpacity(0.10)
                           : Colors.white.withOpacity(0.85),
@@ -1399,10 +1386,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     FractionallySizedBox(
                       widthFactor: percent / 100,
                       child: Container(
-                        height: 8,
-                        decoration: const BoxDecoration(
+                        height: 10,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(6),
                           gradient: LinearGradient(
-                            colors: [Color(0xFF10B981), _Dx.emerald],
+                            colors: isDark
+                                ? const [Color(0xFF10B981), _Dx.mintGlow]
+                                : const [Color(0xFF10B981), _Dx.emerald],
                           ),
                         ),
                       ),
@@ -1415,7 +1405,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             Text(
               '$percent%',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: wide ? 18 : 16,
                 fontWeight: FontWeight.w800,
                 color: accent,
               ),
@@ -1423,13 +1413,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           ],
         ),
         SizedBox(height: wide ? 20 : 16),
-        _buildPillButton(
-          label: notStarted
-              ? (l10n?.startLearning ?? 'Start Learning')
-              : (l10n?.continueLearning ?? 'Continue Learning'),
-          icon: Icons.play_arrow_rounded,
-          compact: !wide,
-          onTap: open,
+        SizedBox(
+          width: double.infinity,
+          child: _buildPillButton(
+            label: notStarted
+                ? (l10n?.startLearning ?? 'Start Learning')
+                : (l10n?.continueLearning ?? 'Continue Learning'),
+            icon: Icons.play_arrow_rounded,
+            compact: !wide,
+            onTap: open,
+          ),
         ),
       ],
     );
@@ -1442,35 +1435,70 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         borderRadius: BorderRadius.circular(wide ? 28 : 24),
         child: Ink(
           width: double.infinity,
-          padding: EdgeInsets.all(wide ? 26 : (isSmall ? 14 : 16)),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(wide ? 28 : 24),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: isDark
-                  ? const [Color(0xFF0E2B23), Color(0xFF0B1F1C), Color(0xFF0C1A26)]
+                  ? const [Color(0xFF0F3A2D), Color(0xFF0B2620), Color(0xFF0B1B26)]
                   : const [Color(0xFFF1FBF6), Color(0xFFE6F6EE), Color(0xFFD9F1E5)],
             ),
             border: Border.all(
               color: isDark
-                  ? _Dx.jade.withOpacity(0.22)
+                  ? _Dx.jade.withOpacity(0.35)
                   : const Color(0xFFCDEBDC),
             ),
-            boxShadow: _Dx.shadow(isDark),
-          ),
-          child: Row(
-            children: [
-              Expanded(flex: wide ? 13 : 12, child: details),
-              SizedBox(width: wide ? 28 : 14),
-              Expanded(
-                flex: wide ? 9 : 8,
-                child: AspectRatio(
-                  aspectRatio: wide ? 4 / 3 : 0.9,
-                  child: thumbnail,
+            boxShadow: [
+              ..._Dx.shadow(isDark),
+              if (isDark)
+                BoxShadow(
+                  color: _Dx.jade.withOpacity(0.14),
+                  blurRadius: 30,
+                  spreadRadius: -4,
                 ),
-              ),
             ],
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // The image owns the right side, flush to the card's edge, with
+              // a curved emerald-rimmed left edge.
+              final artWidth = constraints.maxWidth * 0.40;
+              final pad = wide ? 26.0 : (isSmall ? 14.0 : 18.0);
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(wide ? 27 : 23),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      bottom: 0,
+                      width: artWidth,
+                      child: CustomPaint(
+                        foregroundPainter: _HeroArcRimPainter(
+                            color: isDark ? _Dx.mintGlow : _Dx.jade),
+                        child: ClipPath(
+                          clipper: const _HeroArcClipper(),
+                          child: thumbnail,
+                        ),
+                      ),
+                    ),
+                    ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: wide ? 230 : 190),
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                            pad, pad + 2, artWidth + 10, pad + 2),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          widthFactor: 1,
+                          child: details,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ),
       ),
@@ -1525,6 +1553,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Shrink rather than truncate when space is tight.
                 Flexible(
@@ -1571,7 +1600,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         _buildSectionHeader(
           context,
           title: l10n?.myLearning ?? 'My Learning',
-          icon: Icons.play_circle_rounded,
+          icon: Icons.menu_book_rounded,
           color: _Dx.jade,
           onSeeAll: () => context.push('/my-courses'),
           seeAllLabel: 'View All',
@@ -1757,11 +1786,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               ),
               SizedBox(width: isSmall ? 6 : 10),
               Container(
-                width: 34,
-                height: 34,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: _Dx.jade.withOpacity(isDark ? 0.18 : 0.10),
+                  color: _Dx.jade.withOpacity(isDark ? 0.22 : 0.10),
+                  border: Border.all(
+                      color: _Dx.jade.withOpacity(isDark ? 0.35 : 0.18)),
                 ),
                 child: Icon(
                   isCompleted
@@ -2168,7 +2199,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           l10n?.enrolled ?? 'Enrolled', _Dx.jade),
       (Icons.verified_rounded, '${stats.completed}',
           l10n?.completed ?? 'Completed', const Color(0xFF2563EB)),
-      (Icons.military_tech_rounded, '${stats.average.toInt()}%',
+      (Icons.emoji_events_rounded, '${stats.average.toInt()}%',
           'Avg. Progress', const Color(0xFF7C3AED)),
     ];
 
@@ -2178,7 +2209,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         _buildSectionHeader(
           context,
           title: 'Quick Stats',
-          icon: Icons.insights_rounded,
+          icon: Icons.bar_chart_rounded,
           color: _Dx.jade,
         ),
         const SizedBox(height: 10),
@@ -2211,27 +2242,48 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isSmall = ResponsiveBreakpoints.isSmallMobile(context);
-    final tint = isDark ? Color.lerp(color, Colors.white, 0.3)! : color;
-
     return Container(
       padding: EdgeInsets.all(isSmall ? 12 : 14),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(18),
-        color: Color.alphaBlend(
-            color.withOpacity(isDark ? 0.10 : 0.06), _Dx.surface(isDark)),
-        border: Border.all(color: color.withOpacity(isDark ? 0.22 : 0.10)),
+        borderRadius: BorderRadius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.alphaBlend(
+                color.withOpacity(isDark ? 0.38 : 0.14), _Dx.surface(isDark)),
+            Color.alphaBlend(
+                color.withOpacity(isDark ? 0.12 : 0.04), _Dx.surface(isDark)),
+          ],
+        ),
+        border: Border.all(color: color.withOpacity(isDark ? 0.45 : 0.18)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(isDark ? 0.18 : 0.08),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 34,
-            height: 34,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: color.withOpacity(isDark ? 0.22 : 0.12),
+              color: color,
+              boxShadow: [
+                BoxShadow(
+                  color: color.withOpacity(0.4),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
-            child: Icon(icon, size: 18, color: tint),
+            child: Icon(icon, size: 19, color: Colors.white),
           ),
           const SizedBox(height: 10),
           FittedBox(
@@ -2593,19 +2645,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     return Tooltip(
       message: tooltip,
       child: Material(
-        color: Colors.white.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(14),
+        color: Colors.white.withOpacity(0.10),
+        shape: const CircleBorder(),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          customBorder: const CircleBorder(),
           child: Container(
-            width: 42,
-            height: 42,
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white.withOpacity(0.18)),
+              shape: BoxShape.circle,
+              border: Border.all(color: _Dx.mintGlow.withOpacity(0.28)),
             ),
-            child: Icon(icon, color: Colors.white, size: 20),
+            child: Icon(icon, color: Colors.white, size: 22),
           ),
         ),
       ),
@@ -2653,12 +2705,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         final fg = onDark ? Colors.white : _Dx.text(isDark);
 
         return Container(
-          height: onDark ? 42 : 52,
+          height: onDark ? 46 : 52,
           decoration: BoxDecoration(
-            color: onDark ? Colors.white.withOpacity(0.12) : _Dx.surface(isDark),
-            borderRadius: BorderRadius.circular(onDark ? 14 : 16),
+            color: onDark ? Colors.white.withOpacity(0.10) : _Dx.surface(isDark),
+            borderRadius: BorderRadius.circular(onDark ? 23 : 16),
             border: Border.all(
-              color: onDark ? Colors.white.withOpacity(0.18) : _Dx.line(isDark),
+              color: onDark
+                  ? _Dx.mintGlow.withOpacity(0.28)
+                  : _Dx.line(isDark),
             ),
           ),
           child: PopupMenuButton<String>(
@@ -2823,9 +2877,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       height: 54,
       decoration: BoxDecoration(
         color: _Dx.surface(isDark),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(27),
         border: Border.all(
-          color: hasFilter ? _Dx.jade.withOpacity(0.5) : _Dx.line(isDark),
+          color: hasFilter
+              ? _Dx.jade.withOpacity(0.7)
+              : (isDark ? _Dx.jade.withOpacity(0.30) : _Dx.line(isDark)),
         ),
         boxShadow: [
           BoxShadow(
@@ -2888,11 +2944,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             padding: const EdgeInsets.only(right: 7),
             child: Material(
               color: hasFilter || _showCategoryDropdown
-                  ? _Dx.jade.withOpacity(isDark ? 0.25 : 0.14)
-                  : _Dx.jade.withOpacity(isDark ? 0.14 : 0.07),
-              borderRadius: BorderRadius.circular(13),
+                  ? _Dx.jade
+                  : (isDark ? _Dx.pine : _Dx.jade.withOpacity(0.10)),
+              shape: const CircleBorder(),
               child: InkWell(
-                borderRadius: BorderRadius.circular(13),
+                customBorder: const CircleBorder(),
                 onTap: () {
                   if (mounted) {
                     setState(
@@ -2906,7 +2962,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     _showCategoryDropdown
                         ? Icons.keyboard_arrow_up_rounded
                         : Icons.tune_rounded,
-                    color: accent,
+                    color: hasFilter || _showCategoryDropdown || isDark
+                        ? Colors.white
+                        : accent,
                     size: 19,
                   ),
                 ),
@@ -5790,8 +5848,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final link = isDark ? _Dx.mintGlow : _Dx.emerald;
 
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        Icon(
+          icon,
+          size: compact ? 20 : (isMobile ? 24 : 26),
+          color: isDark ? Color.lerp(color, _Dx.mintGlow, 0.45)! : color,
+        ),
+        const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -7924,6 +7988,61 @@ class _HeroHillsPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Clips the continue-hero image so its left edge is a soft outward curve.
+class _HeroArcClipper extends CustomClipper<Path> {
+  const _HeroArcClipper();
+
+  static Path arcPath(Size size) {
+    final inset = size.width * 0.16;
+    return Path()
+      ..moveTo(inset, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width, size.height)
+      ..lineTo(inset, size.height)
+      ..quadraticBezierTo(-inset, size.height / 2, inset, 0)
+      ..close();
+  }
+
+  @override
+  Path getClip(Size size) => arcPath(size);
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+/// Glowing emerald rim along the hero image's curved edge.
+class _HeroArcRimPainter extends CustomPainter {
+  final Color color;
+
+  const _HeroArcRimPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final inset = size.width * 0.16;
+    final rim = Path()
+      ..moveTo(inset, 0)
+      ..quadraticBezierTo(-inset, size.height / 2, inset, size.height);
+    canvas.drawPath(
+      rim,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6
+        ..color = color.withOpacity(0.35)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
+    );
+    canvas.drawPath(
+      rim,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..color = color,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _HeroArcRimPainter old) => old.color != color;
 }
 
 /// Round-capped progress ring with an emerald sweep.
