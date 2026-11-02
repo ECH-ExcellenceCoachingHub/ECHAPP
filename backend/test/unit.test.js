@@ -269,3 +269,62 @@ test('renderer frame plans and deterministic graph SVG', () => {
   assert.equal(a.svg, b.svg); // same input → identical output
   assert.match(a.svg, /<path d="M/);
 });
+
+test('lesson generation: long sections are written part by part from every full page, short notes are retried', async () => {
+  const Grok = require('../src/services/grok_service');
+  const ai = require('../src/services/course-builder/ai.service');
+  const { sourceCoverage } = require('../src/services/course-builder/verify.service');
+  const orig = { isConfigured: Grok.isConfigured, pickModel: Grok.pickModel, create: Grok._createCompletion };
+  const prompts = [];
+  const words = (n, w) => Array(n).fill(w).join(' ');
+  Grok.isConfigured = () => true;
+  Grok.pickModel = async () => 'test-model';
+  Grok._createCompletion = async ({ messages }) => {
+    const prompt = messages[1].content;
+    prompts.push(prompt);
+    let body;
+    if (/Write PART \d+ of/.test(prompt)) {
+      const page = Number(/\[\[Page (\d+)\]\]/.exec(prompt)[1]);
+      body = { notes: `## Section ${page}\n${words(1200, 'explained')}`, keyPoints: [`point ${page}`], keyTerms: [{ term: 'Capital', definition: 'd', page }], sources: [{ page, section: `S${page}` }] };
+    } else if (/complete NOTES of a lesson/.test(prompt)) {
+      body = { summary: 'Whole lesson.', keyPoints: ['k1', 'k2'], flashcards: [{ front: 'f', back: 'b' }], activities: [] };
+    } else {
+      // Single-request lesson: too short the first time, full the second
+      const n = prompts.filter(p => !/PART|NOTES/.test(p)).length;
+      body = { summary: 's', notes: `## A\n${words(n === 1 ? 60 : 700, 'word')}`, keyPoints: ['k'] };
+    }
+    return { choices: [{ message: { content: JSON.stringify(body) } }] };
+  };
+  try {
+    const job = { options: {}, outline: { bookTitle: 'Book' }, source: { pageUnit: 'page' } };
+    // 30 pages x ~3,000 characters: far beyond one request, and nothing may be trimmed
+    const pages = Array.from({ length: 30 }, (_, i) => ({ n: i + 1, text: `PAGE${i + 1}START ` + 'lorem ipsum dolor sit amet '.repeat(110) + ` PAGE${i + 1}END` }));
+    const c = await ai.generateLessonContent({ job, chapterTitle: 'Ch', lessonTitle: 'L', siblingTitles: [], pages });
+    const partPrompts = prompts.filter(p => /Write PART/.test(p));
+    assert.ok(partPrompts.length >= 7, `written in parts (${partPrompts.length})`);
+    for (const p of pages) {
+      assert.ok(partPrompts.some(x => x.includes(`PAGE${p.n}START`) && x.includes(`PAGE${p.n}END`)), `page ${p.n} sent in full`);
+    }
+    assert.match(partPrompts[0], /exact wording as a quote/);
+    assert.equal(c.summary, 'Whole lesson.');
+    assert.deepEqual(c.keyPoints, ['k1', 'k2']);
+    assert.equal(c.keyTerms.length, 1, 'key terms de-duplicated across parts');
+    const order = [...c.notes.matchAll(/## Section (\d+)/g)].map(m => Number(m[1]));
+    assert.deepEqual(order, [...order].sort((a, b) => a - b), 'parts kept in book order');
+    assert.equal(order.length, partPrompts.length);
+    assert.ok(c.estimatedMinutes >= 50);
+
+    prompts.length = 0;
+    const short = await ai.generateLessonContent({ job, chapterTitle: 'Ch', lessonTitle: 'L', siblingTitles: [], pages: pages.slice(0, 2) });
+    assert.equal(prompts.length, 2);
+    assert.match(prompts[1], /notes have only \d+ words/);
+    assert.ok(short.notes.length > 3000);
+  } finally {
+    Object.assign(Grok, { isConfigured: orig.isConfigured, pickModel: orig.pickModel, _createCompletion: orig.create });
+  }
+
+  const src = [{ n: 1, text: 'Depreciation, amortisation, liabilities, receivables, inventory, dividends, debentures, solvency, liquidity, turnover, overheads, contribution, breakeven, forecasting, budgeting, variances, auditing.' }];
+  assert.ok(sourceCoverage({ notes: 'Depreciation and amortisation reduce liabilities.' }, src) < 0.5);
+  assert.ok(sourceCoverage({ notes: src[0].text }, src) > 0.9);
+  assert.equal(sourceCoverage({ notes: 'x' }, [{ n: 1, text: 'too small' }]), null);
+});

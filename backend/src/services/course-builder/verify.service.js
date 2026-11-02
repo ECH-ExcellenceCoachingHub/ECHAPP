@@ -71,6 +71,28 @@ function termGrounding(content, pages) {
   return found / terms.length;
 }
 
+/**
+ * Share of the source's distinctive vocabulary (long words, compared by a
+ * 6-letter stem so "titrate"/"titration" match) that the lesson text uses —
+ * a cheap signal that whole parts of the book section were left out.
+ * Null when the source is too small to judge.
+ */
+function sourceCoverage(content, pages) {
+  const stems = (text) => new Set(normalize(text).split(' ').filter(w => w.length >= 7 && !/\d/.test(w)).map(w => w.slice(0, 6)));
+  const source = stems(pages.map(p => p.text).join(' '));
+  if (source.size < 15) return null;
+  const c = content || {};
+  const lesson = stems([
+    c.notes,
+    ...(c.keyTerms || []).map(t => `${t.term} ${t.definition}`),
+    ...(c.examples || []).map(e => `${e.title} ${e.body}`),
+    ...(c.formulas || []).map(f => `${f.name} ${f.explanation}`),
+  ].join(' '));
+  let found = 0;
+  for (const s of source) if (lesson.has(s)) found++;
+  return found / source.size;
+}
+
 /** Item-level confidence + warnings shown to the reviewer. */
 function scoreItem(item, pages) {
   const warnings = [];
@@ -90,6 +112,12 @@ function scoreItem(item, pages) {
     } else if ((c.notes || '').length < 400) {
       warnings.push('Lesson notes are short — the source section may be thin.');
     }
+    if (item.kind === 'lesson') {
+      const coverage = sourceCoverage(c, pages);
+      if (coverage != null && coverage < 0.5) {
+        warnings.push(`Lesson notes leave out much of the book section (about ${Math.round(coverage * 100)}% of its key vocabulary is covered) — regenerate it.`);
+      }
+    }
     if (item.content && !(c.activities || []).length) warnings.push('No interactive activities — regenerate to add some.');
   }
 
@@ -100,4 +128,4 @@ function scoreItem(item, pages) {
   return { confidence, warnings };
 }
 
-module.exports = { verifyQuestions, scoreItem, locateQuote };
+module.exports = { verifyQuestions, scoreItem, locateQuote, sourceCoverage };

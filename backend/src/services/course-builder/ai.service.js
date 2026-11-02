@@ -1,8 +1,11 @@
 const GrokService = require('../grok_service');
-const { sleep } = require('./extraction.service');
+const { sleep, runPool } = require('./extraction.service');
 
 // Upper bound of source characters sent with a single generation request.
 const LESSON_SOURCE_CHARS = 14000;
+// Book text per lesson-writing request. Longer lessons are written in parts,
+// so every page is sent in full instead of being trimmed.
+const SECTION_SOURCE_CHARS = 12000;
 const OUTLINE_INPUT_CHARS = 24000;
 
 const VISUAL_TYPES = ['flow', 'comparison', 'timeline', 'hierarchy', 'chart', 'cycle'];
@@ -195,30 +198,149 @@ const IMAGE_SPEC = `"images": [   // 1-3 real photos/maps/diagrams a student wou
     { "query": "2-5 concrete English search words, e.g. compass rose cardinal directions", "caption": "what the student should notice", "afterHeading": "exact ## heading in notes it belongs under" }
   ]`;
 
-async function generateLessonContent({ job, chapterTitle, lessonTitle, siblingTitles, pages }) {
-  const o = job.options || {};
-  const unit = job.source?.pageUnit || 'page';
-  const label = unit === 'segment' ? 'Part' : 'Page';
-  const prompt = `Create a complete, professional lesson from the SOURCE below.
+/** Split pages into parts of at most maxChars, keeping whole pages (a huge page is cut at paragraph breaks). */
+function splitIntoParts(pages, maxChars = SECTION_SOURCE_CHARS) {
+  const parts = [];
+  let current = [];
+  let size = 0;
+  for (const p of pages) {
+    for (const text of chunkText(p.text || '', maxChars)) {
+      if (current.length && size + text.length > maxChars) {
+        parts.push(current);
+        current = [];
+        size = 0;
+      }
+      current.push({ n: p.n, text });
+      size += text.length;
+    }
+  }
+  if (current.length) parts.push(current);
+  return parts;
+}
 
-BOOK: ${job.outline?.bookTitle || job.source?.fileName}
+function chunkText(text, maxChars) {
+  const chunks = [];
+  let rest = text;
+  while (rest.length > maxChars) {
+    let cut = rest.lastIndexOf('\n', maxChars);
+    if (cut < maxChars / 2) cut = rest.lastIndexOf(' ', maxChars);
+    if (cut < maxChars / 2) cut = maxChars;
+    chunks.push(rest.slice(0, cut));
+    rest = rest.slice(cut).trimStart();
+  }
+  chunks.push(rest);
+  return chunks;
+}
+
+function wordCount(text) {
+  return (String(text || '').match(/\S+/g) || []).length;
+}
+
+/** The notes should be roughly as long as the book text they teach — a full lesson, not a summary. */
+function minNotesWords(pages) {
+  const words = pages.reduce((n, p) => n + wordCount(p.text), 0);
+  return Math.max(500, Math.min(2800, Math.round(words * 0.9)));
+}
+
+function lessonHeader(job, chapterTitle, lessonTitle, siblingTitles) {
+  const o = job.options || {};
+  return `BOOK: ${job.outline?.bookTitle || job.source?.fileName}
 SUBJECT: ${job.outline?.subject || ''}
 CHAPTER: ${chapterTitle}
 LESSON: ${lessonTitle}
 OTHER LESSONS IN THIS CHAPTER (do not cover their topics): ${siblingTitles.join(' | ') || '-'}
 LANGUAGE: ${o.language || 'English'}
 ${o.examStyle ? `LEARNERS ARE PREPARING FOR: ${o.examStyle}` : ''}
-${o.instructions ? `TEACHER INSTRUCTIONS: ${o.instructions}` : ''}
+${o.instructions ? `TEACHER INSTRUCTIONS: ${o.instructions}` : ''}`;
+}
+
+/** What makes the notes faithful to the book and fully explained. */
+function fidelityRules(label, minWords) {
+  return `- Use ONLY information in the SOURCE. Never invent facts, figures, dates, names, laws or definitions, and keep the book's own terminology.
+- Follow the SOURCE in its own order and keep its headings and numbering (e.g. "## 1.2 Objectives of Financial Management"): one ## heading per book section, ### for its sub-sections.
+- Cover EVERYTHING in the SOURCE that belongs to this lesson: every section, sub-heading, definition, list item, classification, table, worked example and exercise. Never drop a point because it looks minor.
+- Definitions, laws, rules, principles and formulas: first give the book's exact wording as a quote — "> **Definition (${label.toLowerCase()} 14):** exact words from the book" — then explain it in plain words.
+- For every concept: what the book says, then a clear explanation of what it means and why it matters, then the book's example. If the book gives no example, add a short everyday illustration labelled "Illustration" that introduces no new facts.
+- Lists in the book (types, features, advantages, steps, …) keep ALL their items in the same order, each with 1-3 sentences of explanation.
+- Tables in the book become markdown tables with the same rows and columns.
+- Worked examples keep the book's numbers exactly and show every step of the working.
+- Formulas: plain text expression, e.g. "PV = FV / (1 + r)^n".
+- Ignore running headers/footers and printed page numbers in the SOURCE.
+- The source contains [[${label} n]] markers; put the ${label.toLowerCase()} number in every "page" field.
+- "notes" is markdown (## / ### headings, short paragraphs, bullet lists, **bold** key terms, > quotes, tables) of AT LEAST ${minWords} words — a complete lesson a student can learn from without the book, not a summary.`;
+}
+
+const LESSON_PARTS_SPEC = `"notes": "markdown",
+  "keyPoints": ["..."],
+  "keyTerms": [ { "term": "...", "definition": "the book's definition", "page": 14 } ],
+  "examples": [ { "title": "...", "body": "markdown, step by step", "page": 15 } ],
+  "formulas": [ { "name": "...", "expression": "...", "variables": [ { "symbol": "r", "meaning": "..." } ], "explanation": "...", "page": 16 } ],
+  "sources": [ { "page": 14, "section": "1.2 ..." } ]`;
+
+function practiceRules(o) {
+  return `- ${o.includeVisuals === false ? 'Return "visuals": [].' : 'Add visuals that make the lesson easier to understand.'}
+- ${o.includeFlashcards === false ? 'Return "flashcards": [].' : 'Add 6-12 flashcards covering the key terms and facts.'}
+- Always add 2-3 "activities" so the student practises what they just read.`;
+}
+
+function practiceSpec(o) {
+  return `"flashcards": [ { "front": "...", "back": "..." } ],
+  ${VISUAL_SPEC},
+  ${ACTIVITY_SPEC},
+  ${o.includeVisuals === false ? '"images": [],' : IMAGE_SPEC + ','}
+  "estimatedMinutes": 15`;
+}
+
+/**
+ * Write a lesson from the book pages. Short lessons are one request; longer
+ * ones are written part by part from the full text of every page (nothing is
+ * trimmed away), then a final request adds the summary and practice material.
+ */
+async function generateLessonContent({ job, chapterTitle, lessonTitle, siblingTitles, pages }) {
+  const parts = splitIntoParts(pages);
+  if (parts.length <= 1) return generateSingleLesson({ job, chapterTitle, lessonTitle, siblingTitles, pages });
+
+  const sections = new Array(parts.length);
+  await runPool(parts.map((p, i) => i), 2, async (i) => {
+    sections[i] = await generateLessonPart({ job, chapterTitle, lessonTitle, siblingTitles, pages: parts[i], index: i, total: parts.length });
+  });
+  const notes = sections.map(s => s.notes).join('\n\n');
+  const frame = await generateLessonFrame({ job, chapterTitle, lessonTitle, siblingTitles, notes });
+
+  const dedupe = (list, key) => {
+    const seen = new Set();
+    return list.filter(x => {
+      const k = key(x);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  };
+  const all = (field) => sections.flatMap(s => s[field]);
+  return {
+    ...frame,
+    notes,
+    keyPoints: frame.keyPoints.length ? frame.keyPoints : all('keyPoints'),
+    keyTerms: dedupe(all('keyTerms'), t => t.term.toLowerCase()),
+    examples: all('examples'),
+    formulas: dedupe(all('formulas'), f => f.expression.replace(/\s+/g, '')),
+    sources: dedupe(all('sources'), s => `${s.page}:${s.section.toLowerCase()}`),
+    estimatedMinutes: Math.min(180, Math.max(frame.estimatedMinutes, Math.ceil(wordCount(notes) / 150))),
+  };
+}
+
+async function generateSingleLesson({ job, chapterTitle, lessonTitle, siblingTitles, pages }) {
+  const o = job.options || {};
+  const unit = job.source?.pageUnit || 'page';
+  const label = unit === 'segment' ? 'Part' : 'Page';
+  const minWords = minNotesWords(pages);
+  const prompt = `Create a complete, professional lesson that teaches the SOURCE below accurately and in full.
+
+${lessonHeader(job, chapterTitle, lessonTitle, siblingTitles)}
 
 RULES:
-- Use ONLY information in the SOURCE. Never invent facts, figures, laws or definitions.
-- The source contains [[${label} n]] markers; put the ${label.toLowerCase()} number in every "page" field.
-- "notes" is detailed markdown (## / ### headings, short paragraphs, bullet lists, **bold** key terms, tables where useful). 400-1200 words. Explain clearly for a student; do not just copy.
-- Worked examples must keep the source's numbers and show each step.
-- Formulas: plain text expression, e.g. "PV = FV / (1 + r)^n".
-- ${o.includeVisuals === false ? 'Return "visuals": [].' : 'Add visuals that make the lesson easier to understand.'}
-- ${o.includeFlashcards === false ? 'Return "flashcards": [].' : 'Add 4-10 flashcards.'}
-- Always add 2-3 "activities" so the student practises what they just read.
+${fidelityRules(label, minWords)}
+${practiceRules(o)}
 - Empty arrays are fine when the source has nothing of that kind — but "summary", "notes" and "keyPoints" are ALWAYS required.
 - Return the object below at the TOP LEVEL (do not wrap it in another key).
 
@@ -226,39 +348,111 @@ Return JSON:
 {
   "summary": "2-3 sentences",
   "learningObjectives": ["By the end of this lesson you should be able to ..."],
-  "notes": "markdown",
-  "keyPoints": ["..."],
-  "keyTerms": [ { "term": "...", "definition": "...", "page": 14 } ],
-  "examples": [ { "title": "...", "body": "markdown, step by step", "page": 15 } ],
-  "formulas": [ { "name": "...", "expression": "...", "variables": [ { "symbol": "r", "meaning": "..." } ], "explanation": "...", "page": 16 } ],
-  "flashcards": [ { "front": "...", "back": "..." } ],
-  ${VISUAL_SPEC},
-  ${ACTIVITY_SPEC},
-  ${o.includeVisuals === false ? '"images": [],' : IMAGE_SPEC + ','}
-  "sources": [ { "page": 14, "section": "1.2 ..." } ],
-  "estimatedMinutes": 15
+  ${LESSON_PARTS_SPEC},
+  ${practiceSpec(o)}
 }
 
 SOURCE:
-${pagesToSource(pages, LESSON_SOURCE_CHARS, unit)}`;
+${pagesToSource(pages, Infinity, unit)}`;
 
-  return generateValidContent(prompt, 'lesson');
+  return generateValidContent(prompt, 'lesson', { minWords });
+}
+
+async function generateLessonPart({ job, chapterTitle, lessonTitle, siblingTitles, pages, index, total }) {
+  const unit = job.source?.pageUnit || 'page';
+  const label = unit === 'segment' ? 'Part' : 'Page';
+  const minWords = minNotesWords(pages);
+  const prompt = `This lesson is long, so it is written in ${total} parts. Write PART ${index + 1} of ${total}: the lesson notes for the SOURCE below only (the other parts cover the rest of the lesson).
+
+${lessonHeader(job, chapterTitle, lessonTitle, siblingTitles)}
+
+RULES:
+${fidelityRules(label, minWords)}
+- ${index === 0 ? 'Start with a short introduction to the lesson, then the first book section.' : 'Continue straight from the previous part: no introduction, no conclusion — start with the first heading of this SOURCE (if the SOURCE starts mid-section, continue that section under its heading with "(continued)").'}
+- Return the object below at the TOP LEVEL (do not wrap it in another key).
+
+Return JSON:
+{
+  ${LESSON_PARTS_SPEC}
+}
+
+SOURCE:
+${pagesToSource(pages, Infinity, unit)}`;
+
+  return generateChecked(prompt, {
+    hard: c => (!c.notes || c.notes.length < 150 ? 'notes are empty or too short' : ''),
+    soft: c => notesTooShort(c, minWords),
+    maxTokens: 14000,
+  });
+}
+
+/** Summary, objectives and practice material for a lesson written in parts — built from its finished notes. */
+async function generateLessonFrame({ job, chapterTitle, lessonTitle, siblingTitles, notes }) {
+  const o = job.options || {};
+  const prompt = `Below are the complete NOTES of a lesson. Write its summary, learning objectives, key points and practice material.
+
+${lessonHeader(job, chapterTitle, lessonTitle, siblingTitles)}
+
+RULES:
+- Use ONLY information in the NOTES. Never invent facts.
+- Key points: 6-12, covering the whole lesson from start to end.
+${practiceRules(o)}
+- Image "afterHeading" values must be exact ## headings from the NOTES.
+- Return the object below at the TOP LEVEL (do not wrap it in another key).
+
+Return JSON:
+{
+  "summary": "3-4 sentences covering the whole lesson",
+  "learningObjectives": ["By the end of this lesson you should be able to ..."],
+  "keyPoints": ["..."],
+  ${practiceSpec(o)}
+}
+
+NOTES:
+${notes.slice(0, OUTLINE_INPUT_CHARS)}`;
+
+  return generateChecked(prompt, {
+    hard: c => (!c.summary ? 'summary is empty' : !c.keyPoints.length ? 'keyPoints is empty' : ''),
+    maxTokens: 8000,
+  });
+}
+
+function notesTooShort(c, minWords) {
+  const words = wordCount(c.notes);
+  return minWords && words < minWords * 0.6
+    ? `notes have only ${words} words but must be at least ${minWords} words and cover every point of the SOURCE`
+    : '';
 }
 
 /**
  * Ask for content, and make sure it is not empty. Models sometimes wrap the
  * object in another key or return a skeleton; that must never be saved as a
- * finished lesson.
+ * finished lesson. Notes that are much shorter than the book section are
+ * retried once, then accepted.
  */
-async function generateValidContent(prompt, what) {
+async function generateValidContent(prompt, what, { minWords = 0 } = {}) {
+  return generateChecked(prompt, {
+    hard: c => contentProblem(c, what),
+    soft: c => notesTooShort(c, minWords),
+    what,
+    maxTokens: minWords ? 16000 : 10000,
+  });
+}
+
+async function generateChecked(prompt, { hard, soft = () => '', what = 'answer', maxTokens = 10000 }) {
   let lastProblem = '';
+  let acceptable = null;
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const extra = attempt === 1 ? '' : `\n\nIMPORTANT: your previous answer was rejected (${lastProblem}). Return the full object at the top level with non-empty "summary", "notes" and "keyPoints".`;
-    const raw = await completeJson(prompt + extra, { maxTokens: 10000, temperature: 0.3 });
+    const extra = attempt === 1 ? '' : `\n\nIMPORTANT: your previous answer was rejected (${lastProblem}). Fix this and return the full object at the top level.`;
+    const raw = await completeJson(prompt + extra, { maxTokens, temperature: 0.3 });
     const content = normalizeContent(unwrapContent(raw));
-    lastProblem = contentProblem(content, what);
+    lastProblem = hard(content);
+    if (lastProblem) continue;
+    lastProblem = soft(content);
     if (!lastProblem) return content;
+    acceptable = content;
   }
+  if (acceptable) return acceptable;
   throw new Error(`AI returned an incomplete ${what}: ${lastProblem}`);
 }
 
