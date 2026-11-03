@@ -16,6 +16,7 @@ const CourseBuildItem = require('../src/models/CourseBuildItem');
 const GenerationJob = require('../src/models/GenerationJob');
 const ai = require('../src/services/course-builder/ai.service');
 const rekka = require('../src/services/video/providers/rekka');
+const { targetDuration } = require('../src/services/video/subjects');
 const pipeline = require('../src/services/video/pipeline.service');
 const videoJobs = require('../src/services/video/video-jobs.service');
 const { JobWorker } = require('../src/services/jobs/worker.service');
@@ -74,7 +75,7 @@ test.after(async () => {
   restoreLogs();
 });
 
-test('request: a teacher-style, step-by-step lesson within Rekka limits', () => {
+test('request: a short beginner lesson with a friendly, slow narrator, within Rekka limits', () => {
   const content = {
     summary: 'Acids donate protons.',
     notes: '## What is an acid\nAn acid donates a proton (H+) in water. More text.\n## The pH scale\nThe pH scale runs from 0 to 14. Below 7 is acidic.\n## Neutralisation\nAn acid and a base react to make a salt and water.\n' + 'filler '.repeat(500),
@@ -83,25 +84,31 @@ test('request: a teacher-style, step-by-step lesson within Rekka limits', () => 
     keyTerms: [{ term: 'acid' }, { term: 'base' }],
     commonMistakes: ['Thinking pH 7 is always neutral at every temperature'],
   };
-  const body = rekka.buildRequest({ title: 'Ti', content, subject: 'chemistry', level: 'S4', durationSec: [120, 210] });
+  const body = rekka.buildRequest({ title: 'Ti', content, subject: 'chemistry', level: 'S4', durationSec: targetDuration([180, 330]) });
   assert.ok(body.topic.length >= 3 && body.topic.length <= 300);
   assert.ok(body.prompt.length <= 2000);
   assert.equal(body.style, 'chalkboard', 'sciences are taught at the board');
   assert.equal(body.format, 'landscape');
-  assert.equal(body.chapters, 5, 'one chapter per step + intro and recap');
+  assert.equal(body.chapters, 2, '~100 s per chapter: 2 fit in 4 minutes');
   assert.equal(body.length, undefined);
-  assert.match(body.prompt, /step by step/);
+  assert.match(body.prompt, /complete beginners/);
+  assert.match(body.prompt, /Narrator voice: a warm, friendly.*Speak slowly/);
   assert.match(body.prompt, /1\. What is an acid — An acid donates a proton \(H\+\) in water\./);
   assert.match(body.prompt, /3\. Neutralisation/);
   assert.match(body.prompt, /pH = -log\[H\+\]/);
   assert.match(body.prompt, /pH = -log\(0\.01\) = 2/, 'worked example keeps the exact numbers');
-  assert.match(body.prompt, /recap of every step\.$/);
+  assert.match(body.prompt, /under 4 minutes\.$/);
   assert.equal(rekka.styleFor('history'), 'whiteboard');
 
-  // No steps to structure: falls back to a length from the subject's duration range.
+  process.env.REKKA_VOICE = 'a calm older woman';
+  assert.match(rekka.buildRequest({ title: 'Acids', content, subject: 'chemistry', durationSec: 240 }).prompt, /Narrator voice: a calm older woman/);
+  delete process.env.REKKA_VOICE;
+
+  // Even with no steps, the length stays bounded by chapters.
   const plain = rekka.buildRequest({ title: 'Long title', content: { summary: 'x'.repeat(3000) }, subject: 'history', durationSec: [100, 180] });
-  assert.equal(plain.length, 'standard');
+  assert.equal(plain.chapters, 1);
   assert.ok(plain.prompt.length <= 2000);
+  assert.deepEqual(targetDuration([180, 330]), [180, 240], 'every lesson video is at most 4 minutes');
   assert.equal(rekka.lengthFor(90), 'short');
   assert.equal(rekka.lengthFor([300, 600]), 'in_depth');
   assert.equal(rekka.estimateCredits([120, 210]), 4);

@@ -11,7 +11,8 @@ const { downloadToFile } = require('../media/http');
  *   REKKA_API_URL            default https://api.rekkaai.com
  *   REKKA_STYLE              chalkboard | whiteboard | crayon (default: chalkboard for maths/sciences/accounting, else whiteboard)
  *   REKKA_FORMAT             landscape (default) | square | portrait
- *   REKKA_CHAPTERS           chapters per video (default: what fits VIDEO_MAX_SECONDS, ~100 s each → 2 for 4 min)
+ *   REKKA_VOICE              how the narrator should sound (default: warm, friendly, slow, with pauses)
+ *   REKKA_CHAPTERS          chapters per video (default: what fits VIDEO_MAX_SECONDS, ~100 s each → 2 for 4 min)
  *   REKKA_LENGTH             short | standard | in_depth instead of chapters (not length-bounded)
  *   REKKA_MIN_SHORT_SIDE     smallest acceptable frame side in px (default 720); lower-quality videos fall back
  *   REKKA_MIN_SECONDS        shortest acceptable video (default 60)
@@ -125,6 +126,9 @@ function teachingSteps(content) {
   return steps.slice(0, 10);
 }
 
+/** Rekka has no voice setting, so the narrator is described in the prompt (REKKA_VOICE overrides). */
+const DEFAULT_VOICE = 'a warm, friendly, encouraging teacher with a gentle, smiling tone. Speak slowly and calmly at a relaxed pace, never rushed, with a short pause after each sentence and after each line written on the board, so a beginner has time to follow.';
+
 /** About 100 s of video per Rekka chapter (measured: 7 chapters → 694 s). */
 const SECONDS_PER_CHAPTER = 100;
 
@@ -153,6 +157,7 @@ function buildRequest({ title, content, subject, level, language, durationSec })
     : `Use ${chapters} chapters: first the idea in plain words, ${chapters > 2 ? 'then the key steps, ' : ''}then the worked example solved line by line, ending with a one-sentence recap.`;
   const sections = [
     `You are a patient, friendly ${subj ? `${subj} ` : ''}teacher at the board, teaching ${level || 'secondary school'} students who are complete beginners in this topic. The whole video must be under ${minutes} minutes, so teach only the essentials below and explain them really well. ${plan}`,
+    `Narrator voice: ${clip(clean(process.env.REKKA_VOICE || DEFAULT_VOICE), 300)}`,
     'Teach for a beginner: simple everyday words, short sentences, one small idea at a time. Say what each new word or symbol means the first time you use it. Give one real-life comparison. Write each line on the board as you say it, say why you do each step, and never skip a step of the working. Ask "you" one quick question and answer it.',
     language && !/^en/i.test(language) ? `Speak in ${language}.` : '',
     steps.length ? `Cover these points, in order:\n${steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}` : '',
