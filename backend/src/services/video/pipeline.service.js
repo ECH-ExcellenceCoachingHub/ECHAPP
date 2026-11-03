@@ -10,7 +10,7 @@ const Lesson = require('../../models/Lesson');
 const FigureAsset = require('../../models/FigureAsset');
 const storage = require('./storage.service');
 const { generateStoryboard } = require('./storyboard.service');
-const { subjectByKey } = require('./subjects');
+const { subjectByKey, targetDuration } = require('./subjects');
 const { assessExperiment } = require('./experiment');
 const { resolveTts } = require('./providers/tts');
 const { resolveVideoProvider } = require('./providers/video');
@@ -160,13 +160,13 @@ async function tryRekka(job, src, ctx, work, stage) {
     await stage('generating_visuals', 'Generating the full video with Rekka AI');
     let id = prior?.id;
     if (!id) {
-      const durationSec = cfg.durationSec || subject.durationSec;
-      const credits = rekka.estimateCredits(durationSec);
+      const durationSec = targetDuration(cfg.durationSec || subject.durationSec);
+      const body = rekka.buildRequest({ title: src.title, content: src.content, subject: subject.key, level: cfg.level, language: cfg.language, durationSec });
+      const credits = rekka.estimateCredits(durationSec, body.chapters);
       const rate = rekka.usdPerCredit();
       if (rate != null) await cost.assertWithinBudget({ job: await refreshCost(job), buildJob: src.buildJob, estimateUsd: credits * rate });
       const balance = await rekka.getCredits({ signal: ctx.signal });
       if (balance != null && balance < credits) throw Object.assign(new Error(`Rekka has ${balance} credit(s) left, about ${credits} needed`), { code: 'REKKA_NO_CREDITS' });
-      const body = rekka.buildRequest({ title: src.title, content: src.content, subject: subject.key, level: cfg.level, language: cfg.language, durationSec });
       const created = await rekka.createVideo(body, { signal: ctx.signal });
       id = created.id;
       await ctx.saveArtifacts({ rekka: { id, status: created.status, request: body, at: Date.now() } });
@@ -184,11 +184,17 @@ async function tryRekka(job, src, ctx, work, stage) {
     const durationSeconds = parseFloat(info.format?.duration || '0');
     const sizeBytes = (await fsp.stat(file)).size;
     const allowSilent = String(process.env.VIDEO_ALLOW_SILENT).toLowerCase() === 'true';
+    // A blurry, rushed or overlong video is worse than our own: outside these it falls back.
+    const minSide = parseInt(process.env.REKKA_MIN_SHORT_SIDE || '720', 10);
+    const minSeconds = parseFloat(process.env.REKKA_MIN_SECONDS || '60');
+    const maxSeconds = targetDuration(null)[1] + 20;
+    const shortSide = v ? Math.min(v.width, v.height) : 0;
     const checks = [
       { name: 'readable', passed: true, detail: info.format?.format_name || '' },
       { name: 'video_stream', passed: !!v, detail: v ? `${v.codec_name} ${v.width}x${v.height}` : 'missing' },
+      { name: 'resolution', passed: shortSide >= minSide, detail: v ? `${v.width}x${v.height} (min short side ${minSide})` : '' },
       { name: 'audio_stream', passed: !!a || allowSilent, detail: a ? a.codec_name : 'missing' },
-      { name: 'duration', passed: durationSeconds >= 10, detail: `${durationSeconds.toFixed(1)}s` },
+      { name: 'duration', passed: durationSeconds >= minSeconds && durationSeconds <= maxSeconds, detail: `${durationSeconds.toFixed(1)}s (${minSeconds}–${maxSeconds}s)` },
       { name: 'file_size', passed: sizeBytes > 20 * 1024, detail: `${sizeBytes} bytes` },
     ];
     await ctx.update({ checks });
@@ -281,7 +287,7 @@ async function runLessonVideo(job, ctx) {
         subject: subject.key,
         level: cfg.level,
         language: cfg.language,
-        durationSec: cfg.durationSec || subject.durationSec,
+        durationSec: targetDuration(cfg.durationSec || subject.durationSec),
         figures: src.figures,
         variant,
         experimentInfo: assessment,

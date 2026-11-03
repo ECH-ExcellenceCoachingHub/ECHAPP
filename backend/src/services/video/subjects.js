@@ -130,4 +130,15 @@ function subjectByKey(key) {
   return SUBJECTS.find(s => s.key === key) || (key === GENERAL_SCIENCE.key ? GENERAL_SCIENCE : GENERAL);
 }
 
-module.exports = { SCENE_TYPES, SUBJECTS, EXPERIMENT_SCENES, HANDS_ON_PHASES, detectSubject, subjectByKey };
+/**
+ * Target length [min, max] in seconds, capped at VIDEO_MAX_SECONDS (default
+ * 240 — lessons are at most 4 minutes). Accepts a range or a single number.
+ */
+function targetDuration(range) {
+  const cap = parseInt(process.env.VIDEO_MAX_SECONDS || '240', 10) || 240;
+  const [lo, hi] = Array.isArray(range) ? range : [range, range];
+  const max = Math.min(Number(hi) || cap, cap);
+  return [Math.min(Number(lo) || max, Math.round(max * 0.75)), max];
+}
+
+module.exports = { SCENE_TYPES, SUBJECTS, EXPERIMENT_SCENES, HANDS_ON_PHASES, detectSubject, subjectByKey, targetDuration };

@@ -77,8 +77,10 @@ services:
         sync: false
       - key: REKKA_API_KEY # primary lesson-video provider (rk_live_…); without it, or if Rekka fails, the TTS + Wikimedia pipeline below is used
         sync: false
-      - key: REKKA_STYLE # whiteboard | chalkboard | crayon
-        value: whiteboard
+      - key: REKKA_STYLE # optional override: chalkboard | whiteboard | crayon (default: chalkboard for maths/sciences, whiteboard otherwise)
+        sync: false
+      - key: REKKA_MIN_SHORT_SIDE # quality gate: Rekka videos below this frame size (px) fall back to the in-house pipeline
+        value: "720"
       - key: REKKA_USD_PER_CREDIT # optional — counts Rekka credits against the video spending limits
         sync: false
       - key: ELEVENLABS_API_KEY # optional — without it narration uses espeak-ng (free, robotic)

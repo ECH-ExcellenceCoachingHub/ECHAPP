@@ -1,6 +1,6 @@
 const katex = require('katex');
 const { parse: parseExpression } = require('../../utils/mathExpression');
-const { SCENE_TYPES, EXPERIMENT_SCENES, HANDS_ON_PHASES, subjectByKey } = require('./subjects');
+const { SCENE_TYPES, EXPERIMENT_SCENES, HANDS_ON_PHASES, subjectByKey, targetDuration } = require('./subjects');
 const { SIMULATION_DISCLOSURE } = require('./experiment');
 
 /**
@@ -558,7 +558,7 @@ function splitSentences(text) {
 async function generateStoryboard(input, { completeJson, onUsage }) {
   const subject = subjectByKey(input.subject);
   const allowedTypes = input.variant === 'experiment' ? EXPERIMENT_SCENES : subject.scenes;
-  const durationSec = input.durationSec || subject.durationSec;
+  const durationSec = targetDuration(input.durationSec || subject.durationSec);
   const prompt = buildPrompt({ ...input, durationSec });
   const ask = (extra) => completeJson(prompt + extra, {
     maxTokens: 7000,
