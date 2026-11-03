@@ -14,6 +14,7 @@ const { subjectByKey } = require('./subjects');
 const { assessExperiment } = require('./experiment');
 const { resolveTts } = require('./providers/tts');
 const { resolveVideoProvider } = require('./providers/video');
+const rekka = require('./providers/rekka');
 const { renderScenes, animFps } = require('./render/renderer');
 const { layoutOf, PANEL } = require('./render/scene-html');
 const assembler = require('./render/assembler');
@@ -26,6 +27,10 @@ const { contentText } = require('../course-builder/integrity.service');
 
 /**
  * Worker handler for `lesson_video` jobs.
+ *
+ * Primary: Rekka AI makes the whole narrated video (see providers/rekka.js).
+ * If it is not configured, out of credits, fails or times out, the job falls
+ * back to our own pipeline below (TTS narration + Wikimedia/stock media):
  *
  *   generating_script   storyboard from the lesson (LLM) → validated, saved
  *   generating_audio    narration per scene (TTS) → stored, durations measured
@@ -139,6 +144,97 @@ async function loadSource(job) {
   return { item, lesson, content, title: item?.title || lesson?.title || 'Lesson', buildJob, figures };
 }
 
+/**
+ * Primary path: one full video from Rekka AI. Returns the job result, or null
+ * to fall back to the in-house pipeline. The Rekka job id is saved on the job,
+ * so a retry resumes polling instead of paying for a second video, and a
+ * failure is remembered so retries go straight to the fallback.
+ */
+async function tryRekka(job, src, ctx, work, stage) {
+  if (!rekka.isEnabled()) return null;
+  const prior = job.artifacts?.rekka;
+  if (prior?.failed) return null;
+  const cfg = job.config || {};
+  const subject = subjectByKey(cfg.subject);
+  try {
+    await stage('generating_visuals', 'Generating the full video with Rekka AI');
+    let id = prior?.id;
+    if (!id) {
+      const durationSec = cfg.durationSec || subject.durationSec;
+      const credits = rekka.estimateCredits(durationSec);
+      const rate = rekka.usdPerCredit();
+      if (rate != null) await cost.assertWithinBudget({ job: await refreshCost(job), buildJob: src.buildJob, estimateUsd: credits * rate });
+      const balance = await rekka.getCredits({ signal: ctx.signal });
+      if (balance != null && balance < credits) throw Object.assign(new Error(`Rekka has ${balance} credit(s) left, about ${credits} needed`), { code: 'REKKA_NO_CREDITS' });
+      const body = rekka.buildRequest({ title: src.title, content: src.content, subject: subject.key, level: cfg.level, language: cfg.language, durationSec });
+      const created = await rekka.createVideo(body, { signal: ctx.signal });
+      id = created.id;
+      await ctx.saveArtifacts({ rekka: { id, status: created.status, request: body, at: Date.now() } });
+      await ctx.addProviderRequest({ stage: 'generating_visuals', provider: rekka.name, requestId: id });
+    }
+    ctx.log(`Rekka video ${id}: waiting for it to finish`);
+    const video = await rekka.waitForVideo(id, { signal: ctx.signal, onPoll: () => ctx.checkpoint() });
+
+    await stage('validating', 'Checking the Rekka video');
+    const file = path.join(work, 'rekka.mp4');
+    await rekka.downloadVideo(video, file, { signal: ctx.signal });
+    const info = await assembler.probe(file, { signal: ctx.signal });
+    const v = (info.streams || []).find(s => s.codec_type === 'video');
+    const a = (info.streams || []).find(s => s.codec_type === 'audio');
+    const durationSeconds = parseFloat(info.format?.duration || '0');
+    const sizeBytes = (await fsp.stat(file)).size;
+    const allowSilent = String(process.env.VIDEO_ALLOW_SILENT).toLowerCase() === 'true';
+    const checks = [
+      { name: 'readable', passed: true, detail: info.format?.format_name || '' },
+      { name: 'video_stream', passed: !!v, detail: v ? `${v.codec_name} ${v.width}x${v.height}` : 'missing' },
+      { name: 'audio_stream', passed: !!a || allowSilent, detail: a ? a.codec_name : 'missing' },
+      { name: 'duration', passed: durationSeconds >= 10, detail: `${durationSeconds.toFixed(1)}s` },
+      { name: 'file_size', passed: sizeBytes > 20 * 1024, detail: `${sizeBytes} bytes` },
+    ];
+    await ctx.update({ checks });
+    const failed = checks.filter(c => !c.passed);
+    if (failed.length) throw Object.assign(new Error(`Rekka video failed quality checks — ${failed.map(c => `${c.name}: ${c.detail}`).join('; ')}`), { code: 'VALIDATION_FAILED' });
+
+    const usedCredits = rekka.estimateCredits(durationSeconds);
+    const rate = rekka.usdPerCredit();
+    await ctx.addCost({ stage: 'generating_visuals', provider: rekka.name, units: usedCredits, unit: 'credits', usd: rate != null ? usedCredits * rate : 0, requestId: id });
+
+    const variant = job.variant || 'explainer';
+    const base = `${videoJobs.AI_VIDEO_PREFIX}${job.courseId}/${job.buildItemId || job.lessonId}/${variant}-v${job.contentVersion}-${job._id}`;
+    const posterFile = await assembler.poster(file, path.join(work, 'poster.jpg'), { signal: ctx.signal }).catch(() => null);
+    const uploaded = await storage.put(`${base}.mp4`, file, 'video/mp4');
+    const poster = posterFile ? await storage.put(`${base}.jpg`, posterFile, 'image/jpeg') : null;
+    await ctx.saveArtifacts({ rekka: { ...job.artifacts.rekka, status: 'done' } });
+
+    // Experiment videos (and everything, with VIDEO_REQUIRE_REVIEW) need a human check.
+    const reviewRequired = String(process.env.VIDEO_REQUIRE_REVIEW || 'false').toLowerCase() === 'true' || variant === 'experiment';
+    const review = { required: reviewRequired, status: reviewRequired ? 'pending' : 'not_required', reasons: reviewRequired ? ['Video made by Rekka AI from the lesson summary'] : [] };
+    await ctx.update({ review });
+    job.review = review;
+
+    return {
+      provider: rekka.name,
+      s3Key: uploaded.key,
+      url: uploaded.url,
+      captionsKey: null,
+      captionsUrl: null,
+      posterKey: poster?.key || null,
+      durationSeconds: Math.round(durationSeconds * 10) / 10,
+      sizeBytes,
+      sceneCount: 0,
+      narrated: !!a,
+      transcript: null,
+      interactions: [],
+      credits: [],
+    };
+  } catch (e) {
+    if (ctx.signal?.aborted) throw e; // cancelled / timed out: not a reason to fall back
+    ctx.log(`Rekka failed (${e.code || e.status || 'error'}): ${e.message} — falling back to the narrated pipeline`);
+    await ctx.saveArtifacts({ rekka: { ...(job.artifacts?.rekka || {}), failed: true, reason: e.message, failedAt: Date.now() } });
+    return null;
+  }
+}
+
 async function runLessonVideo(job, ctx) {
   const stage = async (name, message) => {
     await ctx.stage(name, message);
@@ -146,12 +242,24 @@ async function runLessonVideo(job, ctx) {
   };
   resolveVideoProvider(); // fails clearly if VIDEO_RENDER_PROVIDER is unknown
 
-  // Partial regeneration requested by an admin.
-  if (job.restartFrom === 'script') await ctx.unsetArtifacts(['storyboard', 'audio', 'media', 'mediaWarnings']);
+  // Partial regeneration requested by an admin. A full regeneration ("script")
+  // asks Rekka for a new video; audio/visuals only exist in our own pipeline.
+  if (job.restartFrom === 'script') await ctx.unsetArtifacts(['storyboard', 'audio', 'media', 'mediaWarnings', 'rekka']);
   if (job.restartFrom === 'audio') await ctx.unsetArtifacts(['audio']);
-  if (job.restartFrom === 'visuals') await ctx.unsetArtifacts(['media', 'mediaWarnings']);  if (job.restartFrom) await ctx.update({ restartFrom: null });
+  if (job.restartFrom === 'visuals') await ctx.unsetArtifacts(['media', 'mediaWarnings']);
+  if (job.restartFrom === 'audio' || job.restartFrom === 'visuals') await ctx.saveArtifacts({ rekka: { ...(job.artifacts?.rekka || {}), failed: true, reason: `admin regenerated ${job.restartFrom}` } });
+  if (job.restartFrom) await ctx.update({ restartFrom: null });
 
   const src = await loadSource(job);
+
+  const primaryWork = await fsp.mkdtemp(path.join(os.tmpdir(), 'ech-rekka-'));
+  try {
+    const primary = await tryRekka(job, src, ctx, primaryWork, stage);
+    if (primary) return primary;
+  } finally {
+    await fsp.rm(primaryWork, { recursive: true, force: true }).catch(() => {});
+  }
+
   const cfg = job.config || {};
   const variant = job.variant || 'explainer';
   const subject = subjectByKey(cfg.subject);

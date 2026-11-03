@@ -86,7 +86,11 @@ Video metadata (`aiVideo`):
 
 Trigger: the course-builder runner saves a generated lesson draft → `onLessonContentSaved` → one `explainer` job (+ an `experiment` job for physics/chemistry/biology lessons that describe a practical). The job key is `video:item:<id>:v<contentVersion>:<variant>:<configHash>`, so repeated events never duplicate work. Courses stay usable throughout.
 
-Worker stages (each saved on the job so a retry resumes there):
+**Primary provider — Rekka AI** (`src/services/video/providers/rekka.js`, [API docs](https://rekkaai.com/docs)). When `REKKA_API_KEY` is set (and `VIDEO_PRIMARY_PROVIDER` is not `pipeline`), the job first asks Rekka for the whole narrated video: topic = lesson title, prompt = level, summary, objectives, key points/terms and formulas (≤ 2000 chars), `REKKA_STYLE` (default `whiteboard`), `REKKA_FORMAT` (default `landscape`), length from the target duration (or `REKKA_LENGTH`). It polls `GET /v1/videos/:id` (`REKKA_POLL_MS`, default 10 s) for up to `REKKA_TIMEOUT_MS` (default 12 min), downloads the private MP4 with the bearer token, checks it (video + audio streams, ≥ 10 s, size) and uploads it with a poster. The Rekka job id is saved in `artifacts.rekka`, so a retry resumes polling instead of buying a second video. Credits are recorded in `cost.items` (USD only if `REKKA_USD_PER_CREDIT` is set, which also applies the spending limits). Rekka videos have no captions or in-video check questions; experiment videos always go to review.
+
+**Fallback.** If Rekka is not configured, has too few credits, returns an HTTP error, reports `error`, times out, or its file fails the checks, `artifacts.rekka.failed` is set and the same job continues with the in-house pipeline below (TTS narration + Wikimedia/Pexels/Pixabay media). Later retries go straight to the fallback. Admin "regenerate script" clears `artifacts.rekka` and tries Rekka again; "regenerate audio/visuals" uses the in-house pipeline.
+
+Worker stages of the in-house pipeline (each saved on the job so a retry resumes there):
 
 | Stage | Work |
 |---|---|
