@@ -8,6 +8,7 @@ import 'package:excellencecoachinghub/models/enrollment.dart';
 import 'package:excellencecoachinghub/models/live_session.dart';
 import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/widgets/enhanced_course_navigation.dart';
+import 'package:excellencecoachinghub/widgets/unenroll_dialog.dart';
 import 'package:excellencecoachinghub/services/live_session_service.dart';
 
 final enrollmentFilterProvider = StateProvider<String>((ref) => 'all');
@@ -436,6 +437,39 @@ class _EnrolledCoursesScreenState extends ConsumerState<EnrolledCoursesScreen> {
     );
   }
 
+  Widget _buildCourseOptionsButton(String courseId, String courseTitle) {
+    return Material(
+      color: Colors.black.withOpacity(0.45),
+      shape: const CircleBorder(),
+      child: SizedBox(
+        width: 30,
+        height: 30,
+        child: PopupMenuButton<String>(
+          padding: EdgeInsets.zero,
+          tooltip: 'Course options',
+          icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 18),
+          onSelected: (value) async {
+            if (value == 'unenroll') {
+              await confirmAndUnenroll(context, ref, courseId: courseId, courseTitle: courseTitle);
+            }
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem<String>(
+              value: 'unenroll',
+              child: Row(
+                children: [
+                  Icon(Icons.logout_rounded, color: Colors.red, size: 18),
+                  SizedBox(width: 10),
+                  Text('Unenroll from course', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCourseCard(BuildContext context, Enrollment enrollment, bool isGrid) {
     final course = enrollment.course;
     if (course == null) return const SizedBox.shrink();
@@ -512,6 +546,11 @@ class _EnrolledCoursesScreenState extends ConsumerState<EnrolledCoursesScreen> {
                             color: AppTheme.primaryGreen,
                             size: 40,
                           ),
+                  ),
+                  Positioned(
+                    top: 4,
+                    left: 4,
+                    child: _buildCourseOptionsButton(course.id, course.title),
                   ),
                   Positioned(
                     top: 8,

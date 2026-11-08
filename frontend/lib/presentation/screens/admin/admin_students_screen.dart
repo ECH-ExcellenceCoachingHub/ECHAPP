@@ -1206,6 +1206,34 @@ class _AdminStudentsScreenState extends ConsumerState<AdminStudentsScreen> {
 
 }
 
+/// Label for enrollments the learner left or an admin suspended, with the date.
+Widget _enrollmentLifecycleBadge(Enrollment enrollment, String Function(DateTime) formatDate) {
+  final suspended = enrollment.isSuspended;
+  final date = suspended ? enrollment.suspendedAt : enrollment.unenrolledAt;
+  final label = suspended ? 'Suspended' : 'Unenrolled by learner';
+  final color = suspended ? Colors.amber.shade800 : Colors.blueGrey;
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+        ),
+      ),
+      if (date != null) ...[
+        const SizedBox(width: 6),
+        Text(formatDate(date), style: const TextStyle(fontSize: 11, color: AppTheme.greyColor)),
+      ],
+    ],
+  );
+}
+
 // Student Enrollments Modal Widget
 class StudentEnrollmentsModal extends StatefulWidget {
   final StudentDetail studentDetail;
@@ -1228,6 +1256,53 @@ class StudentEnrollmentsModal extends StatefulWidget {
 class _StudentEnrollmentsModalState extends State<StudentEnrollmentsModal> {
   final AdminService _adminService = AdminService();
   bool _isUnenrolling = false;
+  bool _isUpdatingStatus = false;
+
+  Future<void> _toggleSuspension(Enrollment enrollment) async {
+    final suspend = !enrollment.isSuspended;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(suspend ? 'Suspend access?' : 'Reinstate access?'),
+        content: Text(suspend
+            ? 'The student will temporarily lose access to "${_getCourseTitle(enrollment)}". Their progress is kept and you can reinstate them at any time.'
+            : 'The student will regain access to "${_getCourseTitle(enrollment)}" with their progress intact.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(suspend ? 'Suspend' : 'Reinstate'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isUpdatingStatus = true);
+    try {
+      await _adminService.updateEnrollmentStatus(enrollment.id, suspend ? 'suspended' : 'active');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(suspend ? 'Access suspended' : 'Access reinstated'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        widget.onClose();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUpdatingStatus = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1511,6 +1586,10 @@ class _StudentEnrollmentsModalState extends State<StudentEnrollmentsModal> {
                             color: AppTheme.greyColor,
                           ),
                         ),
+                        if (!enrollment.isActiveEnrollment) ...[
+                          const SizedBox(height: 4),
+                          _enrollmentLifecycleBadge(enrollment, _formatDateSimple),
+                        ],
                       ],
                     ),
                   ),
@@ -1535,6 +1614,24 @@ class _StudentEnrollmentsModalState extends State<StudentEnrollmentsModal> {
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
                           ),
+                          if (!enrollment.isUnenrolled) ...[
+                            const SizedBox(width: 4),
+                            IconButton(
+                              icon: Icon(
+                                enrollment.isSuspended
+                                    ? Icons.play_circle_outline
+                                    : Icons.pause_circle_outline,
+                                color: Colors.amber.shade800,
+                                size: 18,
+                              ),
+                              onPressed: _isUpdatingStatus
+                                  ? null
+                                  : () => _toggleSuspension(enrollment),
+                              tooltip: enrollment.isSuspended ? 'Reinstate access' : 'Suspend access',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
                           const SizedBox(width: 4),
                           IconButton(
                             icon: _isUnenrolling
@@ -2307,6 +2404,10 @@ class StudentDetailModal extends StatelessWidget {
                             color: AppTheme.greyColor,
                           ),
                         ),
+                        if (!enrollment.isActiveEnrollment) ...[
+                          const SizedBox(height: 4),
+                          _enrollmentLifecycleBadge(enrollment, _formatDateSimple),
+                        ],
                       ],
                     ),
                   ),

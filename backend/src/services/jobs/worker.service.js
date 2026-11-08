@@ -168,6 +168,9 @@ class JobWorker {
     } catch (err) {
       if (record.released) {
         ctx.log('released for another worker (shutdown)');
+      } else if (err?.code === 'DEFERRED' && !controller.signal.aborted) {
+        await queue.defer(job._id, owner, err.delayMs || 60000);
+        ctx.log(`deferred ${Math.round((err.delayMs || 60000) / 1000)}s: ${err.message}`);
       } else if (err instanceof JobCancelledError || err?.code === 'CANCELLED') {
         await queue.markCancelled(job._id, owner);
         ctx.log(`cancelled: ${err.message}`);

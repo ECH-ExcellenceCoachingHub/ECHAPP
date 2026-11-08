@@ -39,6 +39,17 @@ final courseAccessProvider = FutureProvider.family<Map<String, dynamic>?, String
   }
 });
 
+// Enrollment status for a course (none/active/unenrolled/suspended), used to
+// offer "Re-enroll" or show a suspension notice on the course page.
+final enrollmentStatusProvider = FutureProvider.family<EnrollmentStatusInfo, String>((ref, courseId) async {
+  final repository = ref.read(enrollmentRepositoryProvider);
+  try {
+    return await repository.getEnrollmentStatus(courseId);
+  } catch (_) {
+    return const EnrollmentStatusInfo(status: 'none');
+  }
+});
+
 // Provider for enrolled courses with offline support
 final enrolledCoursesProvider = FutureProvider<List<Course>>((ref) async {
   final repository = ref.read(enrollmentRepositoryProvider);
@@ -114,17 +125,42 @@ class EnrollmentNotifier extends AsyncNotifier<void> {
   Future<void> enrollInCourse(String courseId) async {
     final repository = ref.read(enrollmentRepositoryProvider);
     state = const AsyncValue.loading();
-    
+
     try {
       await repository.enrollInCourse(courseId);
       state = const AsyncValue.data(null);
-      
+
       // Refresh enrolled courses
-      ref.invalidate(enrolledCoursesProvider);
-      ref.invalidate(isEnrolledInCourseProvider(courseId));
+      _invalidateCourse(courseId);
     } catch (e) {
       state = AsyncValue.error(e, StackTrace.current);
+      // Callers show the failure to the learner
+      rethrow;
     }
+  }
+
+  /// Leave a course. Completed lessons, quiz results and certificates are
+  /// kept on the server, and the learner can enroll again later.
+  Future<void> unenrollFromCourse(String courseId) async {
+    final repository = ref.read(enrollmentRepositoryProvider);
+    state = const AsyncValue.loading();
+
+    try {
+      await repository.unenrollFromCourse(courseId);
+      state = const AsyncValue.data(null);
+      _invalidateCourse(courseId);
+    } catch (e) {
+      state = AsyncValue.error(e, StackTrace.current);
+      rethrow;
+    }
+  }
+
+  void _invalidateCourse(String courseId) {
+    ref.invalidate(enrolledCoursesProvider);
+    ref.invalidate(userEnrollmentsProvider);
+    ref.invalidate(isEnrolledInCourseProvider(courseId));
+    ref.invalidate(courseAccessProvider(courseId));
+    ref.invalidate(enrollmentStatusProvider(courseId));
   }
 
   Future<void> markLessonComplete(String lessonId, String courseId) async {

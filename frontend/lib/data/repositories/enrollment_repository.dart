@@ -13,6 +13,16 @@ class EnrollmentRepository {
     return await _enrollmentService.enrollInCourse(courseId);
   }
 
+  /// Unenroll from a course (progress is preserved server-side)
+  Future<void> unenrollFromCourse(String courseId) async {
+    return await _enrollmentService.unenrollFromCourse(courseId);
+  }
+
+  /// Enrollment status for one course (none/active/unenrolled/suspended)
+  Future<EnrollmentStatusInfo> getEnrollmentStatus(String courseId) async {
+    return await _enrollmentService.getEnrollmentStatus(courseId);
+  }
+
   /// Get user's enrollment details
   Future<List<Enrollment>> getEnrollments() async {
     return await _enrollmentService.getEnrollments();

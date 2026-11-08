@@ -22,6 +22,248 @@ const isEnrollmentExpired = (enrollment) => {
   return currentDate > enrollment.accessExpirationDate;
 };
 
+const SUSPENDED_MESSAGE = 'Your access to this course has been suspended by an administrator. Please contact support.';
+
+// Work out when a new (or renewed) enrollment's access should end
+const calculateAccessExpirationDate = (course, from = new Date()) => {
+  const date = new Date(from);
+  if (course.accessDuration) {
+    const value = course.accessDuration;
+    switch (course.accessDurationUnit || 'days') {
+      case 'hours':
+        date.setHours(date.getHours() + value);
+        break;
+      case 'weeks':
+        date.setDate(date.getDate() + (value * 7));
+        break;
+      case 'months':
+        date.setMonth(date.getMonth() + value);
+        break;
+      case 'years':
+        date.setFullYear(date.getFullYear() + value);
+        break;
+      case 'days':
+      default:
+        date.setDate(date.getDate() + value);
+    }
+    return date;
+  }
+  if (course.accessDurationDays) {
+    date.setDate(date.getDate() + course.accessDurationDays);
+    return date;
+  }
+  return null;
+};
+
+// Whether the learner holds a payment for this course that is still valid.
+// Unenrolling never refunds or cancels a payment, so a learner who paid can
+// re-enroll without paying again while their original access period lasts.
+const hasValidPaidAccess = async (enrollment, course) => {
+  if (!course.price || course.price <= 0) return true;
+  if (isEnrollmentExpired(enrollment)) return false;
+  if (enrollment.paymentId) return true;
+  const payment = await Payment.findOne({
+    userId: enrollment.userId,
+    courseId: course._id,
+    status: { $in: ['completed', 'approved'] }
+  }).select('_id').lean();
+  return !!payment;
+};
+
+// Reactivate an enrollment the learner previously left. All earlier progress
+// (completed lessons, sections, quiz results, certificates) is restored as-is.
+const reenrollInCourse = async (req, res, enrollment, course) => {
+  if (course.isPublished === false) {
+    return sendError(res, 'This course is not currently available for enrollment', 400);
+  }
+
+  if (course.price > 0) {
+    if (!(await hasValidPaidAccess(enrollment, course))) {
+      return sendError(res, 'Payment required for this course', 400);
+    }
+  } else if (isEnrollmentExpired(enrollment)) {
+    // Free course whose old access window has lapsed: start a fresh window
+    enrollment.accessExpirationDate = calculateAccessExpirationDate(course);
+  }
+
+  enrollment.setStatus('active', { changedBy: req.user.id, reason: 'Re-enrolled by learner' });
+  enrollment.unenrolledAt = null;
+  await enrollment.save();
+
+  await Course.findByIdAndUpdate(course._id, { $inc: { enrollmentCount: 1 } });
+
+  sendSuccess(res, transformUrls(enrollment.toObject()), 'Welcome back! Your previous progress has been restored.', 200);
+};
+
+// Learner voluntarily leaves a course.
+// - The enrollment is kept with status "unenrolled"; nothing is deleted, so
+//   completed lessons, quiz results, certificates and history are preserved.
+// - Payments are never touched: no refund or cancellation is triggered.
+const unenrollFromCourse = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user.id;
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.slice(0, 500) : null;
+
+    if (!mongoose.Types.ObjectId.isValid(courseId)) {
+      return sendError(res, 'Invalid course ID', 400);
+    }
+
+    const enrollment = await Enrollment.findOne({ userId, courseId, status: Enrollment.ANY_STATUS });
+
+    if (!enrollment || enrollment.status === 'unenrolled') {
+      return sendNotFound(res, 'You are not enrolled in this course');
+    }
+    if (enrollment.status === 'suspended') {
+      // Otherwise a suspended learner could unenroll + re-enroll to lift the suspension
+      return sendError(res, SUSPENDED_MESSAGE, 403);
+    }
+
+    enrollment.setStatus('unenrolled', { changedBy: userId, reason });
+    await enrollment.save();
+
+    await Course.updateOne(
+      { _id: courseId, enrollmentCount: { $gt: 0 } },
+      { $inc: { enrollmentCount: -1 } }
+    );
+
+    sendSuccess(res, {
+      enrollmentId: enrollment._id,
+      courseId,
+      status: enrollment.status,
+      unenrolledAt: enrollment.unenrolledAt
+    }, 'You have been unenrolled. Your progress has been saved.');
+  } catch (error) {
+    sendError(res, 'Failed to unenroll from course', 500, error.message);
+  }
+};
+
+// Learner-facing summary of their relationship with a course, so the course
+// page can offer Enroll / Re-enroll / show a suspension notice.
+const getEnrollmentStatus = async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(courseId)) {
+      return sendError(res, 'Invalid course ID', 400);
+    }
+
+    const enrollment = await Enrollment.findOne({
+      userId: req.user.id,
+      courseId,
+      status: Enrollment.ANY_STATUS
+    });
+
+    if (!enrollment) {
+      return sendSuccess(res, { status: 'none', canReenrollWithoutPayment: false }, 'Not enrolled');
+    }
+
+    const status = enrollment.status || 'active';
+    let canReenrollWithoutPayment = false;
+    if (status === 'unenrolled') {
+      const course = await Course.findById(courseId).select('price isPublished');
+      canReenrollWithoutPayment = !!course && course.isPublished !== false
+        && await hasValidPaidAccess(enrollment, course);
+    }
+
+    sendSuccess(res, {
+      status,
+      enrollmentId: enrollment._id,
+      progress: enrollment.progress,
+      unenrolledAt: enrollment.unenrolledAt,
+      suspendedAt: enrollment.suspendedAt,
+      canReenrollWithoutPayment
+    }, 'Enrollment status retrieved successfully');
+  } catch (error) {
+    sendError(res, 'Failed to retrieve enrollment status', 500, error.message);
+  }
+};
+
+// Admin: suspend or reinstate a learner's enrollment
+const updateEnrollmentStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, reason } = req.body;
+
+    if (!['active', 'suspended'].includes(status)) {
+      return sendError(res, "Status must be 'active' or 'suspended'", 400);
+    }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return sendError(res, 'Invalid enrollment ID', 400);
+    }
+
+    const enrollment = await Enrollment.findOne({ _id: id, status: Enrollment.ANY_STATUS });
+    if (!enrollment) {
+      return sendNotFound(res, 'Enrollment not found');
+    }
+
+    const current = enrollment.status || 'active';
+    if (current === status) {
+      return sendError(res, `Enrollment is already ${status}`, 400);
+    }
+    if (current === 'unenrolled') {
+      // The learner left voluntarily; reinstating is their decision
+      return sendError(res, 'This learner has unenrolled from the course. They can re-enroll themselves.', 400);
+    }
+
+    enrollment.setStatus(status, {
+      changedBy: req.user.id,
+      reason: typeof reason === 'string' ? reason.slice(0, 500) : null
+    });
+    await enrollment.save();
+
+    await Course.updateOne(
+      status === 'suspended'
+        ? { _id: enrollment.courseId, enrollmentCount: { $gt: 0 } }
+        : { _id: enrollment.courseId },
+      { $inc: { enrollmentCount: status === 'suspended' ? -1 : 1 } }
+    );
+
+    sendSuccess(res, {
+      id: enrollment._id,
+      status: enrollment.status,
+      suspendedAt: enrollment.suspendedAt,
+      statusHistory: enrollment.statusHistory
+    }, status === 'suspended' ? 'Enrollment suspended' : 'Enrollment reinstated');
+  } catch (error) {
+    sendError(res, 'Failed to update enrollment status', 500, error.message);
+  }
+};
+
+// Admin: full enrollment history for a course or learner, including
+// unenrolled and suspended records.
+const getEnrollmentHistory = async (req, res) => {
+  try {
+    const { userId, courseId, status } = req.query;
+    const filter = {
+      status: Enrollment.STATUSES.includes(status) ? status : Enrollment.ANY_STATUS
+    };
+    if (userId) {
+      if (!mongoose.Types.ObjectId.isValid(userId)) return sendError(res, 'Invalid user ID', 400);
+      filter.userId = userId;
+    }
+    if (courseId) {
+      if (!mongoose.Types.ObjectId.isValid(courseId)) return sendError(res, 'Invalid course ID', 400);
+      filter.courseId = courseId;
+    }
+    if (!userId && !courseId) {
+      return sendError(res, 'Provide userId and/or courseId', 400);
+    }
+
+    const enrollments = await Enrollment.find(filter)
+      .select('userId courseId enrollmentDate status unenrolledAt suspendedAt statusHistory progress completionStatus')
+      .populate('userId', 'fullName email')
+      .populate('courseId', 'title')
+      .populate('statusHistory.changedBy', 'fullName role')
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    sendSuccess(res, enrollments.map(e => ({ ...e, status: e.status || 'active' })), 'Enrollment history retrieved successfully');
+  } catch (error) {
+    sendError(res, 'Failed to retrieve enrollment history', 500, error.message);
+  }
+};
+
 // Enroll in a course
 const enrollInCourse = async (req, res) => {
   try {
@@ -34,10 +276,20 @@ const enrollInCourse = async (req, res) => {
       return sendNotFound(res, 'Course not found');
     }
 
-    // Check if already enrolled
-    const existingEnrollment = await Enrollment.findOne({ userId, courseId });
+    // Check for any previous enrollment, including unenrolled/suspended ones
+    const existingEnrollment = await Enrollment.findOne({
+      userId,
+      courseId,
+      status: Enrollment.ANY_STATUS
+    });
     if (existingEnrollment) {
-      return sendError(res, 'Already enrolled in this course', 400);
+      if (existingEnrollment.isActive()) {
+        return sendError(res, 'Already enrolled in this course', 400);
+      }
+      if (existingEnrollment.status === 'suspended') {
+        return sendError(res, SUSPENDED_MESSAGE, 403);
+      }
+      return reenrollInCourse(req, res, existingEnrollment, course);
     }
 
     // Check if course is free or payment exists for paid courses
@@ -53,36 +305,7 @@ const enrollInCourse = async (req, res) => {
       }
     }
 
-    // Calculate access expiration date based on course duration
-    let accessExpirationDate = null;
-    if (course.accessDuration) {
-      accessExpirationDate = new Date();
-      const unit = course.accessDurationUnit || 'days';
-      const value = course.accessDuration;
-      
-      switch (unit) {
-        case 'hours':
-          accessExpirationDate.setHours(accessExpirationDate.getHours() + value);
-          break;
-        case 'days':
-          accessExpirationDate.setDate(accessExpirationDate.getDate() + value);
-          break;
-        case 'weeks':
-          accessExpirationDate.setDate(accessExpirationDate.getDate() + (value * 7));
-          break;
-        case 'months':
-          accessExpirationDate.setMonth(accessExpirationDate.getMonth() + value);
-          break;
-        case 'years':
-          accessExpirationDate.setFullYear(accessExpirationDate.getFullYear() + value);
-          break;
-        default:
-          accessExpirationDate.setDate(accessExpirationDate.getDate() + value);
-      }
-    } else if (course.accessDurationDays) {
-      accessExpirationDate = new Date();
-      accessExpirationDate.setDate(accessExpirationDate.getDate() + course.accessDurationDays);
-    }
+    const accessExpirationDate = calculateAccessExpirationDate(course);
 
     // Create enrollment
     const enrollment = await Enrollment.create({
@@ -742,6 +965,10 @@ const generateCertificateManually = async (req, res) => {
 
 module.exports = {
   enrollInCourse,
+  unenrollFromCourse,
+  getEnrollmentStatus,
+  updateEnrollmentStatus,
+  getEnrollmentHistory,
   getMyCourses,
   getCourseFeedback,
   submitCourseFeedback,

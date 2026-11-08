@@ -118,6 +118,7 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen>
       ref.invalidate(hasPendingPaymentProvider(widget.courseId));
       ref.invalidate(isEnrolledInCourseProvider(widget.courseId));
       ref.invalidate(courseAccessProvider(widget.courseId));
+      ref.invalidate(enrollmentStatusProvider(widget.courseId));
       ref.invalidate(courseStatsProvider(widget.courseId));
       ref.invalidate(_courseProvider(widget.courseId));
 
@@ -1145,25 +1146,76 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen>
               );
             }
 
-            final isFree = (course.price ?? 0) == 0;
-            final isLoading = isFree ? _isEnrollmentLoading : _isPaymentLoading;
-
-            return SizedBox(
-              height: 56,
-              child: _buildPurchaseButton(course, isFree, isLoading, isDark, accentColor, l10n),
-            );
+            return _buildPurchaseOrReenroll(ref, course, isDark, accentColor, l10n);
           },
           loading: () => SizedBox(height: 56, child: _buildLoadingButton(isDark)),
-          error: (error, stack) {
-            final isFree = (course.price ?? 0) == 0;
-            final isLoading = isFree ? _isEnrollmentLoading : _isPaymentLoading;
-            return SizedBox(
-              height: 56,
-              child: _buildPurchaseButton(course, isFree, isLoading, isDark, accentColor, l10n),
-            );
-          },
+          error: (error, stack) => _buildPurchaseOrReenroll(ref, course, isDark, accentColor, l10n),
         );
       },
+    );
+  }
+
+  /// Enroll / pay for learners new to the course, "Re-enroll" for learners who
+  /// left it (free courses, or paid ones still covered by their original
+  /// payment), and a notice when an administrator has suspended access.
+  Widget _buildPurchaseOrReenroll(WidgetRef ref, Course course, bool isDark, Color accentColor, AppLocalizations? l10n) {
+    final statusInfo = ref.watch(enrollmentStatusProvider(course.id)).valueOrNull;
+    final isFree = (course.price ?? 0) == 0;
+
+    if (statusInfo?.isSuspended == true) {
+      return _buildSuspendedNotice(isDark);
+    }
+
+    final canReenroll = statusInfo?.isUnenrolled == true &&
+        (isFree || statusInfo!.canReenrollWithoutPayment);
+    final isLoading = (isFree || canReenroll) ? _isEnrollmentLoading : _isPaymentLoading;
+
+    final button = SizedBox(
+      height: 56,
+      child: _buildPurchaseButton(course, isFree, isLoading, isDark, accentColor, l10n, reenroll: canReenroll),
+    );
+    if (!canReenroll) return button;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        button,
+        const SizedBox(height: 8),
+        Text(
+          'Welcome back! Your previous progress will be restored.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? Colors.white70 : const Color(0xFF6B7280),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSuspendedNotice(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(isDark ? 0.15 : 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.amber.withOpacity(0.6)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.pause_circle_outline_rounded, color: Colors.amber),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Your access to this course has been suspended by an administrator. Please contact support.',
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? Colors.white : const Color(0xFF374151),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1241,11 +1293,12 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen>
     );
   }
 
-  Widget _buildPurchaseButton(Course course, bool isFree, bool isLoading, bool isDark, Color accentColor, AppLocalizations? l10n) {
+  Widget _buildPurchaseButton(Course course, bool isFree, bool isLoading, bool isDark, Color accentColor, AppLocalizations? l10n, {bool reenroll = false}) {
     // A punchy, high-contrast color pair so the CTA reads clearly against both
     // the light and dark backgrounds behind it.
-    final glowColor = isFree ? const Color(0xFF00E676) : const Color(0xFFFF7A00);
-    final gradientColors = isFree
+    final greenStyle = isFree || reenroll;
+    final glowColor = greenStyle ? const Color(0xFF00E676) : const Color(0xFFFF7A00);
+    final gradientColors = greenStyle
         ? const [Color(0xFF00E676), Color(0xFF00C853)]
         : const [Color(0xFFFF9100), Color(0xFFFF6D00)];
 
@@ -1278,7 +1331,7 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen>
       child: ElevatedButton(
         onPressed: isLoading ? null : () {
           final ref = context as WidgetRef;
-          if (isFree) {
+          if (isFree || reenroll) {
             _handleEnrollment(ref, course.id);
           } else {
             _handlePayment(ref, course);
@@ -1308,7 +1361,9 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      isFree ? (l10n?.enrollNow ?? 'Enroll Now') : '${l10n?.buyNow ?? 'Pay'} ${(course.price ?? 0).toStringAsFixed(0)} RWF',
+                      reenroll
+                          ? 'Re-enroll'
+                          : isFree ? (l10n?.enrollNow ?? 'Enroll Now') : '${l10n?.buyNow ?? 'Pay'} ${(course.price ?? 0).toStringAsFixed(0)} RWF',
                       maxLines: 1,
                       style: const TextStyle(
                         fontSize: 16,

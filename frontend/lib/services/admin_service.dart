@@ -526,6 +526,29 @@ class AdminService {
   }
 
   /// Update enrollment permissions (admin)
+  /// Suspend (`suspended`) or reinstate (`active`) a learner's enrollment.
+  /// Progress is kept either way.
+  Future<void> updateEnrollmentStatus(String enrollmentId, String status, {String? reason}) async {
+    try {
+      final response = await _apiClient.put(
+        '${ApiConfig.enrollments}/$enrollmentId/status',
+        body: <String, dynamic>{
+          'status': status,
+          if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+        },
+      );
+      response.validateStatus();
+
+      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
+      if (jsonBody['success'] != true) {
+        throw ApiException(jsonBody['message'] as String? ?? 'Failed to update enrollment status');
+      }
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Failed to update enrollment status: $e');
+    }
+  }
+
   Future<void> updateEnrollmentPermissions(
     String enrollmentId, {
     required bool canAccessLiveSessions,

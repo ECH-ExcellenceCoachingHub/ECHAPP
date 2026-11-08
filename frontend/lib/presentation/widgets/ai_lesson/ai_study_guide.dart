@@ -74,12 +74,17 @@ class AiStudyGuideView extends StatefulWidget {
   /// Called with a prompt when the learner taps "Ask AI" on a term/example.
   final void Function(String prompt)? onAskAi;
 
+  /// Shown right after the lesson notes card (e.g. the lesson video), or in
+  /// its place when the guide has no notes.
+  final Widget? afterNotes;
+
   const AiStudyGuideView({
     super.key,
     required this.content,
     this.palette,
     this.pageLabel = 'p.',
     this.onAskAi,
+    this.afterNotes,
   });
 
   @override
@@ -184,6 +189,11 @@ class _AiStudyGuideViewState extends State<AiStudyGuideView> {
             title: 'Lesson notes',
             child: _NotesWithImages(notes: notes, images: images, palette: p),
           ),
+        ],
+        if (widget.afterNotes != null) ...[
+          const SizedBox(height: 20),
+          widget.afterNotes!,
+          const SizedBox(height: 4),
         ],
         if (visuals.isNotEmpty) ...[
           const SizedBox(height: 16),

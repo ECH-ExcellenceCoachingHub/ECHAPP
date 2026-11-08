@@ -2754,8 +2754,8 @@ class _ProfessionalLessonScreenState
       );
     }
     // The generated video sits with the notes: beside them on wide screens
-    // (staying in view while the notes scroll); on phones/tablets it follows
-    // the notes, ahead of the practice section.
+    // (staying in view while the notes scroll); on phones/tablets it sits
+    // right after the lesson notes, ahead of the summary/practice sections.
     return LayoutBuilder(builder: (context, constraints) {
       if (constraints.maxWidth >= 960) {
         final videoWidth = (constraints.maxWidth * 0.42).clamp(380.0, 560.0);
@@ -2789,7 +2789,7 @@ class _ProfessionalLessonScreenState
                 _buildLessonPath(),
                 const SizedBox(height: 14),
                 _buildNotesBody(
-                  beforePractice: KeyedSubtree(key: _embeddedVideoKey, child: _buildEmbeddedVideo()),
+                  video: KeyedSubtree(key: _embeddedVideoKey, child: _buildEmbeddedVideo()),
                 ),
               ],
             ),
@@ -2969,14 +2969,17 @@ class _ProfessionalLessonScreenState
     );
   }
 
-  /// [beforePractice] is placed between the notes content and the practice
-  /// section (used for the embedded video on narrow screens).
-  Widget _buildNotesBody({Widget? beforePractice}) {
+  /// [video] (the embedded video on narrow screens) goes right after the
+  /// study guide's lesson notes; with the PDF/text view it follows the notes,
+  /// ahead of the quiz.
+  Widget _buildNotesBody({Widget? video}) {
     final hasPdf =
         _lesson!.notesPdfUrl?.isNotEmpty == true;
     final hasText = _lesson!.notes?.isNotEmpty == true;
     final hasGuide = _lesson!.hasAiGuide;
     final viewCount = [hasGuide, hasPdf, hasText && !hasGuide].where((v) => v).length;
+    final showsGuide = hasGuide && !(_notesTab == _NotesView.pdf && hasPdf);
+    final beforePractice = showsGuide ? null : video;
 
     return ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 820),
@@ -3021,12 +3024,10 @@ class _ProfessionalLessonScreenState
               _buildNotesSwitcher(hasGuide: hasGuide, hasPdf: hasPdf, hasText: hasText && !hasGuide),
               const SizedBox(height: 16),
             ],
-            if (_notesTab == _NotesView.guide && hasGuide)
-              _buildStudyGuide()
+            if (showsGuide)
+              _buildStudyGuide(afterNotes: video)
             else if (_notesTab == _NotesView.pdf && hasPdf)
               _buildPdfViewer()
-            else if (hasGuide)
-              _buildStudyGuide()
             else if (hasText)
               _buildTextNotes()
             else if (hasPdf)
@@ -3040,7 +3041,7 @@ class _ProfessionalLessonScreenState
               const SizedBox(height: 24),
             ],
             if (_lesson!.hasQuiz)
-              beforePractice != null
+              video != null
                   ? KeyedSubtree(key: _practiceKey, child: _buildVideoQuizSection())
                   : _buildVideoQuizSection(),
             const SizedBox(height: 80),
@@ -3049,9 +3050,10 @@ class _ProfessionalLessonScreenState
     );
   }
 
-  Widget _buildStudyGuide() {
+  Widget _buildStudyGuide({Widget? afterNotes}) {
     return AiStudyGuideView(
       content: _lesson!.aiContent!,
+      afterNotes: afterNotes,
       palette: AiGuidePalette(
         text: _textColor,
         muted: _mutedColor,
@@ -4979,85 +4981,16 @@ class _ProfessionalLessonScreenState
               'You have already earned a certificate for this final exam. You cannot retake the final exam once you have received your certificate.',
               style: TextStyle(fontSize: 14),
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'If you wish to attempt the final exam again, you will need to unenroll from this course and enroll again.',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            ),
           ],
         ),
         actions: [
-          TextButton(
+          ElevatedButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n?.cancel ?? 'Cancel'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _showUnenrollConfirmation();
-            },
-            icon: const Icon(Icons.logout, size: 16),
-            label: Text(l10n?.unenrollFromCourse ?? 'Unenroll from Course'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
+            child: const Text('OK'),
           ),
         ],
       ),
     );
-  }
-
-  void _showUnenrollConfirmation() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n?.unenrollFromCourse ?? 'Unenroll from Course'),
-        content: const Text(
-          'Are you sure you want to unenroll from this course? This will:\n\n• Remove your access to course content\n• Delete your quiz attempts\n• Remove your certificate\n\nYou will need to enroll again to regain access.',
-          style: TextStyle(fontSize: 14),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(l10n?.cancel ?? 'Cancel'),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _unenrollFromCourse();
-            },
-            icon: const Icon(Icons.logout, size: 16),
-            label: const Text('Unenroll'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _unenrollFromCourse() async {
-    try {
-      // Show loading indicator
-      _showSnack('Unenrolling from course...');
-      
-      // Call enrollment service to unenroll
-      final enrollmentService = EnrollmentService();
-      await enrollmentService.unenrollFromCourse(_lesson!.courseId);
-      
-      // Navigate back to dashboard
-      if (mounted) {
-        _showSnack('Successfully unenrolled from course');
-        context.go('/dashboard');
-      }
-    } catch (e) {
-      if (mounted) {
-        _showSnack('Error unenrolling from course: $e', isError: true);
-      }
-    }
   }
 
   String _getQuizButtonText() {

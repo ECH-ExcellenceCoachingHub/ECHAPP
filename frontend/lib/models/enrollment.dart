@@ -1,6 +1,32 @@
 import 'user.dart';
 import 'course.dart';
 
+/// Learner-facing enrollment state for a single course.
+class EnrollmentStatusInfo {
+  /// One of `none`, `active`, `unenrolled`, `suspended`.
+  final String status;
+  final bool canReenrollWithoutPayment;
+  final double progress;
+
+  const EnrollmentStatusInfo({
+    required this.status,
+    this.canReenrollWithoutPayment = false,
+    this.progress = 0,
+  });
+
+  bool get isActive => status == 'active';
+  bool get isUnenrolled => status == 'unenrolled';
+  bool get isSuspended => status == 'suspended';
+
+  factory EnrollmentStatusInfo.fromJson(Map<String, dynamic> json) {
+    return EnrollmentStatusInfo(
+      status: json['status']?.toString() ?? 'none',
+      canReenrollWithoutPayment: json['canReenrollWithoutPayment'] == true,
+      progress: (json['progress'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}
+
 class Enrollment {
   final String id;
   final String userId;
@@ -18,6 +44,10 @@ class Enrollment {
   final String? feedback;
   final bool canAccessLiveSessions;
   final bool canAccessChapters;
+  /// active | unenrolled | suspended
+  final String status;
+  final DateTime? unenrolledAt;
+  final DateTime? suspendedAt;
   
   // Populated fields (from backend populate)
   final User? user;
@@ -40,6 +70,9 @@ class Enrollment {
     this.feedback,
     this.canAccessLiveSessions = true,
     this.canAccessChapters = true,
+    this.status = 'active',
+    this.unenrolledAt,
+    this.suspendedAt,
     this.user,
     this.course,
   });
@@ -162,6 +195,9 @@ class Enrollment {
       feedback: json['feedback'] as String?,
       canAccessLiveSessions: json['canAccessLiveSessions'] != false,
       canAccessChapters: json['canAccessChapters'] != false,
+      status: json['status']?.toString() ?? 'active',
+      unenrolledAt: json['unenrolledAt'] != null ? _parseDateTime(json['unenrolledAt']) : null,
+      suspendedAt: json['suspendedAt'] != null ? _parseDateTime(json['suspendedAt']) : null,
       user: json['user'] != null 
           ? User.fromJson(json['user'] as Map<String, dynamic>)
           : null,
@@ -187,6 +223,7 @@ class Enrollment {
       'feedback': feedback,
       'canAccessLiveSessions': canAccessLiveSessions,
       'canAccessChapters': canAccessChapters,
+      'status': status,
       if (user != null) 'user': user!.toJson(),
       if (course != null) 'course': course!.toJson(),
     };
@@ -212,6 +249,10 @@ class Enrollment {
 
   String get progressDisplay => '${progress.toStringAsFixed(1)}%';
   
+  bool get isActiveEnrollment => status == 'active';
+  bool get isUnenrolled => status == 'unenrolled';
+  bool get isSuspended => status == 'suspended';
+
   bool get isExpired => accessExpirationDate != null && DateTime.now().isAfter(accessExpirationDate!);
   
   Duration? get timeRemaining => accessExpirationDate?.difference(DateTime.now());

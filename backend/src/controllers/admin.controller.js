@@ -712,9 +712,10 @@ const getStudentDetail = async (req, res) => {
       mongoUserId = mongoUser._id;
     }
     
-    // Get student's enrollments using the MongoDB user ID
+    // Get student's enrollments using the MongoDB user ID, including
+    // unenrolled/suspended ones so admins can see the full history
     const enrollments = mongoUserId 
-      ? await Enrollment.find({ userId: mongoUserId })
+      ? await Enrollment.find({ userId: mongoUserId, status: Enrollment.ANY_STATUS })
           .populate({
             path: 'courseId',
             select: 'title description price duration level thumbnail isPublished createdBy',
@@ -727,9 +728,12 @@ const getStudentDetail = async (req, res) => {
       : [];
     
     // Calculate statistics
-    const totalEnrollments = enrollments.length;
-    const completedCourses = enrollments.filter(e => e.completionStatus === 'completed').length;
-    const inProgressCourses = enrollments.filter(e => e.completionStatus === 'in-progress').length;
+    const activeEnrollments = enrollments.filter(e => !e.status || e.status === 'active');
+    const totalEnrollments = activeEnrollments.length;
+    const unenrolledCourses = enrollments.filter(e => e.status === 'unenrolled').length;
+    const suspendedCourses = enrollments.filter(e => e.status === 'suspended').length;
+    const completedCourses = activeEnrollments.filter(e => e.completionStatus === 'completed').length;
+    const inProgressCourses = activeEnrollments.filter(e => e.completionStatus === 'in-progress').length;
     
     // Calculate total spent
     const payments = mongoUserId
@@ -775,6 +779,8 @@ const getStudentDetail = async (req, res) => {
       examResults,
       payments,
       totalEnrollments,
+      unenrolledCourses,
+      suspendedCourses,
       completedCourses,
       inProgressCourses,
       totalSpent,
@@ -2192,7 +2198,7 @@ const updateEnrollmentPermissions = async (req, res) => {
     const { canAccessLiveSessions, canAccessChapters } = req.body;
 
     const Enrollment = require('../models/Enrollment');
-    const enrollment = await Enrollment.findById(id);
+    const enrollment = await Enrollment.findOne({ _id: id, status: Enrollment.ANY_STATUS });
     if (!enrollment) return sendError(res, 'Enrollment not found', 404);
 
     if (canAccessLiveSessions !== undefined) enrollment.canAccessLiveSessions = canAccessLiveSessions;

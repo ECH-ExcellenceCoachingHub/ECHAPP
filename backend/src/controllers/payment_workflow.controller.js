@@ -144,8 +144,22 @@ const initiatePayment = async (req, res) => {
     }
 
     // Check if user is already enrolled
-    const existingEnrollment = await Enrollment.findOne({ userId, courseId });
-    if (existingEnrollment) {
+    const existingEnrollment = await Enrollment.findOne({ userId, courseId, status: Enrollment.ANY_STATUS });
+    if (existingEnrollment && existingEnrollment.status === 'suspended') {
+      return sendError(res, 'Your access to this course has been suspended by an administrator. Please contact support.', 403);
+    }
+    if (existingEnrollment && existingEnrollment.status === 'unenrolled') {
+      // Unenrolling never refunds, so a still-valid payment means the learner
+      // should simply re-enroll rather than pay twice.
+      const expired = existingEnrollment.accessExpirationDate
+        && new Date() > existingEnrollment.accessExpirationDate;
+      const priorPayment = existingEnrollment.paymentId || await Payment.exists({
+        userId, courseId, status: { $in: ['completed', 'approved'] }
+      });
+      if (!expired && priorPayment) {
+        return sendError(res, 'You have already paid for this course. Re-enroll from the course page to continue where you left off.', 400);
+      }
+    } else if (existingEnrollment) {
       return sendError(res, 'You are already enrolled in this course', 400);
     }
 
@@ -261,9 +275,12 @@ const verifyPayment = async (req, res) => {
         console.log('Checking for existing enrollment for user:', userIdInfo.id, 'course:', courseIdInfo.id);
         
         // Check if enrollment already exists for this user and course
+        // Include unenrolled/suspended records: a learner may buy a course again
+        // after leaving it, and (userId, courseId) is unique.
         const existingEnrollment = await Enrollment.findOne({
           userId: userIdInfo.id,
-          courseId: courseIdInfo.id
+          courseId: courseIdInfo.id,
+          status: Enrollment.ANY_STATUS
         });
         
         if (!existingEnrollment) {
@@ -278,9 +295,25 @@ const verifyPayment = async (req, res) => {
           });
           
           console.log('Enrollment created successfully');
+        } else if (existingEnrollment.status === 'unenrolled') {
+          // Learner bought the course again after leaving it: reactivate the
+          // same record so their earlier progress comes back.
+          existingEnrollment.setStatus('active', {
+            changedBy: req.user?.id || null,
+            reason: 'Re-enrolled after payment approval'
+          });
+          existingEnrollment.unenrolledAt = null;
+          existingEnrollment.paymentId = payment._id;
+          if (existingEnrollment.accessExpirationDate && new Date() > existingEnrollment.accessExpirationDate) {
+            // Match new paid enrollments created above, which carry no expiry
+            existingEnrollment.accessExpirationDate = null;
+          }
+          await existingEnrollment.save();
+          await Course.findByIdAndUpdate(courseIdInfo.id, { $inc: { enrollmentCount: 1 } });
+          console.log('Reactivated unenrolled enrollment after payment approval');
         } else {
           console.log('Enrollment already exists for user:', userIdInfo.id, 'course:', courseIdInfo.id);
-          
+
           // Update existing enrollment with the new payment ID if it doesn't have one
           if (!existingEnrollment.paymentId) {
             existingEnrollment.paymentId = payment._id;

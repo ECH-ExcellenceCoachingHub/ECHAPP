@@ -231,6 +231,23 @@ async function release(jobId, owner) {
   );
 }
 
+/**
+ * Put a running job back in the queue to run again after `delayMs`, without
+ * counting it as an attempt (e.g. it is waiting for a free render slot).
+ * Saved stage outputs are kept, so it resumes where it stopped.
+ */
+async function defer(jobId, owner, delayMs) {
+  const at = new Date();
+  return GenerationJob.findOneAndUpdate(
+    { _id: jobId, 'lease.owner': owner, state: 'running' },
+    {
+      $set: { state: 'queued', nextRunAt: new Date(at.getTime() + delayMs), 'lease.owner': null, 'lease.expiresAt': null },
+      $inc: { attempts: -1 },
+    },
+    { new: true },
+  );
+}
+
 /** Ask a job to stop. Queued jobs are cancelled at once; running jobs at the next checkpoint. */
 async function cancel(jobId) {
   const queued = await GenerationJob.findOneAndUpdate(
@@ -286,6 +303,7 @@ async function markCancelled(jobId, owner) {
 module.exports = {
   enqueue,
   requeue,
+  defer,
   claim,
   heartbeat,
   setStage,

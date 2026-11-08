@@ -354,35 +354,49 @@ class EnrollmentService {
     }
   }
 
-  /// Unenroll from a course
+  /// Unenroll from a course.
+  ///
+  /// The backend keeps the enrollment (status "unenrolled") so completed
+  /// lessons, quiz results and certificates are preserved, and never refunds
+  /// or cancels a payment.
   Future<void> unenrollFromCourse(String courseId) async {
     try {
-      print('Unenrolling from course: $courseId');
-      
-      // First get user's enrollments to find the enrollment ID
-      final enrollments = await getEnrollments();
-      final enrollment = enrollments.firstWhere(
-        (enroll) => enroll.courseId.toString() == courseId.toString(),
-        orElse: () => throw Exception('Enrollment not found for this course'),
-      );
-      
-      final response = await _apiClient.delete(
-        '${ApiConfig.enrollments}/${enrollment.id}',
+      final response = await _apiClient.post(
+        '${ApiConfig.enrollments}/course/$courseId/unenroll',
+        body: const <String, dynamic>{},
       );
 
       response.validateStatus();
-      
+
       final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
-      
+
       if (jsonBody['success'] != true) {
         throw ApiException(jsonBody['message'] as String? ?? 'Failed to unenroll from course');
       }
-      
-      print('Successfully unenrolled from course: $courseId');
     } catch (e) {
-      print('Error in unenrollFromCourse: $e');
       if (e is ApiException) rethrow;
       throw ApiException('Failed to unenroll from course: $e');
+    }
+  }
+
+  /// The learner's relationship with a course: `none`, `active`,
+  /// `unenrolled` or `suspended`, plus whether a previous payment still
+  /// covers re-enrollment.
+  Future<EnrollmentStatusInfo> getEnrollmentStatus(String courseId) async {
+    try {
+      final response = await _apiClient.get('${ApiConfig.enrollments}/course/$courseId/status');
+      response.validateStatus();
+
+      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
+      if (jsonBody['success'] != true) {
+        throw ApiException(jsonBody['message'] as String? ?? 'Failed to get enrollment status');
+      }
+      return EnrollmentStatusInfo.fromJson(
+        (jsonBody['data'] as Map?)?.cast<String, dynamic>() ?? const {},
+      );
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Failed to get enrollment status: $e');
     }
   }
 }

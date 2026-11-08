@@ -24,6 +24,7 @@ const { validateVideo } = require('./validator');
 const cost = require('./cost.service');
 const videoJobs = require('./video-jobs.service');
 const { contentText } = require('../course-builder/integrity.service');
+const heavySlots = require('../jobs/heavy-slots');
 
 /**
  * Worker handler for `lesson_video` jobs.
@@ -48,6 +49,18 @@ const STAGES = ['generating_script', 'generating_audio', 'generating_visuals', '
 /** Silent "pause and think" time after a check question (seconds). */
 const THINK_SECONDS = 3.5;
 const CREDITS_SECONDS = 4;
+
+/**
+ * Videos are made in parallel: the Rekka credit check and the create call
+ * run one at a time in this process, so two jobs cannot both see the same
+ * balance and together order more videos than there are credits for.
+ */
+let rekkaOrderLock = Promise.resolve();
+function withRekkaOrderLock(fn) {
+  const run = rekkaOrderLock.then(fn, fn);
+  rekkaOrderLock = run.catch(() => {});
+  return run;
+}
 
 /**
  * Licensed photos/clips for the storyboard: reused from the job's saved
@@ -165,11 +178,15 @@ async function tryRekka(job, src, ctx, work, stage) {
       const credits = rekka.estimateCredits(durationSec, body.chapters);
       const rate = rekka.usdPerCredit();
       if (rate != null) await cost.assertWithinBudget({ job: await refreshCost(job), buildJob: src.buildJob, estimateUsd: credits * rate });
-      const balance = await rekka.getCredits({ signal: ctx.signal });
-      if (balance != null && balance < credits) throw Object.assign(new Error(`Rekka has ${balance} credit(s) left, about ${credits} needed`), { code: 'REKKA_NO_CREDITS' });
-      const created = await rekka.createVideo(body, { signal: ctx.signal });
-      id = created.id;
-      await ctx.saveArtifacts({ rekka: { id, status: created.status, request: body, at: Date.now() } });
+      id = await withRekkaOrderLock(async () => {
+        ctx.checkpoint();
+        const balance = await rekka.getCredits({ signal: ctx.signal });
+        if (balance != null && balance < credits) throw Object.assign(new Error(`Rekka has ${balance} credit(s) left, about ${credits} needed`), { code: 'REKKA_NO_CREDITS' });
+        const created = await rekka.createVideo(body, { signal: ctx.signal });
+        // Saved inside the lock: a retry must poll this video, never order a second one.
+        await ctx.saveArtifacts({ rekka: { id: created.id, status: created.status, request: body, at: Date.now() } });
+        return created.id;
+      });
       await ctx.addProviderRequest({ stage: 'generating_visuals', provider: rekka.name, requestId: id });
     }
     ctx.log(`Rekka video ${id}: waiting for it to finish`);
@@ -266,6 +283,19 @@ async function runLessonVideo(job, ctx) {
     await fsp.rm(primaryWork, { recursive: true, force: true }).catch(() => {});
   }
 
+  // Fallback: our own render pipeline is CPU/RAM-heavy, so only
+  // MEDIA_HEAVY_CONCURRENCY of these run at once; otherwise the job goes back
+  // in the queue (Rekka is already marked failed, so it resumes right here).
+  const releaseSlot = heavySlots.tryAcquire();
+  if (!releaseSlot) throw new heavySlots.DeferJobError('Rekka unavailable and all render slots are busy — the narrated fallback will start when one is free');
+  try {
+    return await runLocalPipeline(job, ctx, src, stage);
+  } finally {
+    releaseSlot();
+  }
+}
+
+async function runLocalPipeline(job, ctx, src, stage) {
   const cfg = job.config || {};
   const variant = job.variant || 'explainer';
   const subject = subjectByKey(cfg.subject);

@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { 
   enrollInCourse,
+  unenrollFromCourse,
+  getEnrollmentStatus,
+  updateEnrollmentStatus,
+  getEnrollmentHistory,
   getMyCourses,
   getCourseFeedback,
   submitCourseFeedback,
@@ -17,6 +21,7 @@ const {
   generateCertificateManually
 } = require('../controllers/enrollment.controller');
 const { protect } = require('../middleware/auth.middleware');
+const { authorize } = require('../middleware/role.middleware');
 
 // Public routes
 router.get('/verify/:serialNumber', verifyCertificate);
@@ -24,6 +29,12 @@ router.get('/verify/:serialNumber', verifyCertificate);
 // Protected routes
 router.post('/', protect, enrollInCourse);
 router.get('/my-courses', protect, getMyCourses);
+router.get('/course/:courseId/status', protect, getEnrollmentStatus);
+router.post('/course/:courseId/unenroll', protect, unenrollFromCourse);
+
+// Admin: enrollment history and suspension
+router.get('/history', protect, authorize('admin'), getEnrollmentHistory);
+router.put('/:id/status', protect, authorize('admin'), updateEnrollmentStatus);
 router.post('/course/:courseId/feedback', protect, submitCourseFeedback);
 router.get('/course/:courseId/feedback', protect, getCourseFeedback);
 router.get('/:id/progress', protect, getEnrollmentProgress);

@@ -171,3 +171,44 @@ test('graceful shutdown releases unfinished jobs back to the queue without burni
   assert.equal(j.attempts, 0);
   assert.equal(j.lease.owner, null);
 });
+
+test('heavy slots: only MEDIA_HEAVY_CONCURRENCY jobs get a slot; the rest are deferred without burning an attempt', async () => {
+  const heavy = require('../src/services/jobs/heavy-slots');
+  const prev = process.env.MEDIA_HEAVY_CONCURRENCY;
+  process.env.MEDIA_HEAVY_CONCURRENCY = '1';
+  heavy._reset();
+  try {
+    await queue.enqueue(videoJob({ key: 'a' }));
+    await queue.enqueue(videoJob({ key: 'b' }));
+    let ran = 0;
+    let release;
+    const gate = new Promise(r => { release = r; });
+    const handler = heavy.heavyHandler(async () => { ran++; await gate; return { ok: true }; }, 'test render');
+    const worker = new JobWorker({ concurrency: 2, pollMs: 20, log: quiet });
+    worker.register('lesson_video', handler);
+    await worker.start();
+    for (let i = 0; i < 100 && await GenerationJob.countDocuments({ state: 'queued', attempts: 0, nextRunAt: { $gt: new Date() } }) < 1; i++) await sleep(20);
+    const deferred = await GenerationJob.findOne({ state: 'queued', nextRunAt: { $gt: new Date() } }).lean();
+    assert.ok(deferred, 'second job went back to the queue');
+    assert.equal(deferred.attempts, 0, 'deferral does not count as an attempt');
+    assert.equal(ran, 1, 'only one heavy job ran');
+    release();
+    await worker.stop(2000);
+  } finally {
+    if (prev === undefined) delete process.env.MEDIA_HEAVY_CONCURRENCY; else process.env.MEDIA_HEAVY_CONCURRENCY = prev;
+    heavy._reset();
+  }
+});
+
+test('worker: light jobs run in parallel up to the worker concurrency', async () => {
+  for (let i = 0; i < 4; i++) await queue.enqueue(videoJob({ key: `p${i}` }));
+  let active = 0;
+  let peak = 0;
+  const worker = new JobWorker({ concurrency: 4, pollMs: 20, log: quiet });
+  worker.register('lesson_video', async () => { active++; peak = Math.max(peak, active); await sleep(200); active--; return {}; });
+  await worker.start();
+  for (let i = 0; i < 100 && await GenerationJob.countDocuments({ state: 'completed' }) < 4; i++) await sleep(20);
+  await worker.stop(2000);
+  assert.equal(await GenerationJob.countDocuments({ state: 'completed' }), 4);
+  assert.ok(peak >= 3, `expected parallel runs, peak was ${peak}`);
+});

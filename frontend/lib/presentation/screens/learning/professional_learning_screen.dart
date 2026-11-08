@@ -8,6 +8,7 @@ import 'package:excellencecoachinghub/models/section.dart';
 import 'package:excellencecoachinghub/models/lesson.dart';
 import 'package:excellencecoachinghub/models/enrollment.dart';
 import 'package:excellencecoachinghub/widgets/ai_chat_dialog.dart';
+import 'package:excellencecoachinghub/widgets/unenroll_dialog.dart';
 import 'package:excellencecoachinghub/services/ai_chat_service.dart';
 import 'package:excellencecoachinghub/presentation/providers/enrollment_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/course_provider.dart';
@@ -889,9 +890,53 @@ class _ProfessionalLearningScreenState
         cardBg: _cardBg,
         onTap: _refreshData,
       ),
+      // More options (unenroll)
+      _ActionChip(
+        icon: Icons.more_vert_rounded,
+        isDark: _isDark,
+        cardBg: _cardBg,
+        onTap: _openCourseOptions,
+      ),
       const SizedBox(width: 8),
     ];
     return actions;
+  }
+
+  void _openCourseOptions() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.logout_rounded, color: Colors.red),
+              title: const Text('Unenroll from course',
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+              subtitle: const Text('Your progress will be saved'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _unenroll();
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _unenroll() async {
+    final unenrolled = await confirmAndUnenroll(
+      context,
+      ref,
+      courseId: widget.courseId,
+      courseTitle: _course?.title,
+    );
+    if (unenrolled && mounted) {
+      context.go('/dashboard');
+    }
   }
 
   Widget _buildHeroHeader() {
