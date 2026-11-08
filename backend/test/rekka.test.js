@@ -123,7 +123,7 @@ test('disabled without a key, or when VIDEO_PRIMARY_PROVIDER=pipeline', () => {
   delete process.env.VIDEO_PRIMARY_PROVIDER;
 });
 
-async function runVideo() {
+async function runVideo({ artifacts } = {}) {
   const userId = oid();
   const course = await Course.create({ title: 'Chemistry S4', description: 'Chemistry', createdBy: userId, price: 0, duration: 10, level: 'intermediate' });
   const job = await CourseBuildJob.create({ courseId: course._id, createdBy: userId, status: 'generating', outline: { subject: 'Chemistry', bookTitle: 'Chemistry', level: 'S4' } });
@@ -133,9 +133,10 @@ async function runVideo() {
   });
   const worker = new JobWorker({ pollMs: 100, concurrency: 1, log: { info: () => {}, error: () => {} } });
   worker.register('lesson_video', pipeline.runLessonVideo, { timeoutMs: 240000 });
-  await worker.start();
   try {
     const { job: gj } = await videoJobs.enqueueVideo({ buildJob: job, item, variant: 'explainer' });
+    if (artifacts) await GenerationJob.updateOne({ _id: gj._id }, { $set: { artifacts } });
+    await worker.start();
     for (let i = 0; i < 1200; i++) {
       const j = await GenerationJob.findById(gj._id).lean();
       if (j.state === 'failed') throw new Error(`video failed: ${j.error?.message}`);
@@ -200,4 +201,29 @@ test('fallback: when Rekka reports an error the in-house pipeline makes the vide
   assert.equal(done.artifacts.rekka.failed, true);
   assert.match(done.artifacts.rekka.reason, /could not make the video/);
   assert.ok(done.artifacts.storyboard, 'storyboard made by the fallback');
+});
+
+test('retry: a job whose last Rekka attempt failed asks Rekka again first', async () => {
+  calls = [];
+  finalStatus = 'done';
+  ai.completeJson = async () => { throw new Error('the pipeline must not run'); };
+  const done = await runVideo({ artifacts: { rekka: { id: 'old', failed: true, code: 'REKKA_FAILED', reason: 'Rekka could not make the video' } } });
+  assert.equal(done.output.provider, 'rekka');
+  assert.equal(calls.filter(c => c === 'POST /v1/videos').length, 1, 'a new Rekka video was ordered');
+  assert.equal(done.artifacts.rekka.failed, undefined);
+});
+
+test('retry: a delivered Rekka video that failed quality checks is not ordered again', async () => {
+  calls = [];
+  finalStatus = 'done';
+  ai.completeJson = async () => ({
+    title: 'Acids',
+    scenes: [
+      { type: 'title', heading: 'Acids and bases', subtitle: 'Protons', narration: 'Acids donate protons.' },
+      { type: 'summary', heading: 'Key takeaways', bullets: ['pH below 7 is acidic'], narration: 'Below seven is acidic.' },
+    ],
+  });
+  const done = await runVideo({ artifacts: { rekka: { id: 'old', failed: true, code: 'VALIDATION_FAILED', reason: 'resolution' } } });
+  assert.notEqual(done.output.provider, 'rekka');
+  assert.equal(calls.filter(c => c === 'POST /v1/videos').length, 0);
 });

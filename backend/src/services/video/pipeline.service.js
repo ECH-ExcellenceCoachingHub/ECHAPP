@@ -160,13 +160,23 @@ async function loadSource(job) {
 /**
  * Primary path: one full video from Rekka AI. Returns the job result, or null
  * to fall back to the in-house pipeline. The Rekka job id is saved on the job,
- * so a retry resumes polling instead of paying for a second video, and a
- * failure is remembered so retries go straight to the fallback.
+ * so a retry resumes polling instead of paying for a second video.
+ * After a failure, every retry asks Rekka for a new video first (failed Rekka
+ * videos are refunded). Only two failures skip Rekka on retries: a delivered
+ * video that failed our quality checks (it was paid for) and an admin asking
+ * for the in-house pipeline.
  */
+const REKKA_STICKY_FAILURES = ['VALIDATION_FAILED', 'ADMIN_FALLBACK'];
+
 async function tryRekka(job, src, ctx, work, stage) {
   if (!rekka.isEnabled()) return null;
-  const prior = job.artifacts?.rekka;
-  if (prior?.failed) return null;
+  let prior = job.artifacts?.rekka;
+  if (prior?.failed) {
+    if (REKKA_STICKY_FAILURES.includes(prior.code)) return null;
+    ctx.log(`Retrying Rekka (last failure: ${prior.reason || 'unknown'})`);
+    await ctx.unsetArtifacts(['rekka']);
+    prior = null;
+  }
   const cfg = job.config || {};
   const subject = subjectByKey(cfg.subject);
   try {
@@ -253,7 +263,7 @@ async function tryRekka(job, src, ctx, work, stage) {
   } catch (e) {
     if (ctx.signal?.aborted) throw e; // cancelled / timed out: not a reason to fall back
     ctx.log(`Rekka failed (${e.code || e.status || 'error'}): ${e.message} — falling back to the narrated pipeline`);
-    await ctx.saveArtifacts({ rekka: { ...(job.artifacts?.rekka || {}), failed: true, reason: e.message, failedAt: Date.now() } });
+    await ctx.saveArtifacts({ rekka: { ...(job.artifacts?.rekka || {}), failed: true, code: e.code || (e.status ? `HTTP_${e.status}` : 'ERROR'), reason: e.message, failedAt: Date.now() } });
     return null;
   }
 }
@@ -270,7 +280,7 @@ async function runLessonVideo(job, ctx) {
   if (job.restartFrom === 'script') await ctx.unsetArtifacts(['storyboard', 'audio', 'media', 'mediaWarnings', 'rekka']);
   if (job.restartFrom === 'audio') await ctx.unsetArtifacts(['audio']);
   if (job.restartFrom === 'visuals') await ctx.unsetArtifacts(['media', 'mediaWarnings']);
-  if (job.restartFrom === 'audio' || job.restartFrom === 'visuals') await ctx.saveArtifacts({ rekka: { ...(job.artifacts?.rekka || {}), failed: true, reason: `admin regenerated ${job.restartFrom}` } });
+  if (job.restartFrom === 'audio' || job.restartFrom === 'visuals') await ctx.saveArtifacts({ rekka: { ...(job.artifacts?.rekka || {}), failed: true, code: 'ADMIN_FALLBACK', reason: `admin regenerated ${job.restartFrom}` } });
   if (job.restartFrom) await ctx.update({ restartFrom: null });
 
   const src = await loadSource(job);
