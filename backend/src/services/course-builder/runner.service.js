@@ -187,6 +187,7 @@ class CourseBuilderRunner {
         bookmarks: extracted.bookmarks,
         headings,
         unit: extracted.pageUnit,
+        log: (msg, level) => this.log(jobId, msg, level),
       });
       outline = normalizeOutline(raw, pages.length);
       if (!outline.chapters.length) throw new Error('AI outline had no chapters');

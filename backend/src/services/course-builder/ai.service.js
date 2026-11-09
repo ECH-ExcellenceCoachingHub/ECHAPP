@@ -121,30 +121,125 @@ function difficultyCounts(count, mix) {
 
 // ─── Outline ─────────────────────────────────────────────────────────────────
 
-async function generateOutline({ fileName, pages, bookmarks, headings, unit }) {
+// Books of any length are outlined in two passes so no request ever has to
+// hold the whole book: pass 1 finds every chapter from a budgeted digest of the
+// WHOLE book (bookmarks, strongest headings, table of contents); pass 2 designs
+// the lessons of each chapter from that chapter's own headings.
+
+const CHAPTER_PATTERN = /\b(chapter|unit|module|part|topic|theme)\s+([0-9]{1,3}|[ivxlc]{1,7})\b/i;
+const CHAPTER_LESSON_CHARS = 12000;
+const OUTLINE_CONCURRENCY = 3;
+
+/**
+ * Keep the highest-priority items that fit in maxChars, returned in page order.
+ * Unlike cutting a page-sorted list, this never drops the end of the book.
+ */
+function fitByPriority(items, maxChars, toLine, priority) {
+  const ranked = items
+    .map((item, i) => ({ item, i, line: toLine(item), p: priority(item) }))
+    .sort((a, b) => b.p - a.p || a.i - b.i);
+  const chosen = [];
+  let size = 0;
+  for (const r of ranked) {
+    if (size + r.line.length + 1 > maxChars) continue;
+    chosen.push(r);
+    size += r.line.length + 1;
+  }
+  return chosen.sort((a, b) => a.i - b.i).map(r => r.line).join('\n');
+}
+
+function romanToInt(s) {
+  const v = { i: 1, v: 5, x: 10, l: 50, c: 100 };
+  let total = 0;
+  const t = s.toLowerCase();
+  for (let i = 0; i < t.length; i++) {
+    const cur = v[t[i]]; const next = v[t[i + 1]] || 0;
+    if (!cur) return null;
+    total += cur < next ? -cur : cur;
+  }
+  return total || null;
+}
+
+/** "Unit 11: …" / "CHAPTER XI" / "11. …" → 11 */
+function chapterNumber(title) {
+  const m = CHAPTER_PATTERN.exec(title || '');
+  if (m) return /^\d+$/.test(m[2]) ? Number(m[2]) : romanToInt(m[2]);
+  const d = /^\s*(\d{1,3})(?:[.:)\s]|$)(?!\d)/.exec(title || '');
+  return d ? Number(d[1]) : null;
+}
+
+/** Table-of-contents pages: "Contents" or many lines ending in a page number. */
+function findTocPages(pages) {
+  const scan = pages.slice(0, Math.min(pages.length, 40));
+  const toc = scan.filter((p) => {
+    const lines = (p.text || '').split('\n');
+    const numbered = lines.filter(l => /(\.{3,}|…|\s)\s*\d{1,4}\s*$/.test(l) && /[a-z]{3}/i.test(l)).length;
+    return /\b(table of )?contents\b/i.test(p.text || '') ? numbered >= 3 : numbered >= 6;
+  });
+  // A TOC spans consecutive pages — include the ones between the first and last hit.
+  if (!toc.length) return [];
+  const first = toc[0].n; const last = toc[toc.length - 1].n;
+  return pages.filter(p => p.n >= first && p.n <= Math.min(last, first + 12));
+}
+
+async function generateOutline({ fileName, pages, bookmarks, headings, unit, log = () => {} }) {
+  const skeleton = await generateChapterSkeleton({ fileName, pages, bookmarks, headings, unit });
+  let chapters = (Array.isArray(skeleton.chapters) ? skeleton.chapters : [])
+    .filter(c => c && c.title && Number.isFinite(Number(c.pageStart)))
+    .map(c => ({ title: String(c.title).trim(), summary: String(c.summary || '').trim(), pageStart: Math.round(Number(c.pageStart)) }))
+    .sort((a, b) => a.pageStart - b.pageStart);
+
+  const added = addMissingChapters(chapters, headings, pages.length);
+  if (added.length) {
+    log(`Added ${added.length} chapter(s) the AI missed: ${added.map(c => c.title).join(' | ')}`, 'warn');
+    chapters = [...chapters, ...added].sort((a, b) => a.pageStart - b.pageStart);
+  }
+  if (!chapters.length) return { ...skeleton, chapters: [] };
+  log(`Found ${chapters.length} chapters — designing lessons chapter by chapter`);
+
+  await runPool(chapters.map((c, i) => i), OUTLINE_CONCURRENCY, async (i) => {
+    const c = chapters[i];
+    const pageEnd = i + 1 < chapters.length ? Math.max(c.pageStart, chapters[i + 1].pageStart - 1) : pages.length;
+    try {
+      c.lessons = await generateChapterLessons({ chapter: c, pageEnd, pages, bookmarks, headings, unit, skeleton });
+    } catch (err) {
+      log(`Lessons for "${c.title}" fell back to detected headings (${err.message})`, 'warn');
+      c.lessons = numberedSections(headings, c.pageStart, pageEnd + 1);
+    }
+  });
+
+  return { ...skeleton, chapters };
+}
+
+/** Pass 1: every chapter of the whole book, with its start page. */
+async function generateChapterSkeleton({ fileName, pages, bookmarks, headings, unit }) {
   const label = unit === 'segment' ? 'Part' : 'Page';
-  const lastPage = pages.length;
+  const lc = label.toLowerCase();
+  const budget = OUTLINE_INPUT_CHARS;
 
   const bookmarkText = bookmarks.length
-    ? bookmarks.slice(0, 400).map(b => `${'  '.repeat(b.depth)}- ${b.title} (${label.toLowerCase()} ${b.page})`).join('\n')
-    : '(none)';
-  const headingText = headings
-    .slice()
-    .sort((a, b) => a.page - b.page)
-    .map(h => `p${h.page} [s${h.score}] ${h.text}`)
-    .join('\n')
-    .slice(0, OUTLINE_INPUT_CHARS / 2);
-  const frontMatter = pagesToSource(pages.slice(0, 8), OUTLINE_INPUT_CHARS / 3, unit);
+    ? fitByPriority(bookmarks, budget * 0.3, b => `${'  '.repeat(b.depth)}- ${b.title} (${lc} ${b.page})`, b => -b.depth)
+    : '';
+  // Chapter-like headings ("Unit 12 …") always make it in, wherever they are in the book.
+  const headingText = fitByPriority(
+    headings.slice().sort((a, b) => a.page - b.page),
+    bookmarkText ? budget * 0.3 : budget * 0.45,
+    h => `p${h.page} [s${h.score}] ${h.text}`,
+    h => h.score + (CHAPTER_PATTERN.test(h.text) ? 10 : 0),
+  );
+  const tocPages = findTocPages(pages);
+  const front = tocPages.length ? [...pages.slice(0, 2).filter(p => p.n < tocPages[0].n), ...tocPages] : pages.slice(0, 8);
+  const frontMatter = pagesToSource(front, budget * 0.35, unit);
 
-  const prompt = `Analyse the structure of this book and design a course outline from it.
+  const prompt = `Analyse the structure of this book and list ALL of its chapters.
 
 FILE: ${fileName}
-TOTAL ${label.toUpperCase()}S: ${lastPage}
+TOTAL ${label.toUpperCase()}S: ${pages.length}
 
 PDF BOOKMARKS (most reliable when present):
-${bookmarkText}
+${bookmarkText || '(none)'}
 
-HEADING CANDIDATES (p = ${label.toLowerCase()} number, s = heading score, higher is more likely a heading):
+HEADING CANDIDATES FROM THE WHOLE BOOK (p = ${lc} number, s = heading score, higher is more likely a heading):
 ${headingText || '(none)'}
 
 FRONT MATTER / TABLE OF CONTENTS:
@@ -152,10 +247,10 @@ ${frontMatter}
 
 TASK:
 - Identify the book title, subject and level.
-- Identify the real chapters (skip cover, preface, acknowledgements, index, bibliography, answers appendix).
-- Inside each chapter, define lessons from its sections/topics. A lesson should cover roughly 2-12 ${label.toLowerCase()}s; merge tiny sections, split huge ones.
-- Use the ${label.toLowerCase()} numbers where each chapter/lesson STARTS in this file (not the printed page numbers of the TOC if they differ — prefer the heading candidates' p-numbers).
-- Keep the book's own numbering in titles when it exists (e.g. "1.2 Objectives of Financial Management").
+- List EVERY real chapter / unit / module from the first to the last one in the book — the book is ${pages.length} ${lc}s long, so chapters continue until near the end. Do not stop early and do not merge chapters. If the table of contents lists 13 units, return 13 chapters.
+- Skip cover, preface, acknowledgements, index, bibliography, glossary and answers appendix.
+- pageStart is the ${lc} number in THIS FILE where the chapter starts. The printed numbers in the table of contents are often offset from file ${lc}s — prefer the heading candidates' p-numbers, and when only the TOC has a chapter, apply the same offset you see for the other chapters.
+- Keep the book's own numbering and wording in titles (e.g. "Unit 11: Public Finance").
 
 Return JSON:
 {
@@ -163,17 +258,89 @@ Return JSON:
   "subject": "...",
   "level": "beginner | intermediate | advanced",
   "description": "2-3 sentence course description",
-  "chapters": [
-    {
-      "title": "Chapter 1: ...",
-      "summary": "one sentence",
-      "pageStart": 5,
-      "lessons": [ { "title": "1.1 ...", "pageStart": 5 } ]
-    }
-  ]
+  "chapters": [ { "title": "Unit 1: ...", "summary": "one sentence", "pageStart": 5 } ]
 }`;
 
-  return completeJson(prompt, { maxTokens: 8000, temperature: 0.1 });
+  return completeJson(prompt, { maxTokens: 6000, temperature: 0.1 });
+}
+
+/** Pass 2: the lessons of one chapter, from that chapter's own headings. */
+async function generateChapterLessons({ chapter, pageEnd, pages, bookmarks, headings, unit, skeleton }) {
+  const label = unit === 'segment' ? 'Part' : 'Page';
+  const lc = label.toLowerCase();
+  const inRange = x => x.page >= chapter.pageStart && x.page <= pageEnd;
+
+  const marks = bookmarks.filter(inRange);
+  const bookmarkText = marks.length
+    ? fitByPriority(marks, CHAPTER_LESSON_CHARS * 0.3, b => `${'  '.repeat(b.depth)}- ${b.title} (${lc} ${b.page})`, b => -b.depth)
+    : '';
+  const headingText = fitByPriority(
+    headings.filter(inRange).sort((a, b) => a.page - b.page),
+    CHAPTER_LESSON_CHARS * 0.55,
+    h => `p${h.page} [s${h.score}] ${h.text}`,
+    h => h.score,
+  );
+  const opening = pagesToSource(pages.slice(chapter.pageStart - 1, chapter.pageStart + 1), CHAPTER_LESSON_CHARS * 0.15, unit);
+
+  const prompt = `Design the lessons of ONE chapter of a course built from a book.
+
+BOOK: ${skeleton.bookTitle || ''} (${skeleton.subject || ''})
+CHAPTER: ${chapter.title}
+CHAPTER ${label.toUpperCase()}S: ${chapter.pageStart}-${pageEnd}
+
+BOOKMARKS IN THIS CHAPTER:
+${bookmarkText || '(none)'}
+
+HEADING CANDIDATES IN THIS CHAPTER (p = ${lc} number, s = heading score):
+${headingText || '(none)'}
+
+CHAPTER OPENING:
+${opening}
+
+TASK:
+- Define the lessons of this chapter from its sections/topics, in order. A lesson should cover roughly 2-12 ${lc}s; merge tiny sections, split huge ones.
+- Every pageStart must be between ${chapter.pageStart} and ${pageEnd}; use the heading candidates' p-numbers.
+- Keep the book's own numbering in titles when it exists (e.g. "11.2 Sources of Government Revenue").
+- Skip end-of-chapter exercises/assessment sections as separate lessons.
+
+Return JSON: { "lessons": [ { "title": "...", "pageStart": ${chapter.pageStart} } ] }`;
+
+  const raw = await completeJson(prompt, { maxTokens: 3000, temperature: 0.1 });
+  return (Array.isArray(raw.lessons) ? raw.lessons : []).filter(l => l && l.title);
+}
+
+/**
+ * Safety net: chapter-like headings ("Unit 12 …") whose number is missing from
+ * the AI's chapter list are added back, so a long book never loses its end.
+ */
+function addMissingChapters(chapters, headings, pageCount) {
+  const heads = headings.filter(h => h.score >= 4 && CHAPTER_PATTERN.test(h.text));
+  if (heads.length < 2) return [];
+  // Only the keyword the book actually uses for chapters ("Unit", "Chapter" …)
+  const counts = {};
+  for (const h of heads) { const k = CHAPTER_PATTERN.exec(h.text)[1].toLowerCase(); counts[k] = (counts[k] || 0) + 1; }
+  const keyword = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+  const afterToc = chapters.length ? Math.min(...chapters.map(c => c.pageStart)) : 1;
+
+  const known = new Set(chapters.map(c => chapterNumber(c.title)).filter(n => n != null));
+  const best = new Map();
+  for (const h of heads) {
+    if (CHAPTER_PATTERN.exec(h.text)[1].toLowerCase() !== keyword || h.page < afterToc) continue;
+    const n = chapterNumber(h.text);
+    if (n == null || known.has(n)) continue;
+    const cur = best.get(n);
+    if (!cur || h.score > cur.score || (h.score === cur.score && h.page > cur.page)) best.set(n, h);
+  }
+  const taken = new Set(chapters.map(c => c.pageStart));
+  return [...best.values()]
+    .filter(h => !taken.has(h.page) && h.page <= pageCount)
+    .map(h => ({ title: h.text.slice(0, 200), summary: '', pageStart: h.page }));
+}
+
+function numberedSections(headings, from, to) {
+  return headings
+    .filter(x => x.page >= from && x.page < to && /^\d+\.\d+\s/.test(x.text) && !/^\d+\.\d+\.\d+/.test(x.text))
+    .map(x => ({ title: x.text, pageStart: x.page }));
 }
 
 // ─── Lesson content ──────────────────────────────────────────────────────────

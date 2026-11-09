@@ -132,7 +132,7 @@ function scoreHeadings(rawLines, bodySize) {
     if (l.text.split(' ').length > 16) score -= 2;
     if (score >= 2) out.push({ page: l.page, text: l.text, size: Math.round(l.size * 10) / 10, score });
   }
-  return dedupeRunningHeaders(out).slice(0, MAX_HEADINGS);
+  return capHeadings(dedupeRunningHeaders(out));
 }
 
 /** A long heading set in a large font wraps onto several lines — join them back. */
@@ -157,6 +157,17 @@ function dedupeRunningHeaders(headings) {
   const counts = new Map();
   for (const h of headings) counts.set(h.text, (counts.get(h.text) || 0) + 1);
   return headings.filter(h => counts.get(h.text) <= 3);
+}
+
+/** Cap the list by dropping the weakest headings, not the end of the book. */
+function capHeadings(headings) {
+  if (headings.length <= MAX_HEADINGS) return headings;
+  return headings
+    .map((h, i) => ({ h, i }))
+    .sort((a, b) => b.h.score - a.h.score || a.i - b.i)
+    .slice(0, MAX_HEADINGS)
+    .sort((a, b) => a.i - b.i)
+    .map(x => x.h);
 }
 
 async function readBookmarks(pdf) {
@@ -230,7 +241,7 @@ async function extractDocx(buffer, onProgress) {
     const { value } = await mammoth.extractRawText({ buffer });
     return segmentPlainText(value, onProgress);
   }
-  return { pages, bookmarks: [], headings: headings.slice(0, MAX_HEADINGS), pageUnit: 'segment', isScanned: false };
+  return { pages, bookmarks: [], headings: capHeadings(headings), pageUnit: 'segment', isScanned: false };
 }
 
 function decodeEntities(s) {
@@ -264,7 +275,7 @@ function segmentPlainText(text, onProgress) {
   }
   if (buf.length) pages.push({ n: pages.length + 1, text: buf.join('\n') });
   onProgress(pages.length, pages.length);
-  return { pages, bookmarks: [], headings: headings.slice(0, MAX_HEADINGS), pageUnit: 'segment', isScanned: false };
+  return { pages, bookmarks: [], headings: capHeadings(headings), pageUnit: 'segment', isScanned: false };
 }
 
 // ─── OCR for scanned PDFs (Gemini reads the PDF images directly) ─────────────
