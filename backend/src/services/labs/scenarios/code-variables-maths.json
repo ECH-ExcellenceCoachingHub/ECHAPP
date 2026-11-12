@@ -1,0 +1,162 @@
+{
+  "id": "code-variables-maths",
+  "version": 2,
+  "title": "Variables & Maths",
+  "summary": "Store values in variables and predict the results of Python arithmetic, including // and %.",
+  "subject": "coding",
+  "level": "secondary",
+  "environment": "CodingBench",
+  "difficulty": 2,
+  "tags": [
+    "Python",
+    "variables"
+  ],
+  "durationMin": 15,
+  "objectives": [
+    "Create variables",
+    "Use +, -, *, /, // and %"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Python workstation",
+      "init": {
+        "os": "Python 3",
+        "commands": [
+          "price = 1500",
+          "qty = 4",
+          "total = price * qty",
+          "print(total)",
+          "print(17 // 5)",
+          "print(17 % 5)"
+        ]
+      }
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "v1",
+      "kind": "action",
+      "title": "Variables",
+      "instruction": "Store the price of a notebook: price = 1500",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [
+        "A variable is a named box that stores a value."
+      ],
+      "until": "ws.lastCommand == 'price = 1500'"
+    },
+    {
+      "id": "v2",
+      "kind": "action",
+      "title": "Variables",
+      "instruction": "Store the quantity: qty = 4",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'qty = 4'"
+    },
+    {
+      "id": "v3",
+      "kind": "action",
+      "title": "Calculate",
+      "instruction": "Work out the total.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'total = price * qty'"
+    },
+    {
+      "id": "total",
+      "kind": "measure",
+      "title": "Predict",
+      "instruction": "What will print(total) show (RWF)?",
+      "record": {
+        "key": "total",
+        "label": "Total",
+        "unit": "RWF",
+        "truth": "6000",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": [
+        "1500 × 4"
+      ]
+    },
+    {
+      "id": "div",
+      "kind": "measure",
+      "title": "Predict",
+      "instruction": "What does 17 // 5 give?",
+      "record": {
+        "key": "div",
+        "label": "17 // 5",
+        "unit": "",
+        "truth": "3",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": [
+        "// is whole-number division: how many whole 5s fit in 17?"
+      ]
+    },
+    {
+      "id": "mod",
+      "kind": "measure",
+      "title": "Predict",
+      "instruction": "What does 17 % 5 give?",
+      "record": {
+        "key": "mod",
+        "label": "17 % 5",
+        "unit": "",
+        "truth": "2",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": [
+        "% gives the remainder."
+      ]
+    }
+  ],
+  "hazards": [],
+  "results": [
+    {
+      "key": "total",
+      "label": "Total",
+      "unit": "RWF",
+      "expected": 6000,
+      "tolerancePct": 1,
+      "source": "record.total"
+    },
+    {
+      "key": "mod",
+      "label": "17 % 5",
+      "unit": "",
+      "expected": 2,
+      "tolerancePct": 1,
+      "source": "record.mod"
+    }
+  ],
+  "scoring": {
+    "accuracy": 40,
+    "procedure": 40,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 100
+}

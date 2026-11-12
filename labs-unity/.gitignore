@@ -1,0 +1,35 @@
+# Unity generated
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+/ServerData/
+/Assets/AddressableAssetsData/*/*.bin*
+/Assets/StreamingAssets/aa/
+*.csproj
+!/DotnetTests/*.csproj
+*.sln
+*.slnx
+*.unityproj
+*.pidb
+*.suo
+*.user
+*.userprefs
+.vs/
+.idea/
+crashlytics-build.properties
+
+# Downloaded CC0 source assets are re-fetched by tools/asset-pipeline
+/Assets/ECHLabs/Art/Downloaded/
+
+# Headless test build output
+/DotnetTests/bin/
+/DotnetTests/obj/
+
+# QA renders (regenerated each build)
+/QA/

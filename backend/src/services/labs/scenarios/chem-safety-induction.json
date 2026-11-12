@@ -1,0 +1,185 @@
+{
+  "id": "chem-safety-induction",
+  "version": 2,
+  "title": "Lab Safety Induction",
+  "summary": "Your first visit to the ECH chemistry lab: find the safety equipment, put on your PPE and learn the rules that keep everyone safe.",
+  "subject": "chemistry",
+  "level": "secondary",
+  "environment": "ChemLab",
+  "difficulty": 1,
+  "tags": [
+    "safety",
+    "start here"
+  ],
+  "durationMin": 8,
+  "objectives": [
+    "Put on goggles, lab coat and gloves correctly",
+    "Know the hazard symbols on chemical bottles",
+    "Know what to do in an emergency"
+  ],
+  "equipment": [
+    {
+      "id": "goggles1",
+      "type": "goggles",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "coat1",
+      "type": "labcoat",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "gloves1",
+      "type": "gloves",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "acid",
+      "type": "reagent_bottle",
+      "slot": "shelf.1",
+      "label": "HCl — CORROSIVE",
+      "init": {
+        "solution": "HCl",
+        "conc": 1,
+        "volume": 500
+      }
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "ppe1",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your safety goggles.",
+      "expect": {
+        "intent": "Grab",
+        "target": "goggles1"
+      },
+      "focus": "goggles1",
+      "points": 5,
+      "hints": [
+        "Select it on the PPE station and choose \"Put on\"."
+      ]
+    },
+    {
+      "id": "ppe2",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your lab coat.",
+      "expect": {
+        "intent": "Grab",
+        "target": "coat1"
+      },
+      "focus": "coat1",
+      "points": 5,
+      "hints": [
+        "Select it on the PPE station and choose \"Put on\"."
+      ]
+    },
+    {
+      "id": "ppe3",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your gloves.",
+      "expect": {
+        "intent": "Grab",
+        "target": "gloves1"
+      },
+      "focus": "gloves1",
+      "points": 5,
+      "hints": [
+        "Select it on the PPE station and choose \"Put on\"."
+      ]
+    },
+    {
+      "id": "inspect",
+      "kind": "action",
+      "title": "Read the label",
+      "instruction": "Look closely at the acid bottle and read its hazard label.",
+      "expect": {
+        "intent": "Inspect",
+        "target": "acid"
+      },
+      "focus": "acid",
+      "points": 10,
+      "hints": [
+        "Select the bottle on the shelf and choose \"Look closer\".",
+        "Corrosive means it can burn skin and eyes."
+      ],
+      "say": "Always read the label before you pick up any chemical."
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "What does the CORROSIVE symbol warn you about?",
+          "choices": [
+            "It can burn skin and eyes",
+            "It is flammable",
+            "It is radioactive",
+            "It is safe to touch"
+          ],
+          "answerIndex": 0,
+          "explanation": "Corrosive substances destroy living tissue on contact, so wear goggles and gloves."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Acid splashes into your eye. What should you do FIRST?",
+          "choices": [
+            "Rinse with running water for at least 10 minutes and tell the teacher",
+            "Rub your eye",
+            "Wait to see if it hurts",
+            "Add an alkali to neutralise it"
+          ],
+          "answerIndex": 0,
+          "explanation": "Flush immediately with lots of water (eyewash station) and report it. Never try to neutralise chemicals in an eye."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q3",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Where should you eat your snack?",
+          "choices": [
+            "Outside the laboratory",
+            "At your bench if you are careful",
+            "Inside the fume hood",
+            "Next to the sink"
+          ],
+          "answerIndex": 0,
+          "explanation": "Never eat or drink in a laboratory: food can be contaminated by chemicals."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 80,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 60
+}

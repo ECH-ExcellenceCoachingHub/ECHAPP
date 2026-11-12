@@ -114,6 +114,7 @@ app.use('/api/live', liveSessionRoutes); // Live Session routes
 app.use('/api/community', communityRoutes); // Course Community routes
 app.use('/api/messages', messagingRoutes); // Direct messaging routes
 app.use('/api/course-builder', courseBuilderRoutes); // AI Course Builder routes
+app.use('/api/labs', require('./src/routes/lab.routes')); // 3D/VR Virtual Labs (Unity ECH Labs engine)
 
 // Handle undefined routes
 app.use((req, res) => {

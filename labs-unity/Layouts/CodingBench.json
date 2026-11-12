@@ -1,0 +1,94 @@
+{
+  "name": "CodingBench",
+  "title": "ECH Coding & AI Studio",
+  "size": [
+    10,
+    3.2,
+    8
+  ],
+  "style": "dark",
+  "spawn": {
+    "pos": [
+      0,
+      1.62,
+      -2.9
+    ],
+    "yaw": 0
+  },
+  "benches": [],
+  "shelves": [],
+  "stations": {
+    "desk.main": {
+      "kind": "desk",
+      "pos": [
+        0,
+        0,
+        0.4
+      ],
+      "yaw": 180
+    },
+    "desk.left": {
+      "kind": "desk",
+      "pos": [
+        -2.2,
+        0,
+        0.8
+      ],
+      "yaw": 165
+    },
+    "desk.right": {
+      "kind": "desk",
+      "pos": [
+        2.2,
+        0,
+        0.8
+      ],
+      "yaw": 195
+    },
+    "wall.screen": {
+      "kind": "wall",
+      "pos": [
+        0,
+        0,
+        3.92
+      ],
+      "yaw": 180
+    }
+  },
+  "props": [
+    {
+      "kind": "ledstrip"
+    },
+    {
+      "kind": "plant",
+      "pos": [
+        4.4,
+        0,
+        -3.4
+      ]
+    },
+    {
+      "kind": "plant",
+      "pos": [
+        -4.4,
+        0,
+        3.4
+      ]
+    }
+  ],
+  "shots": [
+    {
+      "name": "overview",
+      "pos": [
+        -3.6,
+        2.1,
+        -3.4
+      ],
+      "look": [
+        0,
+        1.1,
+        1.5
+      ]
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "id": "code-algorithm-challenge",
+  "version": 2,
+  "title": "Expert Challenge: Algorithms",
+  "summary": "No hints. Trace a binary search and reason about algorithm speed.",
+  "subject": "coding",
+  "level": "secondary",
+  "environment": "CodingBench",
+  "difficulty": 5,
+  "tags": [
+    "algorithms",
+    "exam practice"
+  ],
+  "durationMin": 30,
+  "objectives": [
+    "Trace binary search",
+    "Compare linear and binary search"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Python workstation",
+      "init": {
+        "os": "Python 3",
+        "commands": [
+          "run binary_search.py",
+          "show steps"
+        ]
+      }
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "run",
+      "kind": "action",
+      "title": "Run",
+      "instruction": "Run binary search for 37 in a sorted list of 64 numbers.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'run binary_search.py'"
+    },
+    {
+      "id": "max",
+      "kind": "measure",
+      "title": "Reason",
+      "instruction": "What is the MAXIMUM number of comparisons binary search needs for 64 items?",
+      "record": {
+        "key": "max",
+        "label": "Max comparisons",
+        "unit": "",
+        "truth": "7",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "linear",
+      "kind": "measure",
+      "title": "Reason",
+      "instruction": "Worst case comparisons for LINEAR search of 64 items?",
+      "record": {
+        "key": "linear",
+        "label": "Linear worst case",
+        "unit": "",
+        "truth": "64",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "steps",
+      "kind": "action",
+      "title": "Verify",
+      "instruction": "Show the search steps.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'show steps'",
+      "say": "Checked 32 → 48 → 40 → 36 → 38 → 37 ✓ (6 comparisons)"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Binary search only works if the list is…",
+          "choices": [
+            "Sorted",
+            "Short",
+            "Numbers only",
+            "Even in length"
+          ],
+          "answerIndex": 0,
+          "explanation": "Halving the search space relies on the order of the items."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [
+    {
+      "key": "max",
+      "label": "Binary max",
+      "unit": "",
+      "expected": 7,
+      "tolerancePct": 1,
+      "source": "record.max"
+    },
+    {
+      "key": "linear",
+      "label": "Linear worst case",
+      "unit": "",
+      "expected": 64,
+      "tolerancePct": 1,
+      "source": "record.linear"
+    }
+  ],
+  "scoring": {
+    "accuracy": 60,
+    "procedure": 40,
+    "safety": 0
+  },
+  "passScore": 60,
+  "xp": 190
+}

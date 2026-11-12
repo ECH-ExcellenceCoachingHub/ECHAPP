@@ -1,0 +1,119 @@
+/* ECH Labs HUD — clean, modern "glass" style in ECH colours (emerald #10B981, blue #3B82F6). */
+
+.root { flex-grow: 1; -unity-font-style: normal; color: rgb(241, 245, 249); font-size: 22px; }
+
+.glass {
+    background-color: rgba(13, 18, 24, 0.78);
+    border-radius: 20px;
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.09);
+    padding: 18px 22px;
+}
+.glass-strong { background-color: rgba(10, 14, 19, 0.92); }
+
+.row { flex-direction: row; align-items: center; }
+.col { flex-direction: column; }
+.grow { flex-grow: 1; }
+.hidden { display: none; }
+.muted { color: rgb(148, 163, 184); }
+.small { font-size: 17px; }
+.tiny { font-size: 14px; letter-spacing: 1px; }
+.bold { -unity-font-style: bold; }
+.emerald { color: rgb(16, 185, 129); }
+.danger { color: rgb(248, 113, 113); }
+
+/* ── Top bar ─────────────────────────────────────────────────── */
+.topbar { position: absolute; left: 24px; right: 24px; top: 20px; flex-direction: row; align-items: center; }
+.brand { background-color: rgb(16, 185, 129); color: rgb(4, 47, 34); border-radius: 12px; padding: 6px 12px; font-size: 16px; -unity-font-style: bold; letter-spacing: 2px; margin-right: 14px; }
+.lab-title { font-size: 22px; -unity-font-style: bold; }
+.chip { background-color: rgba(255, 255, 255, 0.07); border-radius: 14px; padding: 8px 14px; margin-left: 10px; font-size: 18px; flex-direction: row; align-items: center; }
+.chip-ok { color: rgb(110, 231, 183); }
+.chip-warn { color: rgb(252, 211, 77); }
+.chip-bad { color: rgb(252, 165, 165); }
+
+.progress { flex-direction: row; margin: 0 18px; flex-grow: 1; justify-content: center; }
+.dot { width: 22px; height: 6px; border-radius: 3px; margin: 0 3px; background-color: rgba(255, 255, 255, 0.14); transition-duration: 0.35s; }
+.dot-done { background-color: rgb(16, 185, 129); }
+.dot-current { background-color: rgb(59, 130, 246); width: 40px; }
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.btn {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-radius: 14px; border-width: 1px; border-color: rgba(255, 255, 255, 0.1);
+    color: rgb(241, 245, 249); font-size: 20px; padding: 12px 20px; margin: 5px;
+    -unity-text-align: middle-center;
+    transition-duration: 0.15s; transition-property: background-color, scale, border-color;
+}
+.btn:hover { background-color: rgba(255, 255, 255, 0.16); scale: 1.03 1.03; }
+.btn:active { scale: 0.97 0.97; }
+.btn-primary { background-color: rgb(16, 185, 129); color: rgb(3, 34, 25); border-color: rgb(52, 211, 153); -unity-font-style: bold; }
+.btn-primary:hover { background-color: rgb(52, 211, 153); }
+.btn-blue { background-color: rgb(59, 130, 246); color: rgb(255, 255, 255); -unity-font-style: bold; }
+.btn-ghost { background-color: rgba(0, 0, 0, 0); }
+.btn-suggested { border-color: rgb(16, 185, 129); border-width: 2px; background-color: rgba(16, 185, 129, 0.22); }
+.btn-icon { width: 52px; height: 52px; padding: 0; font-size: 24px; border-radius: 26px; }
+.btn-gaze-hover { background-color: rgba(16, 185, 129, 0.35); }
+
+/* ── Step card ───────────────────────────────────────────────── */
+.step-card { position: absolute; left: 24px; top: 96px; width: 500px; }
+.step-badge { background-color: rgba(59, 130, 246, 0.22); color: rgb(147, 197, 253); border-radius: 10px; padding: 4px 10px; font-size: 15px; -unity-font-style: bold; letter-spacing: 1px; align-self: flex-start; margin-bottom: 8px; }
+.step-title { font-size: 26px; -unity-font-style: bold; margin-bottom: 6px; }
+.step-text { font-size: 21px; white-space: normal; color: rgb(203, 213, 225); }
+.ppe-row { flex-direction: row; margin-top: 12px; }
+.ppe { font-size: 15px; border-radius: 10px; padding: 4px 10px; margin-right: 6px; background-color: rgba(255, 255, 255, 0.06); color: rgb(148, 163, 184); }
+.ppe-on { background-color: rgba(16, 185, 129, 0.2); color: rgb(110, 231, 183); }
+
+/* ── Assistant ───────────────────────────────────────────────── */
+.assistant { position: absolute; left: 24px; bottom: 24px; width: 640px; flex-direction: row; align-items: flex-start; }
+.avatar { width: 64px; height: 64px; border-radius: 32px; background-color: rgb(16, 185, 129); border-width: 3px; border-color: rgba(147, 197, 253, 0.8); margin-right: 16px; -unity-text-align: middle-center; font-size: 26px; -unity-font-style: bold; color: rgb(3, 34, 25); }
+.assistant-name { font-size: 15px; color: rgb(110, 231, 183); -unity-font-style: bold; letter-spacing: 1px; margin-bottom: 4px; }
+.assistant-text { font-size: 20px; white-space: normal; }
+
+/* ── Toasts & hazard ─────────────────────────────────────────── */
+.toasts { position: absolute; top: 96px; left: 0; right: 0; align-items: center; }
+.toast { padding: 12px 20px; border-radius: 14px; margin-bottom: 8px; font-size: 20px; background-color: rgba(13, 18, 24, 0.9); border-width: 1px; border-color: rgba(255, 255, 255, 0.1); transition-duration: 0.3s; transition-property: opacity, translate; }
+.toast-good { border-color: rgb(16, 185, 129); }
+.toast-bad { border-color: rgb(248, 113, 113); }
+.hazard { position: absolute; top: 20px; left: 30%; right: 30%; background-color: rgba(127, 29, 29, 0.92); border-color: rgb(248, 113, 113); border-width: 2px; border-radius: 16px; padding: 14px 20px; flex-direction: row; align-items: center; }
+.hazard-icon { font-size: 30px; margin-right: 12px; }
+
+/* ── Tooltip / prompt ────────────────────────────────────────── */
+.tooltip { position: absolute; bottom: 140px; left: 0; right: 0; align-items: center; }
+.tooltip-label { background-color: rgba(13, 18, 24, 0.85); border-radius: 12px; padding: 8px 16px; font-size: 19px; }
+.prompt { position: absolute; bottom: 24px; left: 30%; right: 30%; flex-direction: row; align-items: center; justify-content: space-between; }
+
+/* ── Action menu ─────────────────────────────────────────────── */
+.actions { position: absolute; width: 300px; }
+.actions-title { font-size: 18px; color: rgb(148, 163, 184); margin-bottom: 6px; -unity-font-style: bold; }
+
+/* ── Value dialog (custom slider works for mouse, touch and gaze) ─ */
+.value { position: absolute; bottom: 24px; left: 28%; right: 28%; }
+.value-number { font-size: 44px; -unity-font-style: bold; -unity-text-align: middle-center; margin: 4px 0 10px 0; }
+.track { height: 16px; border-radius: 8px; background-color: rgba(255, 255, 255, 0.1); flex-grow: 1; margin: 0 12px; }
+.track-fill { height: 16px; border-radius: 8px; background-color: rgb(16, 185, 129); position: absolute; left: 0; top: 0; }
+.track-handle { width: 34px; height: 34px; border-radius: 17px; background-color: rgb(255, 255, 255); position: absolute; top: -9px; margin-left: -17px; border-width: 3px; border-color: rgb(16, 185, 129); }
+
+/* ── Reading pad ─────────────────────────────────────────────── */
+.reading { position: absolute; right: 24px; top: 96px; width: 420px; }
+.reading-display { font-size: 46px; -unity-font-style: bold; -unity-text-align: middle-right; background-color: rgba(0, 0, 0, 0.35); border-radius: 12px; padding: 10px 16px; margin: 10px 0; }
+.keypad { flex-direction: row; flex-wrap: wrap; justify-content: space-between; }
+.key { width: 104px; height: 60px; font-size: 26px; margin: 4px; }
+
+/* ── Quiz ────────────────────────────────────────────────────── */
+.quiz { position: absolute; left: 22%; right: 22%; top: 18%; }
+.quiz-prompt { font-size: 28px; -unity-font-style: bold; white-space: normal; margin-bottom: 14px; }
+.choice { -unity-text-align: middle-left; white-space: normal; padding: 16px 20px; }
+.choice-right { background-color: rgba(16, 185, 129, 0.35); border-color: rgb(16, 185, 129); }
+.choice-wrong { background-color: rgba(239, 68, 68, 0.3); border-color: rgb(248, 113, 113); }
+
+/* ── Overlays (loading, results, menu, pairing) ───────────────── */
+.overlay { position: absolute; left: 0; right: 0; top: 0; bottom: 0; background-color: rgba(5, 8, 12, 0.86); align-items: center; justify-content: center; }
+.panel { width: 860px; align-items: stretch; }
+.big-title { font-size: 40px; -unity-font-style: bold; margin-bottom: 6px; white-space: normal; }
+.bar { height: 10px; border-radius: 5px; background-color: rgba(255, 255, 255, 0.1); margin: 6px 0 14px 0; }
+.bar-fill { height: 10px; border-radius: 5px; background-color: rgb(16, 185, 129); }
+.score-ring { width: 190px; height: 190px; border-radius: 95px; border-width: 12px; border-color: rgb(16, 185, 129); align-items: center; justify-content: center; margin-right: 30px; }
+.score-number { font-size: 64px; -unity-font-style: bold; }
+.badge { background-color: rgba(59, 130, 246, 0.22); color: rgb(191, 219, 254); border-radius: 12px; padding: 6px 12px; margin: 4px; font-size: 17px; }
+.pair-code { font-size: 96px; -unity-font-style: bold; letter-spacing: 18px; color: rgb(110, 231, 183); -unity-text-align: middle-center; margin: 20px 0; }
+.result-row { flex-direction: row; justify-content: space-between; padding: 8px 0; border-bottom-width: 1px; border-color: rgba(255, 255, 255, 0.06); }

@@ -584,20 +584,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     ref.watch(enrolledCoursesProvider);
     final userEnrollmentsAsync = ref.watch(userEnrollmentsProvider);
 
-    final popularCoursesAsync = ref.watch(popularCoursesProvider);
-    final recommendedCoursesAsync = ref.watch(recommendedCoursesProvider);
-
     final isMobile = ResponsiveBreakpoints.isMobile(context);
     final isDesktop = ResponsiveBreakpoints.isDesktop(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final double hPad = isMobile ? 16 : 28;
-
-    final List<Course> popularCourses =
-        popularCoursesAsync.valueOrNull ?? const <Course>[];
-    final List<Course> recommendedCourses =
-        recommendedCoursesAsync.valueOrNull ?? const <Course>[];
-    final coursesToShow =
-        recommendedCourses.isNotEmpty ? recommendedCourses : popularCourses;
 
     final enrollments =
         userEnrollmentsAsync.valueOrNull ?? const <Enrollment>[];
@@ -664,8 +654,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                 enrollments: enrollments,
                                 enrollmentsLoading: enrollmentsLoading,
                                 enrolledCourses: enrolledCourses,
-                                coursesToShow: coursesToShow,
-                                popularCourses: popularCourses,
                               );
                               if (!wide) return main;
                               return Row(
@@ -712,8 +700,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     required List<Enrollment> enrollments,
     required bool enrollmentsLoading,
     required List<Course> enrolledCourses,
-    required List<Course> coursesToShow,
-    required List<Course> popularCourses,
   }) {
     final hasEnrollments = enrollments.isNotEmpty;
     final sectionGap =
@@ -751,15 +737,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             _reveal(3, _buildQuickStats(context, enrollments)),
           ],
         ],
-        if (coursesToShow.isNotEmpty) ...[
-          sectionGap,
-          _buildRecommendedCourses(context, coursesToShow, enrolledCourses),
-        ],
-        if (popularCourses.isNotEmpty) ...[
-          sectionGap,
-          _buildResponsivePopularCourses(
-              context, popularCourses, enrolledCourses),
-        ],
+        // Recommended/Popular carousels were removed to keep the dashboard
+        // focused; this single entry point leads to the full catalogue.
+        sectionGap,
+        _buildBrowseCoursesCard(context),
         if (!wide) ...[
           sectionGap,
           _buildUpdateInterestsCard(context),
@@ -1580,6 +1561,97 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
+  /// A single, clear entry point to the full course catalogue.
+  Widget _buildBrowseCoursesCard(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isSmall = ResponsiveBreakpoints.isSmallMobile(context);
+
+    final text = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Looking for more courses?',
+          style: TextStyle(
+            fontSize: isSmall ? 15 : 17,
+            fontWeight: FontWeight.w800,
+            color: _Dx.text(isDark),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Browse the full catalogue and find your next course.',
+          style: TextStyle(
+            fontSize: isSmall ? 12.5 : 13.5,
+            height: 1.4,
+            fontWeight: FontWeight.w500,
+            color: _Dx.sub(isDark),
+          ),
+        ),
+      ],
+    );
+
+    final button = _buildPillButton(
+      label: 'View Other Courses',
+      icon: Icons.arrow_forward_rounded,
+      compact: isSmall,
+      onTap: () => context.push('/courses'),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(isSmall ? 16 : 20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF111C24) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? _Dx.jade.withOpacity(0.22) : const Color(0xFFCDEBDC),
+        ),
+        boxShadow: _Dx.shadow(isDark),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final icon = Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: _Dx.jade.withOpacity(isDark ? 0.22 : 0.13),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(Icons.explore_rounded,
+                color: isDark ? _Dx.mintGlow : _Dx.emerald),
+          );
+          // Stack the button under the text on narrow screens.
+          if (constraints.maxWidth < 480) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    icon,
+                    const SizedBox(width: 14),
+                    Expanded(child: text),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                SizedBox(width: double.infinity, child: button),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              icon,
+              const SizedBox(width: 16),
+              Expanded(child: text),
+              const SizedBox(width: 16),
+              button,
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   // ===========================================================================
   // MY LEARNING
   // ===========================================================================
@@ -2194,13 +2266,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final isSmall = ResponsiveBreakpoints.isSmallMobile(context);
     final stats = _learningStats(enrollments);
 
+    // Each tile: icon, value, label, and a bold two-stop gradient.
     final items = [
       (Icons.menu_book_rounded, '${stats.enrolled}',
-          l10n?.enrolled ?? 'Enrolled', _Dx.jade),
+          l10n?.enrolled ?? 'Enrolled',
+          const [Color(0xFF10B981), Color(0xFF047857)]),
       (Icons.verified_rounded, '${stats.completed}',
-          l10n?.completed ?? 'Completed', const Color(0xFF2563EB)),
+          l10n?.completed ?? 'Completed',
+          const [Color(0xFF3B82F6), Color(0xFF1D4ED8)]),
       (Icons.emoji_events_rounded, '${stats.average.toInt()}%',
-          'Avg. Progress', const Color(0xFF7C3AED)),
+          'Avg. Progress',
+          const [Color(0xFFA855F7), Color(0xFF6D28D9)]),
     ];
 
     return Column(
@@ -2223,7 +2299,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   icon: items[i].$1,
                   value: items[i].$2,
                   label: items[i].$3,
-                  color: items[i].$4,
+                  colors: items[i].$4,
                 ),
               ),
             ],
@@ -2238,77 +2314,82 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     required IconData icon,
     required String value,
     required String label,
-    required Color color,
+    required List<Color> colors,
   }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isSmall = ResponsiveBreakpoints.isSmallMobile(context);
     return Container(
-      padding: EdgeInsets.all(isSmall ? 12 : 14),
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color.alphaBlend(
-                color.withOpacity(isDark ? 0.38 : 0.14), _Dx.surface(isDark)),
-            Color.alphaBlend(
-                color.withOpacity(isDark ? 0.12 : 0.04), _Dx.surface(isDark)),
-          ],
+          colors: colors,
         ),
-        border: Border.all(color: color.withOpacity(isDark ? 0.45 : 0.18)),
         boxShadow: [
           BoxShadow(
-            color: color.withOpacity(isDark ? 0.18 : 0.08),
-            blurRadius: 18,
+            color: colors.last.withOpacity(0.30),
+            blurRadius: 16,
             offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color,
-              boxShadow: [
-                BoxShadow(
-                  color: color.withOpacity(0.4),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Icon(icon, size: 19, color: Colors.white),
-          ),
-          const SizedBox(height: 10),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerLeft,
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: isSmall ? 19 : 22,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.6,
-                color: _Dx.text(isDark),
+          // Soft decorative circle for depth.
+          Positioned(
+            right: -18,
+            top: -18,
+            child: Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.12),
               ),
             ),
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: isSmall ? 10.5 : 11.5,
-              fontWeight: FontWeight.w500,
-              color: _Dx.sub(isDark),
+          Padding(
+            padding: EdgeInsets.all(isSmall ? 12 : 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.22),
+                  ),
+                  child: Icon(icon, size: 19, color: Colors.white),
+                ),
+                const SizedBox(height: 10),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    value,
+                    style: TextStyle(
+                      fontSize: isSmall ? 20 : 23,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.6,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: isSmall ? 10.5 : 11.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withOpacity(0.92),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -2550,15 +2631,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       // Invalidate all dashboard data providers to trigger fresh fetch
       ref.invalidate(enrolledCoursesProvider);
       ref.invalidate(userEnrollmentsProvider);
-      ref.invalidate(popularCoursesProvider);
-      ref.invalidate(recommendedCoursesProvider);
 
       // Wait for the providers to reload
       await Future.wait([
         ref.read(enrolledCoursesProvider.future),
         ref.read(userEnrollmentsProvider.future),
-        ref.read(popularCoursesProvider.future),
-        ref.read(recommendedCoursesProvider.future),
       ]);
     } catch (e) {
       debugPrint('DashboardScreen: Error during refresh: $e');

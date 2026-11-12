@@ -1,0 +1,264 @@
+{
+  "id": "bio-cheek-cells",
+  "version": 2,
+  "title": "Human Cheek Cells",
+  "summary": "Look at your own cells! Stain cheek cells with methylene blue and compare them with plant cells.",
+  "subject": "biology",
+  "level": "secondary",
+  "environment": "BioLab",
+  "difficulty": 3,
+  "tags": [
+    "microscopy",
+    "animal cells"
+  ],
+  "durationMin": 20,
+  "objectives": [
+    "Prepare an animal cell slide",
+    "Compare plant and animal cells"
+  ],
+  "equipment": [
+    {
+      "id": "gloves1",
+      "type": "gloves",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "scope",
+      "type": "microscope",
+      "slot": "scope.station",
+      "init": {
+        "commands": [
+          "4x",
+          "10x",
+          "40x"
+        ]
+      }
+    },
+    {
+      "id": "slide1",
+      "type": "slide",
+      "slot": "prep.station",
+      "label": "Cheek cells",
+      "init": {
+        "specimen": "cheek"
+      }
+    },
+    {
+      "id": "stain1",
+      "type": "stain",
+      "slot": "benchA.center",
+      "label": "Methylene blue",
+      "init": {
+        "name": "methylene_blue"
+      }
+    }
+  ],
+  "variables": {
+    "mic": {
+      "model": "bio.microscope",
+      "inputs": {
+        "microscope": "scope"
+      },
+      "params": {
+        "idealFocus": 0.62
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "ppe1",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your gloves.",
+      "expect": {
+        "intent": "Grab",
+        "target": "gloves1"
+      },
+      "focus": "gloves1",
+      "points": 5,
+      "hints": [
+        "Select it on the PPE station and choose \"Put on\"."
+      ]
+    },
+    {
+      "id": "stain",
+      "kind": "action",
+      "title": "Stain the specimen",
+      "instruction": "Add methylene blue to the cheek cells on the slide.",
+      "expect": {
+        "intent": "Pour",
+        "target": "stain1",
+        "into": "slide1"
+      },
+      "focus": "stain1",
+      "points": 10,
+      "hints": [
+        "Select the stain dropper, \"Pour\", then select the slide."
+      ],
+      "until": "slide1.stained"
+    },
+    {
+      "id": "cover",
+      "kind": "action",
+      "title": "Coverslip",
+      "instruction": "Lower a coverslip onto the slide.",
+      "expect": {
+        "intent": "Select",
+        "target": "slide1"
+      },
+      "focus": "slide1",
+      "points": 10,
+      "hints": [
+        "Select the stained slide to add the coverslip.",
+        "Lower it at an angle to avoid air bubbles."
+      ],
+      "until": "slide1.coverslip"
+    },
+    {
+      "id": "stage",
+      "kind": "action",
+      "title": "Load the slide",
+      "instruction": "Place the slide on the microscope stage.",
+      "expect": {
+        "intent": "Grab",
+        "target": "slide1",
+        "into": "scope"
+      },
+      "focus": "slide1",
+      "points": 10,
+      "hints": [
+        "Pick up the slide, then select the microscope."
+      ],
+      "until": "scope.slideLoaded"
+    },
+    {
+      "id": "light",
+      "kind": "action",
+      "title": "Light",
+      "instruction": "Switch on the microscope light.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "scope"
+      },
+      "focus": "scope",
+      "points": 10,
+      "hints": [
+        "Choose \"Light on\"."
+      ],
+      "until": "scope.lightOn"
+    },
+    {
+      "id": "focus",
+      "kind": "action",
+      "title": "Focus",
+      "instruction": "Focus the image with the fine focus knob.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "scope",
+        "value": {
+          "min": 0.6,
+          "max": 0.64
+        }
+      },
+      "focus": "scope",
+      "points": 10,
+      "hints": [
+        "Choose \"Focus\" and move the slider slowly until the image is sharp (around 62%)."
+      ],
+      "until": "mic.focusQuality >= 0.8"
+    },
+    {
+      "id": "mag10",
+      "kind": "action",
+      "title": "Higher power",
+      "instruction": "Switch to the 10× objective.",
+      "expect": {
+        "intent": "Type",
+        "target": "scope"
+      },
+      "focus": "scope",
+      "points": 10,
+      "hints": [
+        "Use the turret and pick 10x."
+      ],
+      "until": "scope.lastCommand == '10x'"
+    },
+    {
+      "id": "refocus",
+      "kind": "action",
+      "title": "Refocus",
+      "instruction": "Refocus with the fine focus.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "scope",
+        "value": {
+          "min": 0.6,
+          "max": 0.64
+        }
+      },
+      "focus": "scope",
+      "points": 10,
+      "hints": [],
+      "until": "mic.focusQuality >= 0.8 && scope.objective == 10"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Cheek cells look irregular and rounded. Why?",
+          "choices": [
+            "Animal cells have no rigid cell wall",
+            "They were squashed by the coverslip",
+            "They are dead",
+            "The stain changed their shape"
+          ],
+          "answerIndex": 0,
+          "explanation": "Without a cell wall, animal cells have flexible, irregular shapes."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "What should happen to used cheek swabs?",
+          "choices": [
+            "Put in disinfectant / biohazard waste",
+            "Back in the box",
+            "In the normal bin",
+            "Rinsed in the sink"
+          ],
+          "answerIndex": 0,
+          "explanation": "Human samples can carry pathogens, so they are disposed of as biohazard waste."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [
+    {
+      "id": "noGloves",
+      "when": "!gloves1.worn && stain1.dropsAdded > 0",
+      "message": "Wear gloves when handling human samples and stains.",
+      "severity": "warn",
+      "penalty": 15
+    }
+  ],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 80,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 130
+}

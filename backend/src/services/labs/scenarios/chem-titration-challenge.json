@@ -1,0 +1,312 @@
+{
+  "id": "chem-titration-challenge",
+  "version": 2,
+  "title": "Expert Challenge: Unknown Acid Concentration",
+  "summary": "Exam conditions: no step-by-step hints. Find the exact concentration of an unknown hydrochloric acid sample using 0.100 mol/dm³ sodium hydroxide.",
+  "subject": "chemistry",
+  "level": "secondary",
+  "environment": "ChemLab",
+  "difficulty": 5,
+  "tags": [
+    "titration",
+    "exam practice"
+  ],
+  "durationMin": 30,
+  "objectives": [
+    "Set up and fill a burette",
+    "Detect the end point",
+    "Calculate an unknown concentration"
+  ],
+  "equipment": [
+    {
+      "id": "goggles1",
+      "type": "goggles",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "coat1",
+      "type": "labcoat",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "naoh",
+      "type": "reagent_bottle",
+      "slot": "shelf.1",
+      "label": "NaOH 0.1 M",
+      "init": {
+        "solution": "NaOH",
+        "conc": 0.1,
+        "volume": 500
+      }
+    },
+    {
+      "id": "phth",
+      "type": "indicator",
+      "slot": "shelf.2",
+      "label": "Phenolphthalein",
+      "init": {
+        "name": "phenolphthalein"
+      }
+    },
+    {
+      "id": "burette1",
+      "type": "burette",
+      "slot": "benchA.center",
+      "init": {
+        "solution": "NaOH",
+        "conc": 0.1,
+        "volume": 50
+      }
+    },
+    {
+      "id": "funnel1",
+      "type": "funnel",
+      "slot": "benchA.right"
+    },
+    {
+      "id": "tile1",
+      "type": "white_tile",
+      "slot": "benchB.center"
+    },
+    {
+      "id": "flask1",
+      "type": "conical_flask",
+      "slot": "benchB.left",
+      "label": "Unknown HCl",
+      "init": {
+        "solution": "HCl",
+        "conc": 0.084,
+        "volume": 25
+      }
+    }
+  ],
+  "variables": {
+    "titr": {
+      "model": "chem.titration",
+      "inputs": {
+        "flask": "flask1",
+        "burette": "burette1"
+      },
+      "params": {
+        "indicator": "phenolphthalein"
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "ppe1",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your safety goggles.",
+      "expect": {
+        "intent": "Grab",
+        "target": "goggles1"
+      },
+      "focus": "goggles1",
+      "points": 5,
+      "hints": []
+    },
+    {
+      "id": "ppe2",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your lab coat.",
+      "expect": {
+        "intent": "Grab",
+        "target": "coat1"
+      },
+      "focus": "coat1",
+      "points": 5,
+      "hints": []
+    },
+    {
+      "id": "funnel",
+      "kind": "action",
+      "title": "Prepare the burette",
+      "instruction": "Place the funnel in the burette.",
+      "expect": {
+        "intent": "Grab",
+        "target": "funnel1"
+      },
+      "focus": "burette1",
+      "points": 5,
+      "hints": []
+    },
+    {
+      "id": "rinse",
+      "kind": "action",
+      "title": "Prepare the burette",
+      "instruction": "Rinse the burette with the sodium hydroxide solution.",
+      "expect": {
+        "intent": "Pour",
+        "target": "naoh",
+        "into": "burette1"
+      },
+      "focus": "naoh",
+      "points": 10,
+      "hints": [],
+      "until": "burette1.rinsed"
+    },
+    {
+      "id": "fill",
+      "kind": "action",
+      "title": "Fill the burette",
+      "instruction": "Fill the burette to just above zero.",
+      "expect": {
+        "intent": "Pour",
+        "target": "naoh",
+        "into": "burette1"
+      },
+      "focus": "naoh",
+      "points": 10,
+      "hints": [],
+      "until": "burette1.filled && burette1.volumeMl >= 49"
+    },
+    {
+      "id": "read0",
+      "kind": "measure",
+      "title": "Initial reading",
+      "instruction": "Read the burette at eye level and record the initial reading.",
+      "record": {
+        "key": "initialReading",
+        "label": "Initial burette reading",
+        "unit": "cm³",
+        "truth": "burette1.reading",
+        "tolerance": 0.05
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "burette1"
+    },
+    {
+      "id": "indicator",
+      "kind": "action",
+      "title": "Add indicator",
+      "instruction": "Add phenolphthalein to the acid in the flask.",
+      "expect": {
+        "intent": "Pour",
+        "target": "phth",
+        "into": "flask1"
+      },
+      "focus": "phth",
+      "points": 10,
+      "hints": [],
+      "until": "flask1.hasIndicator"
+    },
+    {
+      "id": "tile",
+      "kind": "action",
+      "title": "Position the flask",
+      "instruction": "Place the flask on the white tile under the burette.",
+      "expect": {
+        "intent": "Grab",
+        "target": "flask1",
+        "into": "tile1"
+      },
+      "focus": "flask1",
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "titrate",
+      "kind": "action",
+      "title": "Titrate",
+      "instruction": "Add alkali while swirling; go drop by drop near the end point and stop at the first permanent pale pink.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "burette1"
+      },
+      "focus": "flask1",
+      "points": 20,
+      "hints": [],
+      "until": "titr.colorIndex >= 0.35"
+    },
+    {
+      "id": "read1",
+      "kind": "measure",
+      "title": "Final reading",
+      "instruction": "Record the final burette reading.",
+      "record": {
+        "key": "finalReading",
+        "label": "Final burette reading",
+        "unit": "cm³",
+        "truth": "burette1.reading",
+        "tolerance": 0.05
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "burette1"
+    },
+    {
+      "id": "titre",
+      "kind": "measure",
+      "title": "Titre",
+      "instruction": "Calculate the titre (final − initial).",
+      "record": {
+        "key": "titre",
+        "label": "Titre",
+        "unit": "cm³",
+        "truth": "record.finalReading - record.initialReading",
+        "tolerance": 0.05
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "conc",
+      "kind": "measure",
+      "title": "Concentration",
+      "instruction": "Calculate the concentration of the acid (25.0 cm³ of acid, NaOH 0.1 mol/dm³, 1:1 ratio).",
+      "record": {
+        "key": "acidConc",
+        "label": "Acid concentration",
+        "unit": "mol/dm³",
+        "truth": "round(record.titre * 0.1 / 25, 4)",
+        "tolerance": 0.002
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [
+    {
+      "id": "noGoggles",
+      "when": "!goggles1.worn && (burette1.volumeMl > 0 || naoh.poured)",
+      "message": "Stop! Put on your safety goggles before handling chemicals.",
+      "severity": "warn",
+      "penalty": 15
+    },
+    {
+      "id": "overshoot",
+      "when": "titr.pH > 11.5",
+      "message": "You overshot the end point — the solution is deep pink.",
+      "severity": "warn",
+      "penalty": 10
+    }
+  ],
+  "results": [
+    {
+      "key": "titre",
+      "label": "Titre",
+      "unit": "cm³",
+      "expected": 21.0,
+      "tolerancePct": 1.5,
+      "source": "record.titre"
+    },
+    {
+      "key": "acidConc",
+      "label": "Acid concentration",
+      "unit": "mol/dm³",
+      "expected": 0.084,
+      "tolerancePct": 2,
+      "source": "record.acidConc"
+    }
+  ],
+  "scoring": {
+    "accuracy": 40,
+    "procedure": 40,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 215
+}

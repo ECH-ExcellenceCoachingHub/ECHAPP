@@ -1,0 +1,150 @@
+{
+  "id": "bio-microscope-parts",
+  "version": 2,
+  "title": "Parts of the Microscope",
+  "summary": "Get to know the light microscope: eyepiece, objectives, stage, light and focus knobs.",
+  "subject": "biology",
+  "level": "secondary",
+  "environment": "BioLab",
+  "difficulty": 1,
+  "tags": [
+    "microscopy",
+    "start here"
+  ],
+  "durationMin": 8,
+  "objectives": [
+    "Name the parts of a light microscope",
+    "Calculate total magnification"
+  ],
+  "equipment": [
+    {
+      "id": "scope",
+      "type": "microscope",
+      "slot": "scope.station",
+      "init": {
+        "commands": [
+          "4x",
+          "10x",
+          "40x"
+        ]
+      }
+    }
+  ],
+  "variables": {
+    "mic": {
+      "model": "bio.microscope",
+      "inputs": {
+        "microscope": "scope"
+      },
+      "params": {
+        "idealFocus": 0.62
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "look",
+      "kind": "action",
+      "title": "Meet the microscope",
+      "instruction": "Look closely at the microscope.",
+      "expect": {
+        "intent": "Inspect",
+        "target": "scope"
+      },
+      "focus": "scope",
+      "points": 10,
+      "hints": [
+        "Select the microscope and choose \"Look closer\"."
+      ],
+      "say": "The eyepiece magnifies 10×; the objectives on the turret magnify 4×, 10× or 40×."
+    },
+    {
+      "id": "light",
+      "kind": "action",
+      "title": "Light",
+      "instruction": "Switch the light on.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "scope"
+      },
+      "focus": "scope",
+      "points": 10,
+      "hints": [
+        "Choose \"Light on\"."
+      ],
+      "until": "scope.lightOn"
+    },
+    {
+      "id": "turret",
+      "kind": "action",
+      "title": "Objectives",
+      "instruction": "Click the 10× objective into place.",
+      "expect": {
+        "intent": "Type",
+        "target": "scope"
+      },
+      "focus": "scope",
+      "points": 10,
+      "hints": [
+        "Choose \"Run a command\" (the turret) and pick 10x."
+      ],
+      "until": "scope.lastCommand == '10x'"
+    },
+    {
+      "id": "mag",
+      "kind": "measure",
+      "title": "Magnification",
+      "instruction": "What is the total magnification now?",
+      "record": {
+        "key": "mag",
+        "label": "Total magnification",
+        "unit": "×",
+        "truth": "mic.magnification",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": [
+        "Total = eyepiece (10×) × objective."
+      ]
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Which part do you use to focus at high power?",
+          "choices": [
+            "The fine focus knob",
+            "The coarse focus knob",
+            "The light switch",
+            "The stage clips"
+          ],
+          "answerIndex": 0,
+          "explanation": "At high power only the fine focus knob is used, to avoid crushing the slide."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [
+    {
+      "key": "mag",
+      "label": "Magnification",
+      "unit": "×",
+      "expected": 100,
+      "tolerancePct": 1,
+      "source": "record.mag"
+    }
+  ],
+  "scoring": {
+    "accuracy": 40,
+    "procedure": 40,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 60
+}

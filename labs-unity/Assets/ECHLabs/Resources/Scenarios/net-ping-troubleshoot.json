@@ -1,0 +1,162 @@
+{
+  "id": "net-ping-troubleshoot",
+  "version": 2,
+  "title": "Troubleshooting: \"The Internet Is Down!\"",
+  "summary": "Teachers say the internet is down. Use ping and traceroute layer by layer to find the fault.",
+  "subject": "networking",
+  "level": "secondary",
+  "environment": "ServerRoom",
+  "difficulty": 3,
+  "tags": [
+    "troubleshooting",
+    "DNS"
+  ],
+  "durationMin": 20,
+  "objectives": [
+    "Troubleshoot methodically from the bottom up",
+    "Use ping and traceroute"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Admin PC",
+      "init": {
+        "os": "ECH NetOS",
+        "commands": [
+          "ping 127.0.0.1",
+          "ping 192.168.1.1",
+          "ping 8.8.8.8",
+          "ping google.com",
+          "traceroute 8.8.8.8",
+          "set dns 8.8.8.8"
+        ]
+      }
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "lo",
+      "kind": "action",
+      "title": "Step 1",
+      "instruction": "Ping the loopback address to test the PC's own network stack.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [
+        "127.0.0.1 is \"this computer\"."
+      ],
+      "until": "ws.lastCommand == 'ping 127.0.0.1'",
+      "say": "Reply OK — the network card works."
+    },
+    {
+      "id": "gw",
+      "kind": "action",
+      "title": "Step 2",
+      "instruction": "Ping the gateway.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'ping 192.168.1.1'",
+      "say": "Reply OK — the LAN works."
+    },
+    {
+      "id": "ip",
+      "kind": "action",
+      "title": "Step 3",
+      "instruction": "Ping an internet IP address.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'ping 8.8.8.8'",
+      "say": "Reply OK — the internet connection works!"
+    },
+    {
+      "id": "name",
+      "kind": "action",
+      "title": "Step 4",
+      "instruction": "Ping a website by NAME.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'ping google.com'",
+      "say": "Error: could not resolve host google.com"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "IP addresses work but names do not. What is broken?",
+          "choices": [
+            "DNS (name resolution)",
+            "The cable",
+            "The router",
+            "The monitor"
+          ],
+          "answerIndex": 0,
+          "explanation": "DNS turns names into IP addresses; if only names fail, DNS is the problem."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "dns",
+      "kind": "action",
+      "title": "Fix",
+      "instruction": "Set a working DNS server.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'set dns 8.8.8.8'"
+    },
+    {
+      "id": "retest",
+      "kind": "action",
+      "title": "Verify",
+      "instruction": "Test the website again.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'ping google.com'",
+      "say": "Reply from 142.250.x.x — fixed!"
+    }
+  ],
+  "hazards": [],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 80,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 130
+}

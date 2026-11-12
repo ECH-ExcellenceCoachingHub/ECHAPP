@@ -1,0 +1,147 @@
+{
+  "id": "code-debugging",
+  "version": 2,
+  "title": "Debugging: Find the Bug",
+  "summary": "A program that decides PASS/FAIL is giving the wrong answer. Read the code, find the bug and fix it.",
+  "subject": "coding",
+  "level": "secondary",
+  "environment": "CodingBench",
+  "difficulty": 4,
+  "tags": [
+    "debugging",
+    "Python"
+  ],
+  "durationMin": 25,
+  "objectives": [
+    "Read error messages",
+    "Find and fix a logic bug",
+    "Test boundary values"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Python workstation",
+      "init": {
+        "os": "Python 3",
+        "commands": [
+          "run grade.py",
+          "show code",
+          "fix: change > to >=",
+          "test mark=50",
+          "test mark=49"
+        ]
+      }
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "run",
+      "kind": "action",
+      "title": "Reproduce",
+      "instruction": "Run the program with a mark of 50.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'run grade.py'",
+      "say": "mark = 50 → FAIL  (but 50 should PASS!)"
+    },
+    {
+      "id": "read",
+      "kind": "action",
+      "title": "Read the code",
+      "instruction": "Show the code.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [
+        "Look at the comparison operator."
+      ],
+      "until": "ws.lastCommand == 'show code'",
+      "say": "if mark > 50: print(\"PASS\") else: print(\"FAIL\")"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Why does 50 fail?",
+          "choices": [
+            "> 50 is false when the mark is exactly 50",
+            "The mark is a string",
+            "print is misspelled",
+            "Python cannot compare numbers"
+          ],
+          "answerIndex": 0,
+          "explanation": "50 > 50 is False. The pass mark should be included: mark >= 50."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "fix",
+      "kind": "action",
+      "title": "Fix",
+      "instruction": "Fix the bug.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'fix: change > to >='"
+    },
+    {
+      "id": "t50",
+      "kind": "action",
+      "title": "Test the boundary",
+      "instruction": "Test with 50.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'test mark=50'",
+      "say": "PASS ✓"
+    },
+    {
+      "id": "t49",
+      "kind": "action",
+      "title": "Test the boundary",
+      "instruction": "Test with 49.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'test mark=49'",
+      "say": "FAIL ✓"
+    }
+  ],
+  "hazards": [],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 80,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 160
+}

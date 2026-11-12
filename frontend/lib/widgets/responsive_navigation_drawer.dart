@@ -252,6 +252,14 @@ class ResponsiveNavigationDrawer extends ConsumerWidget {
           route: '/certificates',
           pageKey: 'certificates',
         );
+        final labs = _NavItem(
+          icon: Icons.science_rounded,
+          color: _kTeal,
+          title: 'Virtual Labs',
+          subtitle: '3D & VR experiments',
+          route: '/labs',
+          pageKey: 'labs',
+        );
         final messages = _NavItem(
           icon: Icons.chat_rounded,
           color: _kBlue,
@@ -268,7 +276,7 @@ class ResponsiveNavigationDrawer extends ConsumerWidget {
           return _Menu([
             _NavSection(null, [home]),
             _NavSection(l10n?.sidebarSectionLearning ?? 'Learning',
-                [myCourses, liveSessions, career, jobs]),
+                [myCourses, labs, liveSessions, career, jobs]),
             _NavSection(
                 l10n?.drawerSectionProfileProgress ?? 'Profile & Progress',
                 [progress, certificates]),
@@ -289,6 +297,7 @@ class ResponsiveNavigationDrawer extends ConsumerWidget {
               route: '/courses',
               pageKey: 'courses',
             ),
+            labs,
             liveSessions,
             _NavItem(
               icon: Icons.local_library_rounded,

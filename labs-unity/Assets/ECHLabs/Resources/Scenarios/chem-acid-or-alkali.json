@@ -1,0 +1,265 @@
+{
+  "id": "chem-acid-or-alkali",
+  "version": 2,
+  "title": "Acid or Alkali? Using Indicators",
+  "summary": "Use phenolphthalein to test a solution, then add alkali drop by drop and watch the colour change appear.",
+  "subject": "chemistry",
+  "level": "secondary",
+  "environment": "ChemLab",
+  "difficulty": 2,
+  "tags": [
+    "indicators",
+    "pH"
+  ],
+  "durationMin": 15,
+  "objectives": [
+    "Use an indicator to test a solution",
+    "Describe the colour change of phenolphthalein",
+    "Link colour to pH"
+  ],
+  "equipment": [
+    {
+      "id": "goggles1",
+      "type": "goggles",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "coat1",
+      "type": "labcoat",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "phth",
+      "type": "indicator",
+      "slot": "shelf.1",
+      "label": "Phenolphthalein",
+      "init": {
+        "name": "phenolphthalein"
+      }
+    },
+    {
+      "id": "burette1",
+      "type": "burette",
+      "slot": "benchA.center",
+      "init": {
+        "solution": "NaOH",
+        "conc": 0.1,
+        "volume": 50
+      }
+    },
+    {
+      "id": "naoh",
+      "type": "reagent_bottle",
+      "slot": "shelf.2",
+      "label": "NaOH 0.1 M",
+      "init": {
+        "solution": "NaOH",
+        "conc": 0.1,
+        "volume": 500
+      }
+    },
+    {
+      "id": "tile1",
+      "type": "white_tile",
+      "slot": "benchB.center"
+    },
+    {
+      "id": "flask1",
+      "type": "conical_flask",
+      "slot": "benchB.left",
+      "label": "Mystery solution",
+      "init": {
+        "solution": "HCl",
+        "conc": 0.05,
+        "volume": 20
+      }
+    }
+  ],
+  "variables": {
+    "titr": {
+      "model": "chem.titration",
+      "inputs": {
+        "flask": "flask1",
+        "burette": "burette1"
+      },
+      "params": {
+        "indicator": "phenolphthalein"
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "ppe1",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your safety goggles.",
+      "expect": {
+        "intent": "Grab",
+        "target": "goggles1"
+      },
+      "focus": "goggles1",
+      "points": 5,
+      "hints": [
+        "Select it on the PPE station and choose \"Put on\"."
+      ]
+    },
+    {
+      "id": "ppe2",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your lab coat.",
+      "expect": {
+        "intent": "Grab",
+        "target": "coat1"
+      },
+      "focus": "coat1",
+      "points": 5,
+      "hints": [
+        "Select it on the PPE station and choose \"Put on\"."
+      ]
+    },
+    {
+      "id": "drops",
+      "kind": "action",
+      "title": "Add indicator",
+      "instruction": "Add a few drops of phenolphthalein to the mystery solution.",
+      "expect": {
+        "intent": "Pour",
+        "target": "phth",
+        "into": "flask1"
+      },
+      "focus": "phth",
+      "points": 10,
+      "hints": [
+        "Select the small brown dropper bottle, choose \"Pour\", then select the flask."
+      ],
+      "until": "flask1.hasIndicator"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "The solution stayed colourless. What does that tell you?",
+          "choices": [
+            "It is acidic or neutral (pH below 8.2)",
+            "It is strongly alkaline",
+            "The indicator is broken",
+            "It is pure water"
+          ],
+          "answerIndex": 0,
+          "explanation": "Phenolphthalein is colourless below about pH 8.2 and pink above it."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "rinse",
+      "kind": "action",
+      "title": "Prepare the burette",
+      "instruction": "Rinse the burette with sodium hydroxide.",
+      "expect": {
+        "intent": "Pour",
+        "target": "naoh",
+        "into": "burette1"
+      },
+      "focus": "naoh",
+      "points": 10,
+      "hints": [
+        "Pour NaOH into the burette once — the first pour is the rinse."
+      ],
+      "until": "burette1.rinsed"
+    },
+    {
+      "id": "fill",
+      "kind": "action",
+      "title": "Fill the burette",
+      "instruction": "Fill the burette with sodium hydroxide.",
+      "expect": {
+        "intent": "Pour",
+        "target": "naoh",
+        "into": "burette1"
+      },
+      "focus": "naoh",
+      "points": 10,
+      "hints": [
+        "Pour again to fill it."
+      ],
+      "until": "burette1.filled"
+    },
+    {
+      "id": "place",
+      "kind": "action",
+      "title": "Position the flask",
+      "instruction": "Put the flask on the white tile under the burette.",
+      "expect": {
+        "intent": "Grab",
+        "target": "flask1",
+        "into": "tile1"
+      },
+      "focus": "flask1",
+      "points": 10,
+      "hints": [
+        "Pick up the flask, then select the white tile."
+      ]
+    },
+    {
+      "id": "add",
+      "kind": "action",
+      "title": "Add alkali",
+      "instruction": "Open the burette tap and add alkali until the solution turns pink.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "burette1"
+      },
+      "focus": "flask1",
+      "points": 10,
+      "hints": [
+        "Turn the tap open. Watch the flask!",
+        "Close the tap as soon as the pink colour stays."
+      ],
+      "until": "titr.colorIndex >= 0.35"
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Why did the solution turn pink?",
+          "choices": [
+            "Enough alkali was added to raise the pH above 8.2",
+            "The acid evaporated",
+            "The tile reflected pink light",
+            "Phenolphthalein went off"
+          ],
+          "answerIndex": 0,
+          "explanation": "Once all the acid is neutralised, a little extra alkali makes the solution alkaline and the indicator turns pink."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [
+    {
+      "id": "noGoggles",
+      "when": "!goggles1.worn && burette1.volumeMl > 0",
+      "message": "Stop! Put on your safety goggles before handling chemicals.",
+      "severity": "warn",
+      "penalty": 15
+    }
+  ],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 80,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 100
+}

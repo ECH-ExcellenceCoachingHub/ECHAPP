@@ -1,0 +1,295 @@
+{
+  "id": "phys-ohms-law-two-readings",
+  "version": 2,
+  "title": "Ohm's Law: Does Current Double?",
+  "summary": "Measure the current through a resistor at 3 V and at 9 V. Does tripling the voltage triple the current?",
+  "subject": "physics",
+  "level": "secondary",
+  "environment": "PhysicsLab",
+  "difficulty": 3,
+  "tags": [
+    "circuits",
+    "Ohm's law"
+  ],
+  "durationMin": 20,
+  "objectives": [
+    "Take repeated readings at different voltages",
+    "Show that I is proportional to V",
+    "Calculate resistance from a pair of readings"
+  ],
+  "equipment": [
+    {
+      "id": "psu",
+      "type": "power_supply",
+      "slot": "benchA.left",
+      "init": {
+        "maxVoltage": 12
+      }
+    },
+    {
+      "id": "board",
+      "type": "breadboard",
+      "slot": "benchA.center"
+    },
+    {
+      "id": "r1",
+      "type": "resistor",
+      "slot": "benchB.left",
+      "label": "Resistor 100 Ω",
+      "init": {
+        "ohms": 100
+      }
+    },
+    {
+      "id": "amm",
+      "type": "ammeter",
+      "slot": "benchB.center"
+    },
+    {
+      "id": "volt",
+      "type": "voltmeter",
+      "slot": "benchB.right"
+    }
+  ],
+  "variables": {
+    "circ": {
+      "model": "phys.circuit",
+      "inputs": {
+        "circuit": "board"
+      },
+      "params": {}
+    }
+  },
+  "steps": [
+    {
+      "id": "place",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect the resistor to the circuit board.",
+      "expect": {
+        "intent": "Connect",
+        "target": "r1",
+        "into": "board"
+      },
+      "focus": "r1",
+      "points": 10,
+      "hints": [
+        "Select the resistor, choose \"Connect\", then select the green board."
+      ],
+      "until": "r1.connected"
+    },
+    {
+      "id": "ammeter",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect the ammeter in SERIES.",
+      "expect": {
+        "intent": "Connect",
+        "target": "amm",
+        "into": "board"
+      },
+      "focus": "amm",
+      "points": 10,
+      "hints": [
+        "An ammeter goes in the same loop as the resistor."
+      ],
+      "until": "amm.connected"
+    },
+    {
+      "id": "voltmeter",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect the voltmeter in PARALLEL across the resistor.",
+      "expect": {
+        "intent": "Connect",
+        "target": "volt",
+        "into": "board"
+      },
+      "focus": "volt",
+      "points": 10,
+      "hints": [
+        "A voltmeter goes across (side by side with) the resistor."
+      ],
+      "until": "volt.connected"
+    },
+    {
+      "id": "power",
+      "kind": "action",
+      "title": "Power on",
+      "instruction": "Switch on the power supply.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "psu"
+      },
+      "focus": "psu",
+      "points": 10,
+      "hints": [
+        "Choose \"Switch on\" on the power supply."
+      ],
+      "until": "psu.on"
+    },
+    {
+      "id": "v3",
+      "kind": "action",
+      "title": "First reading",
+      "instruction": "Set the supply to 3.0 V.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "psu",
+        "value": {
+          "min": 2.9,
+          "max": 3.1
+        }
+      },
+      "focus": "psu",
+      "points": 10,
+      "hints": [
+        "Choose \"Set voltage\" and move to 3.0 V."
+      ],
+      "until": "between(psu.voltageV, 2.9, 3.1)"
+    },
+    {
+      "id": "i3",
+      "kind": "measure",
+      "title": "First reading",
+      "instruction": "Record the current at 3 V.",
+      "record": {
+        "key": "i3",
+        "label": "Current at 3 V",
+        "unit": "A",
+        "truth": "amm.reading",
+        "tolerance": 0.002
+      },
+      "points": 10,
+      "hints": [
+        "Read the ammeter display."
+      ],
+      "focus": "amm"
+    },
+    {
+      "id": "v9",
+      "kind": "action",
+      "title": "Second reading",
+      "instruction": "Increase the supply to 9.0 V.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "psu",
+        "value": {
+          "min": 8.9,
+          "max": 9.1
+        }
+      },
+      "focus": "psu",
+      "points": 10,
+      "hints": [
+        "Move the slider to 9.0 V."
+      ],
+      "until": "between(psu.voltageV, 8.9, 9.1)"
+    },
+    {
+      "id": "i9",
+      "kind": "measure",
+      "title": "Second reading",
+      "instruction": "Record the current at 9 V.",
+      "record": {
+        "key": "i9",
+        "label": "Current at 9 V",
+        "unit": "A",
+        "truth": "amm.reading",
+        "tolerance": 0.002
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "amm"
+    },
+    {
+      "id": "ratio",
+      "kind": "measure",
+      "title": "Compare",
+      "instruction": "Calculate I(9 V) ÷ I(3 V).",
+      "record": {
+        "key": "ratio",
+        "label": "Current ratio",
+        "unit": "",
+        "truth": "record.i9 / record.i3",
+        "tolerance": 0.05
+      },
+      "points": 10,
+      "hints": [
+        "Divide the second current by the first."
+      ]
+    },
+    {
+      "id": "resist",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "Calculate the resistance R = V ÷ I using the 9 V reading.",
+      "record": {
+        "key": "resistance",
+        "label": "Resistance",
+        "unit": "Ω",
+        "truth": "9 / record.i9",
+        "tolerance": 2
+      },
+      "points": 10,
+      "hints": [
+        "R = 9 ÷ current at 9 V."
+      ]
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "The voltage tripled and the current tripled. This shows that…",
+          "choices": [
+            "Current is directly proportional to voltage",
+            "Resistance tripled",
+            "The ammeter is faulty",
+            "Power stayed the same"
+          ],
+          "answerIndex": 0,
+          "explanation": "That is Ohm's law: for a fixed resistor, I ∝ V."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [
+    {
+      "id": "short",
+      "when": "board.shortCircuit",
+      "message": "Short circuit! An ammeter with no resistor in the loop shorts the supply. Switch off and fix it.",
+      "severity": "warn",
+      "penalty": 15
+    }
+  ],
+  "results": [
+    {
+      "key": "ratio",
+      "label": "I(9 V) ÷ I(3 V)",
+      "unit": "",
+      "expected": 3,
+      "tolerancePct": 3,
+      "source": "record.ratio"
+    },
+    {
+      "key": "resistance",
+      "label": "Resistance",
+      "unit": "Ω",
+      "expected": 100,
+      "tolerancePct": 4,
+      "source": "record.resistance"
+    }
+  ],
+  "scoring": {
+    "accuracy": 40,
+    "procedure": 40,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 130
+}

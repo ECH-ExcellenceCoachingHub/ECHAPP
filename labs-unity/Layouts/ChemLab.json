@@ -1,0 +1,188 @@
+{
+  "name": "ChemLab",
+  "title": "ECH Chemistry Wet Lab",
+  "size": [
+    12,
+    3.4,
+    9
+  ],
+  "style": "bright",
+  "spawn": {
+    "pos": [
+      0,
+      1.62,
+      -3.4
+    ],
+    "yaw": 0
+  },
+  "benches": [
+    {
+      "id": "benchA",
+      "pos": [
+        -1.5,
+        0,
+        0.2
+      ],
+      "yaw": 180,
+      "length": 2.7,
+      "riser": true
+    },
+    {
+      "id": "benchB",
+      "pos": [
+        1.5,
+        0,
+        0.2
+      ],
+      "yaw": 180,
+      "length": 2.7,
+      "riser": true
+    }
+  ],
+  "shelves": [
+    {
+      "id": "shelf",
+      "pos": [
+        0,
+        1.28,
+        0.62
+      ],
+      "yaw": 180,
+      "count": 3,
+      "spacing": 0.9
+    }
+  ],
+  "stations": {
+    "ppe.rack": {
+      "kind": "ppe",
+      "pos": [
+        -5.1,
+        0,
+        -2.4
+      ],
+      "yaw": 90
+    },
+    "fumehood.center": {
+      "kind": "fumehood",
+      "pos": [
+        4.6,
+        0,
+        3.5
+      ],
+      "yaw": 180
+    },
+    "sink": {
+      "kind": "sink",
+      "pos": [
+        -4.6,
+        0,
+        3.6
+      ],
+      "yaw": 180
+    }
+  },
+  "props": [
+    {
+      "kind": "display",
+      "pos": [
+        0,
+        0,
+        4.42
+      ],
+      "yaw": 180,
+      "text": "ECH Chemistry Lab"
+    },
+    {
+      "kind": "windows",
+      "wall": "east"
+    },
+    {
+      "kind": "stools",
+      "bench": "benchA"
+    },
+    {
+      "kind": "stools",
+      "bench": "benchB"
+    },
+    {
+      "kind": "cabinet",
+      "pos": [
+        5.4,
+        0,
+        -1.5
+      ],
+      "yaw": -90
+    },
+    {
+      "kind": "plant",
+      "pos": [
+        -5.4,
+        0,
+        4.0
+      ]
+    },
+    {
+      "kind": "safetyshower",
+      "pos": [
+        5.6,
+        0,
+        -3.8
+      ],
+      "yaw": -90
+    }
+  ],
+  "shots": [
+    {
+      "name": "overview",
+      "pos": [
+        -4.8,
+        2.3,
+        -4.0
+      ],
+      "look": [
+        0,
+        0.9,
+        0.6
+      ]
+    },
+    {
+      "name": "benchA",
+      "pos": [
+        -1.5,
+        1.45,
+        -1.0
+      ],
+      "look": [
+        -1.5,
+        1.0,
+        0.25
+      ]
+    },
+    {
+      "name": "burette_closeup",
+      "pos": [
+        -1.5,
+        1.05,
+        -0.35
+      ],
+      "look": [
+        -1.5,
+        0.95,
+        0.12
+      ]
+    },
+    {
+      "name": "student_view",
+      "pos": [
+        0,
+        1.62,
+        -3.4
+      ],
+      "look": [
+        0,
+        1.1,
+        0.5
+      ]
+    }
+  ]
+}

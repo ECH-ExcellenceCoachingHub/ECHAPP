@@ -1,0 +1,177 @@
+{
+  "id": "cyber-phishing-triage",
+  "version": 2,
+  "title": "Phishing Email Triage",
+  "summary": "Three suspicious emails have been reported by teachers. Investigate them and decide which ones are phishing.",
+  "subject": "cybersecurity",
+  "level": "secondary",
+  "environment": "CyberSOC",
+  "difficulty": 2,
+  "tags": [
+    "phishing",
+    "email"
+  ],
+  "durationMin": 15,
+  "objectives": [
+    "Spot the signs of phishing",
+    "Report and block a phishing campaign"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Analyst workstation",
+      "init": {
+        "os": "ECH-SOC Linux",
+        "commands": [
+          "login",
+          "open inbox",
+          "check sender email-1",
+          "check link email-1",
+          "report phishing email-1",
+          "block sender ech-payments@ech-support.biz",
+          "mark safe email-2"
+        ]
+      }
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "login",
+      "kind": "action",
+      "title": "Start",
+      "instruction": "Log in.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [
+        "Run \"login\"."
+      ],
+      "until": "ws.lastCommand == 'login'"
+    },
+    {
+      "id": "inbox",
+      "kind": "action",
+      "title": "Reported emails",
+      "instruction": "Open the reported-emails inbox.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'open inbox'",
+      "say": "Email 1: \"URGENT: your salary is on hold — confirm your bank details today\" from ech-payments@ech-support.biz."
+    },
+    {
+      "id": "sender",
+      "kind": "action",
+      "title": "Investigate",
+      "instruction": "Check the sender of email 1.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [
+        "Look at the domain after the @."
+      ],
+      "until": "ws.lastCommand == 'check sender email-1'",
+      "say": "The domain ech-support.biz is NOT the school's real domain."
+    },
+    {
+      "id": "link",
+      "kind": "action",
+      "title": "Investigate",
+      "instruction": "Check where the link in email 1 really goes.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'check link email-1'",
+      "say": "The \"Login\" button points to a fake page that copies the school login."
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Which signs show email 1 is phishing?",
+          "choices": [
+            "Urgency, a fake domain and a request for bank details",
+            "It has the school logo",
+            "It was sent on Monday",
+            "It is short"
+          ],
+          "answerIndex": 0,
+          "explanation": "Pressure + spoofed sender + asking for credentials or money are classic phishing signs."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "report",
+      "kind": "action",
+      "title": "Act",
+      "instruction": "Report email 1 as phishing.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'report phishing email-1'"
+    },
+    {
+      "id": "block",
+      "kind": "action",
+      "title": "Act",
+      "instruction": "Block the sender.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'block sender ech-payments@ech-support.biz'"
+    },
+    {
+      "id": "safe",
+      "kind": "action",
+      "title": "Act",
+      "instruction": "Email 2 is a genuine message from the head teacher — mark it safe.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'mark safe email-2'"
+    }
+  ],
+  "hazards": [],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 80,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 100
+}

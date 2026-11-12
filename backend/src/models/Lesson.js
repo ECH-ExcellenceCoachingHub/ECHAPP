@@ -101,6 +101,12 @@ const lessonSchema = new mongoose.Schema({
     type: demoSchema,
     default: null
   },
+  // Interactive 3D/VR virtual-lab experiment for this lesson (Unity ECH Labs).
+  lab: {
+    scenarioId: { type: mongoose.Schema.Types.ObjectId, ref: 'LabScenario', default: null },
+    // When true the lesson only counts as complete after the lab is passed.
+    required: { type: Boolean, default: false },
+  },
   // Lesson content version (incremented when aiContent changes).
   contentVersion: {
     type: Number,

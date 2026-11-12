@@ -1,0 +1,161 @@
+{
+  "id": "cyber-forensics-challenge",
+  "version": 2,
+  "title": "Expert Challenge: Log Forensics",
+  "summary": "No hints. Analyse the authentication logs, count the failed logins and identify the brute-force attacker.",
+  "subject": "cybersecurity",
+  "level": "secondary",
+  "environment": "CyberSOC",
+  "difficulty": 5,
+  "tags": [
+    "forensics",
+    "exam practice"
+  ],
+  "durationMin": 30,
+  "objectives": [
+    "Analyse logs",
+    "Identify a brute-force attack",
+    "Recommend controls"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Analyst workstation",
+      "init": {
+        "os": "ECH-SOC Linux",
+        "commands": [
+          "login",
+          "grep failed auth.log",
+          "count failed auth.log",
+          "top ip auth.log",
+          "lock account admin"
+        ]
+      }
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "login",
+      "kind": "action",
+      "title": "Start",
+      "instruction": "Log in.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'login'"
+    },
+    {
+      "id": "grep",
+      "kind": "action",
+      "title": "Analyse",
+      "instruction": "Search the log for failed logins.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'grep failed auth.log'",
+      "say": "auth.log: 48 lines \"Failed password for admin from 203.0.113.9\" between 02:00 and 02:04."
+    },
+    {
+      "id": "count",
+      "kind": "measure",
+      "title": "Analyse",
+      "instruction": "How many failed login attempts were there?",
+      "record": {
+        "key": "failed",
+        "label": "Failed logins",
+        "unit": "attempts",
+        "truth": "48",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "rate",
+      "kind": "measure",
+      "title": "Analyse",
+      "instruction": "They happened over 4 minutes. How many attempts per minute?",
+      "record": {
+        "key": "rate",
+        "label": "Attempts per minute",
+        "unit": "/min",
+        "truth": "48 / 4",
+        "tolerance": 0.1
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "lock",
+      "kind": "action",
+      "title": "Respond",
+      "instruction": "Lock the targeted account.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'lock account admin'"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Which control best stops this attack in future?",
+          "choices": [
+            "Account lockout after a few failed attempts + MFA",
+            "A bigger monitor",
+            "Turning off logging",
+            "Shorter passwords"
+          ],
+          "answerIndex": 0,
+          "explanation": "Lockout and MFA defeat password guessing."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [
+    {
+      "key": "failed",
+      "label": "Failed logins",
+      "unit": "",
+      "expected": 48,
+      "tolerancePct": 1,
+      "source": "record.failed"
+    },
+    {
+      "key": "rate",
+      "label": "Attempts per minute",
+      "unit": "/min",
+      "expected": 12,
+      "tolerancePct": 1,
+      "source": "record.rate"
+    }
+  ],
+  "scoring": {
+    "accuracy": 50,
+    "procedure": 50,
+    "safety": 0
+  },
+  "passScore": 60,
+  "xp": 190
+}

@@ -1,0 +1,158 @@
+{
+  "name": "PhysicsLab",
+  "title": "ECH Physics Lab",
+  "size": [
+    12,
+    3.4,
+    9
+  ],
+  "style": "bright",
+  "spawn": {
+    "pos": [
+      0,
+      1.62,
+      -3.4
+    ],
+    "yaw": 0
+  },
+  "benches": [
+    {
+      "id": "benchA",
+      "pos": [
+        -1.5,
+        0,
+        0.2
+      ],
+      "yaw": 180,
+      "length": 2.7,
+      "riser": false
+    },
+    {
+      "id": "benchB",
+      "pos": [
+        1.5,
+        0,
+        0.2
+      ],
+      "yaw": 180,
+      "length": 2.7,
+      "riser": false
+    }
+  ],
+  "shelves": [
+    {
+      "id": "shelf",
+      "pos": [
+        -3.6,
+        1.5,
+        4.3
+      ],
+      "yaw": 180,
+      "count": 2,
+      "spacing": 1.0
+    }
+  ],
+  "stations": {
+    "optics.rail": {
+      "kind": "bench",
+      "pos": [
+        4.4,
+        0,
+        1.0
+      ],
+      "yaw": -90,
+      "length": 2.0
+    },
+    "ppe.rack": {
+      "kind": "ppe",
+      "pos": [
+        -5.1,
+        0,
+        -2.4
+      ],
+      "yaw": 90
+    }
+  },
+  "props": [
+    {
+      "kind": "display",
+      "pos": [
+        0,
+        0,
+        4.42
+      ],
+      "yaw": 180,
+      "text": "ECH Physics Lab"
+    },
+    {
+      "kind": "windows",
+      "wall": "east"
+    },
+    {
+      "kind": "stools",
+      "bench": "benchA"
+    },
+    {
+      "kind": "stools",
+      "bench": "benchB"
+    },
+    {
+      "kind": "cabinet",
+      "pos": [
+        -5.4,
+        0,
+        2.0
+      ],
+      "yaw": 90
+    },
+    {
+      "kind": "plant",
+      "pos": [
+        5.4,
+        0,
+        -3.9
+      ]
+    }
+  ],
+  "shots": [
+    {
+      "name": "overview",
+      "pos": [
+        -4.8,
+        2.3,
+        -4.0
+      ],
+      "look": [
+        0,
+        0.9,
+        0.6
+      ]
+    },
+    {
+      "name": "benchA",
+      "pos": [
+        -1.5,
+        1.5,
+        -1.1
+      ],
+      "look": [
+        -1.5,
+        1.0,
+        0.25
+      ]
+    },
+    {
+      "name": "student_view",
+      "pos": [
+        0,
+        1.62,
+        -3.4
+      ],
+      "look": [
+        0,
+        1.1,
+        0.5
+      ]
+    }
+  ]
+}

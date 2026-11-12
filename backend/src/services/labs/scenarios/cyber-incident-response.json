@@ -1,0 +1,250 @@
+{
+  "id": "cyber-incident-response",
+  "version": 2,
+  "title": "Incident Response: Contain the Attack",
+  "summary": "A laptop in the computer lab is sending strange traffic. Follow the incident-response process: identify, contain, eradicate and recover.",
+  "subject": "cybersecurity",
+  "level": "secondary",
+  "environment": "CyberSOC",
+  "difficulty": 4,
+  "tags": [
+    "incident response"
+  ],
+  "durationMin": 25,
+  "objectives": [
+    "Follow the incident-response lifecycle",
+    "Contain an infected host",
+    "Recover safely"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Analyst workstation",
+      "init": {
+        "os": "ECH-SOC Linux",
+        "commands": [
+          "login",
+          "show alerts",
+          "isolate host lab-pc-07",
+          "scan host lab-pc-07",
+          "remove malware lab-pc-07",
+          "reset password student42",
+          "reconnect host lab-pc-07",
+          "write report"
+        ]
+      }
+    },
+    {
+      "id": "fw",
+      "type": "firewall",
+      "slot": "rack.1",
+      "label": "Edge firewall",
+      "init": {
+        "policy": "default-deny",
+        "commands": [
+          "deny malicious-ip 198.51.100.23",
+          "apply"
+        ]
+      }
+    },
+    {
+      "id": "screen",
+      "type": "wall_display",
+      "slot": "wall.screen",
+      "label": "Threat map"
+    }
+  ],
+  "variables": {
+    "net": {
+      "model": "net.firewall",
+      "inputs": {
+        "firewall": "fw"
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "login",
+      "kind": "action",
+      "title": "Start",
+      "instruction": "Log in.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'login'"
+    },
+    {
+      "id": "alerts",
+      "kind": "action",
+      "title": "Identify",
+      "instruction": "Read the alerts.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'show alerts'",
+      "say": "lab-pc-07 is contacting 198.51.100.23 every 30 seconds — typical of malware \"calling home\"."
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "What should you do FIRST with the infected laptop?",
+          "choices": [
+            "Isolate it from the network",
+            "Delete all its files",
+            "Turn off the whole school network",
+            "Ignore it"
+          ],
+          "answerIndex": 0,
+          "explanation": "Containment stops the attack spreading while you investigate."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "isolate",
+      "kind": "action",
+      "title": "Contain",
+      "instruction": "Isolate lab-pc-07 from the network.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'isolate host lab-pc-07'"
+    },
+    {
+      "id": "block",
+      "kind": "action",
+      "title": "Contain",
+      "instruction": "Block the attacker's server on the edge firewall.",
+      "expect": {
+        "intent": "Type",
+        "target": "fw"
+      },
+      "focus": "fw",
+      "points": 10,
+      "hints": [
+        "Select the firewall in the rack."
+      ],
+      "until": "net.blockedThreats >= 1"
+    },
+    {
+      "id": "apply",
+      "kind": "action",
+      "title": "Contain",
+      "instruction": "Apply the firewall policy.",
+      "expect": {
+        "intent": "Type",
+        "target": "fw"
+      },
+      "focus": "fw",
+      "points": 10,
+      "hints": [],
+      "until": "fw.applied"
+    },
+    {
+      "id": "scan",
+      "kind": "action",
+      "title": "Eradicate",
+      "instruction": "Scan the laptop.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'scan host lab-pc-07'"
+    },
+    {
+      "id": "remove",
+      "kind": "action",
+      "title": "Eradicate",
+      "instruction": "Remove the malware.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'remove malware lab-pc-07'"
+    },
+    {
+      "id": "reset",
+      "kind": "action",
+      "title": "Recover",
+      "instruction": "Reset the password of the student who used the laptop.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'reset password student42'"
+    },
+    {
+      "id": "reconnect",
+      "kind": "action",
+      "title": "Recover",
+      "instruction": "Reconnect the cleaned laptop.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'reconnect host lab-pc-07'"
+    },
+    {
+      "id": "report",
+      "kind": "action",
+      "title": "Lessons learned",
+      "instruction": "Write the incident report.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'write report'"
+    }
+  ],
+  "hazards": [
+    {
+      "id": "earlyReconnect",
+      "when": "ws.lastCommand == 'reconnect host lab-pc-07' && !done('remove')",
+      "message": "You reconnected an infected laptop! Remove the malware first.",
+      "severity": "warn",
+      "penalty": 25
+    }
+  ],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 80,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 160
+}

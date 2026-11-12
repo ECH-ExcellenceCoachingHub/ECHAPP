@@ -1,0 +1,203 @@
+{
+  "id": "chem-bunsen-burner",
+  "version": 2,
+  "title": "Lighting a Bunsen Burner Safely",
+  "summary": "Light a Bunsen burner the safe way and change between the yellow safety flame and the hot blue roaring flame.",
+  "subject": "chemistry",
+  "level": "secondary",
+  "environment": "ChemLab",
+  "difficulty": 2,
+  "tags": [
+    "heating",
+    "safety"
+  ],
+  "durationMin": 15,
+  "objectives": [
+    "Light a Bunsen burner safely",
+    "Control the flame with the air hole",
+    "Explain why the blue flame is hotter"
+  ],
+  "equipment": [
+    {
+      "id": "goggles1",
+      "type": "goggles",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "coat1",
+      "type": "labcoat",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "burner",
+      "type": "bunsen_burner",
+      "slot": "benchA.center"
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "ppe1",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your safety goggles.",
+      "expect": {
+        "intent": "Grab",
+        "target": "goggles1"
+      },
+      "focus": "goggles1",
+      "points": 5,
+      "hints": [
+        "Select it on the PPE station and choose \"Put on\"."
+      ]
+    },
+    {
+      "id": "ppe2",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your lab coat.",
+      "expect": {
+        "intent": "Grab",
+        "target": "coat1"
+      },
+      "focus": "coat1",
+      "points": 5,
+      "hints": [
+        "Select it on the PPE station and choose \"Put on\"."
+      ]
+    },
+    {
+      "id": "close",
+      "kind": "action",
+      "title": "Close the air hole",
+      "instruction": "Close the air hole completely before lighting (turn the collar to 0).",
+      "expect": {
+        "intent": "Rotate",
+        "target": "burner",
+        "value": {
+          "min": 0,
+          "max": 0.05
+        }
+      },
+      "focus": "burner",
+      "points": 10,
+      "hints": [
+        "Select the burner and choose \"Adjust\".",
+        "Move the slider all the way to the left."
+      ],
+      "until": "burner.airHole <= 0.05",
+      "say": "A closed air hole gives a visible yellow flame — the safety flame."
+    },
+    {
+      "id": "light",
+      "kind": "action",
+      "title": "Light it",
+      "instruction": "Light the burner.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "burner"
+      },
+      "focus": "burner",
+      "points": 10,
+      "hints": [
+        "Choose \"Light\" on the burner."
+      ],
+      "until": "burner.lit"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Why do we light the burner with the air hole CLOSED?",
+          "choices": [
+            "The yellow flame is easy to see",
+            "It is hotter",
+            "It uses less gas",
+            "It is quieter"
+          ],
+          "answerIndex": 0,
+          "explanation": "The yellow safety flame is clearly visible, so nobody touches an invisible flame."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "open",
+      "kind": "action",
+      "title": "Open the air hole",
+      "instruction": "Now open the air hole fully to get the blue roaring flame.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "burner",
+        "value": {
+          "min": 0.9,
+          "max": 1.0
+        }
+      },
+      "focus": "burner",
+      "points": 10,
+      "hints": [
+        "Drag the slider all the way to the right."
+      ],
+      "until": "burner.airHole >= 0.9"
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Why is the blue flame hotter?",
+          "choices": [
+            "More oxygen gives complete combustion",
+            "Blue things are always hot",
+            "There is more gas",
+            "The flame is smaller"
+          ],
+          "answerIndex": 0,
+          "explanation": "With the air hole open, oxygen mixes in and the gas burns completely, releasing more energy."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "off",
+      "kind": "action",
+      "title": "Turn it off",
+      "instruction": "Turn the burner off when you are done.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "burner"
+      },
+      "focus": "burner",
+      "points": 10,
+      "hints": [
+        "Choose \"Turn off\"."
+      ],
+      "until": "!burner.lit"
+    }
+  ],
+  "hazards": [
+    {
+      "id": "noGoggles",
+      "when": "!goggles1.worn && burner.lit",
+      "message": "Stop! Put on your safety goggles before handling chemicals.",
+      "severity": "warn",
+      "penalty": 15
+    }
+  ],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 80,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 90
+}

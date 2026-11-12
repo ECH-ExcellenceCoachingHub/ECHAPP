@@ -6,6 +6,9 @@ import 'package:provider/provider.dart' as legacy_provider;
 import 'package:excellencecoachinghub/presentation/providers/exam_provider.dart';
 import 'package:excellencecoachinghub/widgets/admin_layout_wrapper.dart';
 import 'package:excellencecoachinghub/presentation/screens/splash/splash_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/labs/lab_hub_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/labs/lab_player_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/labs/lab_room_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/auth/login_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/auth/register_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/auth/forgot_password_screen.dart';
@@ -666,6 +669,14 @@ class AppRouter {
               );
             },
           ),
+          // Virtual lab player — full screen, outside the main shell.
+          GoRoute(
+            path: '/lab/:scenarioId',
+            builder: (context, state) => LabPlayerScreen(
+              scenarioId: state.pathParameters['scenarioId'] ?? '',
+              lessonId: state.uri.queryParameters['lesson'],
+            ),
+          ),
           GoRoute(
             path: '/learning/:courseId/video',
             builder: (context, state) {
@@ -810,6 +821,14 @@ class AppRouter {
               GoRoute(
                 path: '/library',
                 builder: (context, state) => const LibraryScreen(),
+              ),
+              GoRoute(
+                path: '/labs',
+                builder: (context, state) => const LabHubScreen(),
+              ),
+              GoRoute(
+                path: '/labs/room/:environment',
+                builder: (context, state) => LabRoomScreen(environment: state.pathParameters['environment'] ?? 'ChemLab'),
               ),
               GoRoute(
                 path: '/books/:bookId',

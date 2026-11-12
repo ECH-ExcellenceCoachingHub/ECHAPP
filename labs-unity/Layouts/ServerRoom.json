@@ -1,0 +1,115 @@
+{
+  "name": "ServerRoom",
+  "title": "ECH Network & Server Room",
+  "size": [
+    10,
+    3.2,
+    8
+  ],
+  "style": "dark",
+  "spawn": {
+    "pos": [
+      0,
+      1.62,
+      -2.9
+    ],
+    "yaw": 0
+  },
+  "benches": [],
+  "shelves": [
+    {
+      "id": "shelf",
+      "pos": [
+        -4.6,
+        1.2,
+        -1.0
+      ],
+      "yaw": 90,
+      "count": 1,
+      "spacing": 0.8
+    }
+  ],
+  "stations": {
+    "rack.1": {
+      "kind": "floor",
+      "pos": [
+        -1.2,
+        0,
+        2.6
+      ],
+      "yaw": 180
+    },
+    "rack.2": {
+      "kind": "floor",
+      "pos": [
+        0,
+        0,
+        2.6
+      ],
+      "yaw": 180
+    },
+    "rack.3": {
+      "kind": "floor",
+      "pos": [
+        1.2,
+        0,
+        2.6
+      ],
+      "yaw": 180
+    },
+    "patch.panel": {
+      "kind": "desk",
+      "pos": [
+        3.4,
+        0,
+        0.6
+      ],
+      "yaw": -90
+    },
+    "desk.main": {
+      "kind": "desk",
+      "pos": [
+        0,
+        0,
+        -0.6
+      ],
+      "yaw": 180
+    }
+  },
+  "props": [
+    {
+      "kind": "ledstrip"
+    },
+    {
+      "kind": "raisedfloor"
+    }
+  ],
+  "shots": [
+    {
+      "name": "overview",
+      "pos": [
+        -3.6,
+        2.1,
+        -3.4
+      ],
+      "look": [
+        0,
+        1.2,
+        2.0
+      ]
+    },
+    {
+      "name": "racks",
+      "pos": [
+        0,
+        1.5,
+        0.6
+      ],
+      "look": [
+        0,
+        1.2,
+        2.6
+      ]
+    }
+  ]
+}

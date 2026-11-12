@@ -1,0 +1,148 @@
+{
+  "name": "BioLab",
+  "title": "ECH Biology Lab",
+  "size": [
+    11,
+    3.4,
+    8.5
+  ],
+  "style": "bright",
+  "spawn": {
+    "pos": [
+      0,
+      1.62,
+      -3.1
+    ],
+    "yaw": 0
+  },
+  "benches": [
+    {
+      "id": "benchA",
+      "pos": [
+        -1.4,
+        0,
+        0.3
+      ],
+      "yaw": 180,
+      "length": 2.7,
+      "riser": true
+    }
+  ],
+  "shelves": [
+    {
+      "id": "shelf",
+      "pos": [
+        -1.4,
+        1.28,
+        0.72
+      ],
+      "yaw": 180,
+      "count": 2,
+      "spacing": 0.9
+    }
+  ],
+  "stations": {
+    "scope.station": {
+      "kind": "bench",
+      "pos": [
+        2.0,
+        0,
+        0.3
+      ],
+      "yaw": 180,
+      "length": 1.4
+    },
+    "prep.station": {
+      "kind": "bench",
+      "pos": [
+        4.2,
+        0,
+        2.2
+      ],
+      "yaw": -90,
+      "length": 1.6
+    },
+    "ppe.rack": {
+      "kind": "ppe",
+      "pos": [
+        -4.6,
+        0,
+        -2.2
+      ],
+      "yaw": 90
+    },
+    "sink": {
+      "kind": "sink",
+      "pos": [
+        -4.2,
+        0,
+        3.4
+      ],
+      "yaw": 180
+    }
+  },
+  "props": [
+    {
+      "kind": "display",
+      "pos": [
+        0,
+        0,
+        4.17
+      ],
+      "yaw": 180,
+      "text": "ECH Biology Lab"
+    },
+    {
+      "kind": "windows",
+      "wall": "east"
+    },
+    {
+      "kind": "stools",
+      "bench": "benchA"
+    },
+    {
+      "kind": "plant",
+      "pos": [
+        4.9,
+        0,
+        -3.6
+      ]
+    },
+    {
+      "kind": "plant",
+      "pos": [
+        -4.9,
+        0,
+        3.8
+      ]
+    }
+  ],
+  "shots": [
+    {
+      "name": "overview",
+      "pos": [
+        -4.3,
+        2.3,
+        -3.7
+      ],
+      "look": [
+        0,
+        0.9,
+        0.6
+      ]
+    },
+    {
+      "name": "scope",
+      "pos": [
+        2.0,
+        1.4,
+        -0.8
+      ],
+      "look": [
+        2.0,
+        1.0,
+        0.3
+      ]
+    }
+  ]
+}

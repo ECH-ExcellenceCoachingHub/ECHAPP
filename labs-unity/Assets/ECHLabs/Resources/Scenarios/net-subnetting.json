@@ -1,0 +1,162 @@
+{
+  "id": "net-subnetting",
+  "version": 2,
+  "title": "Subnetting a School Network",
+  "summary": "Split 192.168.10.0/24 into four equal subnets for staff, students, Wi-Fi and servers.",
+  "subject": "networking",
+  "level": "secondary",
+  "environment": "ServerRoom",
+  "difficulty": 4,
+  "tags": [
+    "subnetting"
+  ],
+  "durationMin": 25,
+  "objectives": [
+    "Borrow host bits to make subnets",
+    "Calculate block size and usable hosts"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Admin PC",
+      "init": {
+        "os": "ECH NetOS",
+        "commands": [
+          "show plan",
+          "apply vlan staff",
+          "apply vlan students",
+          "apply vlan wifi",
+          "apply vlan servers"
+        ]
+      }
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "plan",
+      "kind": "action",
+      "title": "Plan",
+      "instruction": "Open the network plan.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'show plan'",
+      "say": "We need 4 subnets from 192.168.10.0/24."
+    },
+    {
+      "id": "prefix",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "Four subnets need 2 extra network bits. What is the new prefix length (/?)",
+      "record": {
+        "key": "prefix",
+        "label": "New prefix",
+        "unit": "/",
+        "truth": "26",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": [
+        "24 + 2 = ?"
+      ]
+    },
+    {
+      "id": "block",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "How many addresses are in each subnet?",
+      "record": {
+        "key": "block",
+        "label": "Block size",
+        "unit": "addresses",
+        "truth": "64",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": [
+        "2^(32 − 26)"
+      ]
+    },
+    {
+      "id": "usable",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "How many usable hosts per subnet?",
+      "record": {
+        "key": "usable",
+        "label": "Usable hosts",
+        "unit": "hosts",
+        "truth": "62",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": [
+        "Block size − 2"
+      ]
+    },
+    {
+      "id": "third",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "What is the last octet of the THIRD subnet's network address (192.168.10.?)",
+      "record": {
+        "key": "third",
+        "label": "Third subnet",
+        "unit": "",
+        "truth": "128",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": [
+        "Subnets start at 0, 64, 128, 192."
+      ]
+    },
+    {
+      "id": "vlan",
+      "kind": "action",
+      "title": "Deploy",
+      "instruction": "Apply the staff VLAN.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'apply vlan staff'"
+    }
+  ],
+  "hazards": [],
+  "results": [
+    {
+      "key": "usable",
+      "label": "Usable hosts per subnet",
+      "unit": "",
+      "expected": 62,
+      "tolerancePct": 1,
+      "source": "record.usable"
+    },
+    {
+      "key": "third",
+      "label": "Third subnet",
+      "unit": "",
+      "expected": 128,
+      "tolerancePct": 1,
+      "source": "record.third"
+    }
+  ],
+  "scoring": {
+    "accuracy": 60,
+    "procedure": 40,
+    "safety": 0
+  },
+  "passScore": 60,
+  "xp": 160
+}

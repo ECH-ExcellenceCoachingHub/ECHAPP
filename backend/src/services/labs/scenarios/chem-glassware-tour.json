@@ -1,0 +1,175 @@
+{
+  "id": "chem-glassware-tour",
+  "version": 2,
+  "title": "Know Your Glassware",
+  "summary": "Meet the glassware chemists use every day — burette, pipette, conical flask and beaker — and learn which one to use for accurate measurements.",
+  "subject": "chemistry",
+  "level": "secondary",
+  "environment": "ChemLab",
+  "difficulty": 1,
+  "tags": [
+    "equipment"
+  ],
+  "durationMin": 8,
+  "objectives": [
+    "Name common laboratory glassware",
+    "Choose accurate vs. approximate glassware"
+  ],
+  "equipment": [
+    {
+      "id": "burette1",
+      "type": "burette",
+      "slot": "benchA.center",
+      "init": {
+        "solution": "NaOH",
+        "conc": 0.1,
+        "volume": 50
+      }
+    },
+    {
+      "id": "pipette1",
+      "type": "pipette",
+      "slot": "benchA.right",
+      "init": {
+        "solution": "HCl",
+        "conc": 0.1,
+        "volume": 25
+      }
+    },
+    {
+      "id": "flask1",
+      "type": "conical_flask",
+      "slot": "benchB.left",
+      "init": {
+        "solution": "HCl",
+        "conc": 0.1,
+        "volume": 0
+      }
+    },
+    {
+      "id": "beaker1",
+      "type": "beaker",
+      "slot": "benchB.center",
+      "init": {
+        "solution": "HCl",
+        "conc": 0.1,
+        "volume": 100
+      }
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "see_burette",
+      "kind": "action",
+      "title": "The burette",
+      "instruction": "Look closely at the burette. Notice the scale reads from 0.00 at the TOP down to 50.00.",
+      "expect": {
+        "intent": "Inspect",
+        "target": "burette1"
+      },
+      "focus": "burette1",
+      "points": 10,
+      "hints": [
+        "Select the tall tube on the stand and choose \"Read the scale\"."
+      ],
+      "say": "A burette delivers a variable, accurately measured volume."
+    },
+    {
+      "id": "see_pipette",
+      "kind": "action",
+      "title": "The pipette",
+      "instruction": "Inspect the volumetric pipette.",
+      "expect": {
+        "intent": "Inspect",
+        "target": "pipette1"
+      },
+      "focus": "pipette1",
+      "points": 10,
+      "hints": [
+        "It is the long thin tube with a bulb in the middle."
+      ]
+    },
+    {
+      "id": "see_flask",
+      "kind": "action",
+      "title": "The conical flask",
+      "instruction": "Inspect the conical flask.",
+      "expect": {
+        "intent": "Inspect",
+        "target": "flask1"
+      },
+      "focus": "flask1",
+      "points": 10,
+      "hints": [
+        "Its sloping sides let you swirl without spilling."
+      ]
+    },
+    {
+      "id": "see_beaker",
+      "kind": "action",
+      "title": "The beaker",
+      "instruction": "Inspect the beaker.",
+      "expect": {
+        "intent": "Inspect",
+        "target": "beaker1"
+      },
+      "focus": "beaker1",
+      "points": 10,
+      "hints": [
+        "Beaker markings are only approximate."
+      ]
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Which glassware measures exactly 25.0 cm³ of a solution?",
+          "choices": [
+            "Volumetric pipette",
+            "Beaker",
+            "Conical flask",
+            "Funnel"
+          ],
+          "answerIndex": 0,
+          "explanation": "A volumetric pipette is calibrated to deliver one exact volume."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Why do we titrate into a conical flask rather than a beaker?",
+          "choices": [
+            "It can be swirled without splashing",
+            "It holds more",
+            "It is cheaper",
+            "It is easier to clean"
+          ],
+          "answerIndex": 0,
+          "explanation": "The narrow neck and sloped sides keep the liquid inside while you swirl."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 80,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 60
+}

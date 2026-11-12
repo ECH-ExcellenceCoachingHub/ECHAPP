@@ -1,0 +1,206 @@
+{
+  "id": "phys-meet-the-meters",
+  "version": 2,
+  "title": "Meet the Meters: Ammeter & Voltmeter",
+  "summary": "Learn what ammeters and voltmeters measure and how to connect them correctly before you build your first circuit.",
+  "subject": "physics",
+  "level": "secondary",
+  "environment": "PhysicsLab",
+  "difficulty": 1,
+  "tags": [
+    "circuits",
+    "start here"
+  ],
+  "durationMin": 8,
+  "objectives": [
+    "Know what an ammeter and a voltmeter measure",
+    "Connect meters in series and in parallel"
+  ],
+  "equipment": [
+    {
+      "id": "psu",
+      "type": "power_supply",
+      "slot": "benchA.left",
+      "init": {
+        "maxVoltage": 12
+      }
+    },
+    {
+      "id": "board",
+      "type": "breadboard",
+      "slot": "benchA.center"
+    },
+    {
+      "id": "r1",
+      "type": "resistor",
+      "slot": "benchB.left",
+      "label": "Resistor 47 Ω",
+      "init": {
+        "ohms": 47
+      }
+    },
+    {
+      "id": "amm",
+      "type": "ammeter",
+      "slot": "benchB.center"
+    },
+    {
+      "id": "volt",
+      "type": "voltmeter",
+      "slot": "benchB.right"
+    }
+  ],
+  "variables": {
+    "circ": {
+      "model": "phys.circuit",
+      "inputs": {
+        "circuit": "board"
+      },
+      "params": {}
+    }
+  },
+  "steps": [
+    {
+      "id": "see_amm",
+      "kind": "action",
+      "title": "The ammeter",
+      "instruction": "Look closely at the ammeter.",
+      "expect": {
+        "intent": "Inspect",
+        "target": "amm"
+      },
+      "focus": "amm",
+      "points": 10,
+      "hints": [
+        "Select the meter marked \"A\"."
+      ],
+      "say": "An ammeter measures current in amperes (A)."
+    },
+    {
+      "id": "see_volt",
+      "kind": "action",
+      "title": "The voltmeter",
+      "instruction": "Look closely at the voltmeter.",
+      "expect": {
+        "intent": "Inspect",
+        "target": "volt"
+      },
+      "focus": "volt",
+      "points": 10,
+      "hints": [
+        "Select the meter marked \"V\"."
+      ],
+      "say": "A voltmeter measures potential difference in volts (V)."
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "How must an ammeter be connected?",
+          "choices": [
+            "In series, in the same loop as the component",
+            "In parallel, across the component",
+            "Directly across the power supply",
+            "It does not matter"
+          ],
+          "answerIndex": 0,
+          "explanation": "Current must flow THROUGH the ammeter, so it goes in series."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "place",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect the resistor to the board.",
+      "expect": {
+        "intent": "Connect",
+        "target": "r1",
+        "into": "board"
+      },
+      "focus": "r1",
+      "points": 10,
+      "hints": [
+        "Select the resistor, \"Connect\", then the board."
+      ],
+      "until": "r1.connected"
+    },
+    {
+      "id": "ammeter",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect the ammeter in series.",
+      "expect": {
+        "intent": "Connect",
+        "target": "amm",
+        "into": "board"
+      },
+      "focus": "amm",
+      "points": 10,
+      "hints": [
+        "Select the ammeter, \"Connect\", then the board."
+      ],
+      "until": "amm.connected"
+    },
+    {
+      "id": "voltmeter",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect the voltmeter across the resistor.",
+      "expect": {
+        "intent": "Connect",
+        "target": "volt",
+        "into": "board"
+      },
+      "focus": "volt",
+      "points": 10,
+      "hints": [
+        "Select the voltmeter, \"Connect\", then the board."
+      ],
+      "until": "volt.connected"
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "An ideal voltmeter has…",
+          "choices": [
+            "A very high resistance",
+            "Zero resistance",
+            "The same resistance as the circuit",
+            "No battery"
+          ],
+          "answerIndex": 0,
+          "explanation": "High resistance means almost no current is diverted through the voltmeter."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [
+    {
+      "id": "short",
+      "when": "board.shortCircuit",
+      "message": "Short circuit! An ammeter with no resistor in the loop shorts the supply. Switch off and fix it.",
+      "severity": "warn",
+      "penalty": 15
+    }
+  ],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 80,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 60
+}

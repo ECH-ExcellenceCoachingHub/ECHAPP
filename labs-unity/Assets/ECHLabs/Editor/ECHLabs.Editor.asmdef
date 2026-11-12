@@ -1,0 +1,27 @@
+{
+    "name": "ECHLabs.Editor",
+    "rootNamespace": "ECHLabs.EditorTools",
+    "references": [
+        "ECHLabs.Sim",
+        "ECHLabs.Core",
+        "ECHLabs.Runtime",
+        "Unity.InputSystem",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime",
+        "Unity.TextMeshPro",
+        "Unity.XR.Management",
+        "Unity.XR.Management.Editor"
+    ],
+    "includePlatforms": ["Editor"],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": ["Newtonsoft.Json.dll"],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        { "name": "com.unity.xr.openxr", "expression": "1.0.0", "define": "ECH_OPENXR" },
+        { "name": "com.google.xr.cardboard", "expression": "1.0.0", "define": "ECH_CARDBOARD" }
+    ],
+    "noEngineReferences": false
+}

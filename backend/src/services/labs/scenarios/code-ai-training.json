@@ -1,0 +1,178 @@
+{
+  "id": "code-ai-training",
+  "version": 2,
+  "title": "Train an AI Model",
+  "summary": "Load a dataset of student study hours and marks, train a simple model and use it to predict a result.",
+  "subject": "coding",
+  "level": "secondary",
+  "environment": "CodingBench",
+  "difficulty": 3,
+  "tags": [
+    "AI",
+    "machine learning"
+  ],
+  "durationMin": 20,
+  "objectives": [
+    "Know the steps of machine learning",
+    "Train, evaluate and use a model"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Python workstation",
+      "init": {
+        "os": "Python 3",
+        "commands": [
+          "load dataset study_hours.csv",
+          "split train test",
+          "train linear model",
+          "evaluate",
+          "predict hours=6"
+        ]
+      }
+    },
+    {
+      "id": "screen",
+      "type": "wall_display",
+      "slot": "wall.screen",
+      "label": "Output"
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "load",
+      "kind": "action",
+      "title": "Data",
+      "instruction": "Load the dataset.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [
+        "Every model starts with data."
+      ],
+      "until": "ws.lastCommand == 'load dataset study_hours.csv'",
+      "say": "200 students: hours studied and exam mark."
+    },
+    {
+      "id": "split",
+      "kind": "action",
+      "title": "Split",
+      "instruction": "Split into training and test data.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'split train test'",
+      "say": "80% to learn from, 20% kept aside to test fairly."
+    },
+    {
+      "id": "train",
+      "kind": "action",
+      "title": "Train",
+      "instruction": "Train a linear model.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'train linear model'",
+      "say": "Model learned: mark ≈ 8 × hours + 30"
+    },
+    {
+      "id": "eval",
+      "kind": "action",
+      "title": "Evaluate",
+      "instruction": "Evaluate the model on the test data.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'evaluate'",
+      "say": "Average error: ±6 marks."
+    },
+    {
+      "id": "pred",
+      "kind": "measure",
+      "title": "Predict",
+      "instruction": "Using mark ≈ 8 × hours + 30, predict the mark for 6 hours of study.",
+      "record": {
+        "key": "pred",
+        "label": "Predicted mark",
+        "unit": "marks",
+        "truth": "78",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": [
+        "8 × 6 + 30"
+      ]
+    },
+    {
+      "id": "predict",
+      "kind": "action",
+      "title": "Check",
+      "instruction": "Ask the model.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'predict hours=6'"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Why do we keep test data separate?",
+          "choices": [
+            "To check the model on data it has never seen",
+            "To make training faster",
+            "Because it is broken data",
+            "To save memory"
+          ],
+          "answerIndex": 0,
+          "explanation": "Testing on unseen data shows whether the model really learned or just memorised."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [
+    {
+      "key": "pred",
+      "label": "Prediction",
+      "unit": "marks",
+      "expected": 78,
+      "tolerancePct": 1,
+      "source": "record.pred"
+    }
+  ],
+  "scoring": {
+    "accuracy": 40,
+    "procedure": 40,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 130
+}

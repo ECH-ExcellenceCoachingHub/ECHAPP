@@ -1,3 +1,4 @@
+import '../../widgets/labs/lab_widgets.dart';
 import 'dart:ui' as ui;
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -72,7 +73,7 @@ class _T {
 }
 
 enum _NotesView { guide, pdf, text }
-enum _Tab { video, notes, quiz, feedback, ai }
+enum _Tab { video, notes, quiz, lab, feedback, ai }
 
 class ProfessionalLessonScreen extends ConsumerStatefulWidget {
   final String lessonId;
@@ -381,6 +382,9 @@ class _ProfessionalLessonScreenState
         break;
       case 'quiz':
         if (lesson.hasQuiz) return _Tab.quiz;
+        break;
+      case 'lab':
+        if (lesson.hasLab) return _Tab.lab;
         break;
       case 'feedback':
         return _Tab.feedback;
@@ -1574,6 +1578,8 @@ class _ProfessionalLessonScreenState
         _videoInNotes
             ? (_Tab.notes, Icons.auto_stories_outlined, 'Learn')
             : (_Tab.notes, Icons.description_outlined, 'Notes'),
+      if (_lesson?.hasLab == true)
+        (_Tab.lab, Icons.science_outlined, 'Lab'),
       (_Tab.feedback, Icons.rate_review_outlined, 'Feedback'),
       (_Tab.ai, Icons.psychology_outlined, 'AI Help'),
     ];
@@ -1680,6 +1686,7 @@ class _ProfessionalLessonScreenState
       _Tab.video => _videoInNotes ? _buildNotesTab() : _buildVideoTab(),
       _Tab.notes => _buildNotesTab(),
       _Tab.quiz => _buildQuizTab(),
+      _Tab.lab => LessonLabCard(scenarioId: _lesson!.labScenarioId!, lessonId: _lesson!.id, required: _lesson!.labRequired),
       _Tab.feedback => _buildFeedbackTab(),
       _Tab.ai => _buildAITab(),
     };

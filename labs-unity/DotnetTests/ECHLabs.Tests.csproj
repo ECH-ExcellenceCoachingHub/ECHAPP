@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Headless tests for the engine-independent lab core (ECHLabs.Sim + ECHLabs.Core).
+    Compiles the same .cs files Unity uses, with C# 9 (Unity 6's language level).
+    Run:  dotnet test labs-unity/DotnetTests
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <IsPackable>false</IsPackable>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Assets/ECHLabs/Sim/**/*.cs" LinkBase="Sim" />
+    <Compile Include="../Assets/ECHLabs/Core/**/*.cs" LinkBase="Core" />
+    <None Include="../../backend/src/services/labs/scenarios/*.json" LinkBase="scenarios" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+</Project>

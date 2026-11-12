@@ -99,7 +99,17 @@ const userSchema = new mongoose.Schema({
   hasCompletedOnboarding: {
     type: Boolean,
     default: false
-  }
+  },
+  // Virtual-lab gamification
+  labXp: {
+    type: Number,
+    default: 0
+  },
+  labBadges: [{
+    _id: false,
+    key: String,
+    awardedAt: { type: Date, default: Date.now }
+  }]
 }, {
   timestamps: true
 });

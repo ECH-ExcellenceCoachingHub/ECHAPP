@@ -1,0 +1,160 @@
+{
+  "id": "cyber-soc-orientation",
+  "version": 2,
+  "title": "Welcome to the Security Operations Center",
+  "summary": "Your first shift as a junior security analyst: log in, read the dashboards and learn the CIA triad.",
+  "subject": "cybersecurity",
+  "level": "secondary",
+  "environment": "CyberSOC",
+  "difficulty": 1,
+  "tags": [
+    "start here",
+    "CIA triad"
+  ],
+  "durationMin": 8,
+  "objectives": [
+    "Know what a SOC does",
+    "Explain confidentiality, integrity and availability"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Analyst workstation",
+      "init": {
+        "os": "ECH-SOC Linux",
+        "commands": [
+          "login",
+          "show dashboard",
+          "show alerts",
+          "logout"
+        ]
+      }
+    },
+    {
+      "id": "screen",
+      "type": "wall_display",
+      "slot": "wall.screen",
+      "label": "Threat map"
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "login",
+      "kind": "action",
+      "title": "Start your shift",
+      "instruction": "Log in to your workstation.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [
+        "Select the workstation, choose \"Run a command\", then \"login\"."
+      ],
+      "until": "ws.lastCommand == 'login'",
+      "say": "A Security Operations Center watches an organisation's networks 24/7."
+    },
+    {
+      "id": "dash",
+      "kind": "action",
+      "title": "Dashboards",
+      "instruction": "Open the security dashboard.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [
+        "Run \"show dashboard\"."
+      ],
+      "until": "ws.lastCommand == 'show dashboard'"
+    },
+    {
+      "id": "map",
+      "kind": "action",
+      "title": "Threat map",
+      "instruction": "Look at the live threat map on the wall.",
+      "expect": {
+        "intent": "Inspect",
+        "target": "screen"
+      },
+      "focus": "screen",
+      "points": 10,
+      "hints": [
+        "Select the big screen and choose \"Look closer\"."
+      ]
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Someone reads a student's exam results without permission. Which part of the CIA triad is broken?",
+          "choices": [
+            "Confidentiality",
+            "Integrity",
+            "Availability",
+            "None"
+          ],
+          "answerIndex": 0,
+          "explanation": "Confidentiality = only authorised people can read information."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "The school website is knocked offline. Which part is broken?",
+          "choices": [
+            "Availability",
+            "Confidentiality",
+            "Integrity",
+            "Authentication"
+          ],
+          "answerIndex": 0,
+          "explanation": "Availability = systems are there when people need them."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "logout",
+      "kind": "action",
+      "title": "End your shift",
+      "instruction": "Log out — never leave a workstation logged in.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [
+        "Run \"logout\"."
+      ],
+      "until": "ws.lastCommand == 'logout'"
+    }
+  ],
+  "hazards": [],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 80,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 60
+}

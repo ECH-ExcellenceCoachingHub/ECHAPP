@@ -28,6 +28,10 @@ class Lesson {
   final LessonVideo? aiExperimentVideo;
   /// Real experiment on YouTube with guided steps (null when none is ready).
   final LessonDemo? demo;
+  /// Interactive 3D/VR virtual-lab experiment (ECH Labs), null when none.
+  final String? labScenarioId;
+  /// The lesson only counts as complete after the lab is passed.
+  final bool labRequired;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -53,6 +57,8 @@ class Lesson {
     this.aiVideo,
     this.aiExperimentVideo,
     this.demo,
+    this.labScenarioId,
+    this.labRequired = false,
     this.createdAt,
     this.updatedAt,
   });
@@ -80,9 +86,19 @@ class Lesson {
       aiVideo: LessonVideo.fromJson(json['aiVideo']),
       aiExperimentVideo: LessonVideo.fromJson(json['aiExperimentVideo']),
       demo: LessonDemo.fromJson(json['demo']),
+      labScenarioId: _labScenarioId(json['lab']),
+      labRequired: json['lab'] is Map && json['lab']['required'] == true,
       createdAt: _parseDateTime(json['createdAt']),
       updatedAt: _parseDateTime(json['updatedAt']),
     );
+  }
+
+  static String? _labScenarioId(dynamic lab) {
+    if (lab is! Map) return null;
+    final id = lab['scenarioId'];
+    if (id is String && id.isNotEmpty) return id;
+    if (id is Map) return (id['_id'] ?? id['id'])?.toString();
+    return null;
   }
 
   static int _parseInt(dynamic value) {
@@ -177,6 +193,8 @@ class Lesson {
       aiVideo: aiVideo,
       aiExperimentVideo: aiExperimentVideo,
       demo: demo,
+      labScenarioId: labScenarioId,
+      labRequired: labRequired,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -191,6 +209,7 @@ class Lesson {
   bool get isVideoProcessing => !hasVideo && (aiVideo?.isProcessing ?? false);
   bool get hasExperimentVideo => aiExperimentVideo?.isWatchable ?? false;
   bool get hasDemo => demo != null;
+  bool get hasLab => labScenarioId != null && labScenarioId!.isNotEmpty;
   bool get hasMaterials => materials != null && materials!.isNotEmpty;
   
   String get displayType {

@@ -1,0 +1,174 @@
+{
+  "id": "phys-pendulum-length",
+  "version": 2,
+  "title": "Pendulum: A Shorter String",
+  "summary": "Repeat the pendulum experiment with a 0.50 m string. Does g change? Does the period?",
+  "subject": "physics",
+  "level": "secondary",
+  "environment": "PhysicsLab",
+  "difficulty": 4,
+  "tags": [
+    "mechanics",
+    "investigation"
+  ],
+  "durationMin": 25,
+  "objectives": [
+    "Measure a pendulum accurately",
+    "Reduce timing error",
+    "Calculate g"
+  ],
+  "equipment": [
+    {
+      "id": "pend",
+      "type": "pendulum",
+      "slot": "benchA.center",
+      "init": {
+        "lengthM": 0.5,
+        "massKg": 0.05
+      }
+    },
+    {
+      "id": "watch",
+      "type": "stopwatch",
+      "slot": "benchB.center"
+    },
+    {
+      "id": "rule",
+      "type": "metre_rule",
+      "slot": "benchA.right"
+    }
+  ],
+  "variables": {
+    "pm": {
+      "model": "phys.pendulum",
+      "inputs": {
+        "pendulum": "pend"
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "measureL",
+      "kind": "measure",
+      "title": "Measure the length",
+      "instruction": "Measure from the pivot to the centre of the bob.",
+      "record": {
+        "key": "length",
+        "label": "Length L",
+        "unit": "m",
+        "truth": "pend.lengthM",
+        "tolerance": 0.005
+      },
+      "points": 10,
+      "hints": [
+        "Use the metre rule; measure to the CENTRE of the bob."
+      ],
+      "focus": "rule"
+    },
+    {
+      "id": "release",
+      "kind": "action",
+      "title": "Start the swing",
+      "instruction": "Pull the bob aside (less than 10°) and release it.",
+      "expect": {
+        "intent": "Release",
+        "target": "pend"
+      },
+      "focus": "pend",
+      "points": 10,
+      "hints": [
+        "Choose a small angle like 6–8°."
+      ],
+      "until": "pend.swinging && pend.amplitudeDeg <= 10"
+    },
+    {
+      "id": "time20",
+      "kind": "action",
+      "title": "Time 20 oscillations",
+      "instruction": "Time 20 complete oscillations with the stopwatch.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "watch"
+      },
+      "focus": "pend",
+      "points": 20,
+      "hints": [
+        "Start as the bob passes the centre; stop after 20 swings there and back."
+      ],
+      "until": "pend.oscillations >= 20 && !watch.running"
+    },
+    {
+      "id": "period",
+      "kind": "measure",
+      "title": "Period",
+      "instruction": "Calculate the period T = time ÷ 20.",
+      "record": {
+        "key": "period",
+        "label": "Period T",
+        "unit": "s",
+        "truth": "watch.elapsedS / 20",
+        "tolerance": 0.02
+      },
+      "points": 10,
+      "hints": [
+        "Divide your stopwatch time by 20."
+      ]
+    },
+    {
+      "id": "gcalc",
+      "kind": "measure",
+      "title": "Calculate g",
+      "instruction": "Calculate g = 4π²L ÷ T².",
+      "record": {
+        "key": "g",
+        "label": "g",
+        "unit": "m/s²",
+        "truth": "4 * 9.8696 * record.length / (record.period * record.period)",
+        "tolerance": 0.1
+      },
+      "points": 10,
+      "hints": [
+        "4π² ≈ 39.48"
+      ]
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "If the pendulum were made 4 times longer, its period would…",
+          "choices": [
+            "Double",
+            "Quadruple",
+            "Halve",
+            "Stay the same"
+          ],
+          "answerIndex": 0,
+          "explanation": "T ∝ √L, so 4× the length gives 2× the period."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [
+    {
+      "key": "g",
+      "label": "g",
+      "unit": "m/s²",
+      "expected": 9.81,
+      "tolerancePct": 3,
+      "source": "record.g"
+    }
+  ],
+  "scoring": {
+    "accuracy": 50,
+    "procedure": 50,
+    "safety": 0
+  },
+  "passScore": 60,
+  "xp": 160
+}

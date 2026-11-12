@@ -1,0 +1,157 @@
+{
+  "id": "net-build-a-network",
+  "version": 2,
+  "title": "Build Your First Network",
+  "summary": "Cable a server to a switch, connect the admin PC and test the connection with ping.",
+  "subject": "networking",
+  "level": "secondary",
+  "environment": "ServerRoom",
+  "difficulty": 1,
+  "tags": [
+    "start here",
+    "LAN"
+  ],
+  "durationMin": 8,
+  "objectives": [
+    "Know the job of a switch",
+    "Connect devices with patch cables",
+    "Test connectivity with ping"
+  ],
+  "equipment": [
+    {
+      "id": "rack1",
+      "type": "server_rack",
+      "slot": "rack.2",
+      "label": "School server"
+    },
+    {
+      "id": "sw",
+      "type": "network_switch",
+      "slot": "patch.panel",
+      "label": "Core switch",
+      "init": {
+        "ports": 24
+      }
+    },
+    {
+      "id": "cable1",
+      "type": "patch_cable",
+      "slot": "shelf.1",
+      "label": "Blue cable",
+      "init": {
+        "color": "blue"
+      }
+    },
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Admin PC",
+      "init": {
+        "os": "ECH NetOS",
+        "commands": [
+          "ping 192.168.1.10",
+          "ipconfig"
+        ]
+      }
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "cable",
+      "kind": "action",
+      "title": "Cable the switch",
+      "instruction": "Plug the patch cable into the switch.",
+      "expect": {
+        "intent": "Connect",
+        "target": "cable1",
+        "into": "sw"
+      },
+      "focus": "cable1",
+      "points": 10,
+      "hints": [
+        "Select the cable on the shelf, \"Connect\", then the switch."
+      ],
+      "until": "cable1.connected",
+      "say": "A switch connects devices on the same local network (LAN)."
+    },
+    {
+      "id": "server",
+      "kind": "action",
+      "title": "Cable the server",
+      "instruction": "Look at the server rack you are connecting.",
+      "expect": {
+        "intent": "Inspect",
+        "target": "rack1"
+      },
+      "focus": "rack1",
+      "points": 10,
+      "hints": [
+        "Select the tall rack."
+      ]
+    },
+    {
+      "id": "ipc",
+      "kind": "action",
+      "title": "Check settings",
+      "instruction": "On the admin PC, check its IP address.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [
+        "Select the PC, \"Run a command\", \"ipconfig\"."
+      ],
+      "until": "ws.lastCommand == 'ipconfig'",
+      "say": "IPv4 address: 192.168.1.25, subnet mask 255.255.255.0, gateway 192.168.1.1"
+    },
+    {
+      "id": "ping",
+      "kind": "action",
+      "title": "Test",
+      "instruction": "Ping the server at 192.168.1.10.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'ping 192.168.1.10'",
+      "say": "Reply from 192.168.1.10: time=1ms — it works!"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "What does a successful ping prove?",
+          "choices": [
+            "The two devices can reach each other on the network",
+            "The internet is fast",
+            "The server is virus-free",
+            "The cable is blue"
+          ],
+          "answerIndex": 0,
+          "explanation": "Ping sends an echo request and waits for a reply — it tests reachability."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 80,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 60
+}

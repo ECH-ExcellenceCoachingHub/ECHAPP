@@ -1,0 +1,233 @@
+{
+  "id": "phys-ohms-law",
+  "version": 2,
+  "title": "Ohm's Law: Measuring Resistance",
+  "summary": "Build a series circuit with a power supply, resistor, ammeter and voltmeter, take readings and calculate the resistance using V = IR.",
+  "subject": "physics",
+  "level": "secondary",
+  "environment": "PhysicsLab",
+  "durationMin": 15,
+  "objectives": [
+    "Connect an ammeter in series and a voltmeter in parallel",
+    "Take current and voltage readings safely",
+    "Use V = IR to calculate resistance"
+  ],
+  "equipment": [
+    {
+      "id": "psu",
+      "type": "power_supply",
+      "slot": "benchA.left",
+      "init": {
+        "maxVoltage": 12
+      }
+    },
+    {
+      "id": "board",
+      "type": "breadboard",
+      "slot": "benchA.center"
+    },
+    {
+      "id": "r1",
+      "type": "resistor",
+      "slot": "benchB.left",
+      "label": "Resistor R",
+      "init": {
+        "ohms": 47
+      }
+    },
+    {
+      "id": "amm",
+      "type": "ammeter",
+      "slot": "benchB.center"
+    },
+    {
+      "id": "volt",
+      "type": "voltmeter",
+      "slot": "benchB.right"
+    }
+  ],
+  "variables": {
+    "circ": {
+      "model": "phys.circuit",
+      "inputs": {
+        "circuit": "board"
+      },
+      "params": {
+        "internalOhm": 0
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "place",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect the resistor to the circuit board.",
+      "say": "Today we will discover how current, voltage and resistance are related.",
+      "expect": {
+        "intent": "Connect",
+        "target": "r1",
+        "into": "board"
+      },
+      "until": "r1.connected",
+      "focus": "board",
+      "points": 10
+    },
+    {
+      "id": "ammeter",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect the ammeter in series with the resistor.",
+      "expect": {
+        "intent": "Connect",
+        "target": "amm",
+        "into": "board"
+      },
+      "until": "amm.connected",
+      "focus": "board",
+      "points": 15,
+      "hints": [
+        "An ammeter measures the current flowing through the circuit, so it must be in the same loop."
+      ]
+    },
+    {
+      "id": "voltmeter",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect the voltmeter in parallel across the resistor.",
+      "expect": {
+        "intent": "Connect",
+        "target": "volt",
+        "into": "board"
+      },
+      "until": "volt.connected",
+      "focus": "board",
+      "points": 15
+    },
+    {
+      "id": "power",
+      "kind": "action",
+      "title": "Power on",
+      "instruction": "Switch on the power supply.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "psu"
+      },
+      "until": "psu.on",
+      "focus": "psu",
+      "points": 5
+    },
+    {
+      "id": "setv",
+      "kind": "action",
+      "title": "Set the voltage",
+      "instruction": "Turn the voltage knob to 6.0 V.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "psu",
+        "value": {
+          "min": 5.9,
+          "max": 6.1
+        }
+      },
+      "until": "between(psu.voltageV, 5.9, 6.1)",
+      "focus": "psu",
+      "points": 10
+    },
+    {
+      "id": "readV",
+      "kind": "measure",
+      "title": "Take readings",
+      "instruction": "Read the voltmeter.",
+      "record": {
+        "key": "voltage",
+        "label": "Voltage across R",
+        "unit": "V",
+        "truth": "volt.reading",
+        "tolerance": 0.05
+      },
+      "focus": "volt",
+      "points": 10
+    },
+    {
+      "id": "readI",
+      "kind": "measure",
+      "title": "Take readings",
+      "instruction": "Read the ammeter.",
+      "record": {
+        "key": "current",
+        "label": "Current",
+        "unit": "A",
+        "truth": "amm.reading",
+        "tolerance": 0.003
+      },
+      "focus": "amm",
+      "points": 10
+    },
+    {
+      "id": "calcR",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "Calculate the resistance R = V ÷ I.",
+      "record": {
+        "key": "resistance",
+        "label": "Resistance",
+        "unit": "Ω",
+        "truth": "record.voltage / record.current",
+        "tolerance": 1.5
+      },
+      "points": 15
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "If you double the voltage across the same resistor, what happens to the current?",
+          "choices": [
+            "It doubles",
+            "It halves",
+            "It stays the same",
+            "It becomes zero"
+          ],
+          "answerIndex": 0,
+          "explanation": "For a fixed resistance, current is directly proportional to voltage (I = V/R)."
+        }
+      },
+      "points": 10
+    }
+  ],
+  "hazards": [
+    {
+      "id": "short",
+      "when": "board.shortCircuit",
+      "message": "Short circuit! The ammeter was connected in parallel. Switch off and reconnect it in series.",
+      "severity": "warn",
+      "penalty": 15
+    }
+  ],
+  "results": [
+    {
+      "key": "resistance",
+      "label": "Resistance",
+      "unit": "Ω",
+      "expected": 47,
+      "tolerancePct": 4,
+      "source": "record.resistance"
+    }
+  ],
+  "scoring": {
+    "accuracy": 40,
+    "procedure": 45,
+    "safety": 15
+  },
+  "passScore": 60,
+  "xp": 120,
+  "difficulty": 2,
+  "tags": [
+    "Ohm's law",
+    "circuits"
+  ]
+}

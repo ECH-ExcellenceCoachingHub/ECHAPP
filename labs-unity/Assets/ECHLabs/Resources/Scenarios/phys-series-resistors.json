@@ -1,0 +1,266 @@
+{
+  "id": "phys-series-resistors",
+  "version": 2,
+  "title": "Resistors in Series",
+  "summary": "Connect two resistors one after the other and discover how their resistances combine.",
+  "subject": "physics",
+  "level": "secondary",
+  "environment": "PhysicsLab",
+  "difficulty": 4,
+  "tags": [
+    "circuits",
+    "series"
+  ],
+  "durationMin": 25,
+  "objectives": [
+    "Build a series circuit with two resistors",
+    "Measure total resistance",
+    "Use R = R₁ + R₂"
+  ],
+  "equipment": [
+    {
+      "id": "psu",
+      "type": "power_supply",
+      "slot": "benchA.left",
+      "init": {
+        "maxVoltage": 12
+      }
+    },
+    {
+      "id": "board",
+      "type": "breadboard",
+      "slot": "benchA.center"
+    },
+    {
+      "id": "r1",
+      "type": "resistor",
+      "slot": "benchB.left",
+      "label": "R₁ = 47 Ω",
+      "init": {
+        "ohms": 47
+      }
+    },
+    {
+      "id": "r2",
+      "type": "resistor",
+      "slot": "benchA.right",
+      "label": "R₂ = 100 Ω",
+      "init": {
+        "ohms": 100
+      }
+    },
+    {
+      "id": "amm",
+      "type": "ammeter",
+      "slot": "benchB.center"
+    },
+    {
+      "id": "volt",
+      "type": "voltmeter",
+      "slot": "benchB.right"
+    }
+  ],
+  "variables": {
+    "circ": {
+      "model": "phys.circuit",
+      "inputs": {
+        "circuit": "board"
+      },
+      "params": {}
+    }
+  },
+  "steps": [
+    {
+      "id": "place1",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect R₁ to the board.",
+      "expect": {
+        "intent": "Connect",
+        "target": "r1",
+        "into": "board"
+      },
+      "focus": "r1",
+      "points": 10,
+      "hints": [
+        "Select R₁, \"Connect\", then the board."
+      ],
+      "until": "r1.connected"
+    },
+    {
+      "id": "place2",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect R₂ in series with R₁.",
+      "expect": {
+        "intent": "Connect",
+        "target": "r2",
+        "into": "board"
+      },
+      "focus": "r2",
+      "points": 10,
+      "hints": [],
+      "until": "r2.connected"
+    },
+    {
+      "id": "ammeter",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Add the ammeter in series.",
+      "expect": {
+        "intent": "Connect",
+        "target": "amm",
+        "into": "board"
+      },
+      "focus": "amm",
+      "points": 10,
+      "hints": [],
+      "until": "amm.connected"
+    },
+    {
+      "id": "voltmeter",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect the voltmeter across both resistors.",
+      "expect": {
+        "intent": "Connect",
+        "target": "volt",
+        "into": "board"
+      },
+      "focus": "volt",
+      "points": 10,
+      "hints": [],
+      "until": "volt.connected"
+    },
+    {
+      "id": "power",
+      "kind": "action",
+      "title": "Power on",
+      "instruction": "Switch on the power supply.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "psu"
+      },
+      "focus": "psu",
+      "points": 10,
+      "hints": [
+        "Choose \"Switch on\"."
+      ],
+      "until": "psu.on"
+    },
+    {
+      "id": "setv",
+      "kind": "action",
+      "title": "Set the voltage",
+      "instruction": "Set the supply to 6.0 V.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "psu",
+        "value": {
+          "min": 5.9,
+          "max": 6.1
+        }
+      },
+      "focus": "psu",
+      "points": 10,
+      "hints": [
+        "Choose \"Set voltage\"."
+      ],
+      "until": "between(psu.voltageV, 5.9, 6.1)"
+    },
+    {
+      "id": "v",
+      "kind": "measure",
+      "title": "Readings",
+      "instruction": "Record the voltmeter reading.",
+      "record": {
+        "key": "voltage",
+        "label": "Voltage",
+        "unit": "V",
+        "truth": "volt.reading",
+        "tolerance": 0.05
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "volt"
+    },
+    {
+      "id": "i",
+      "kind": "measure",
+      "title": "Readings",
+      "instruction": "Record the ammeter reading.",
+      "record": {
+        "key": "current",
+        "label": "Current",
+        "unit": "A",
+        "truth": "amm.reading",
+        "tolerance": 0.002
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "amm"
+    },
+    {
+      "id": "rt",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "Calculate the total resistance V ÷ I.",
+      "record": {
+        "key": "total",
+        "label": "Total resistance",
+        "unit": "Ω",
+        "truth": "record.voltage / record.current",
+        "tolerance": 2
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Two resistors of 47 Ω and 100 Ω in series have a total resistance of…",
+          "choices": [
+            "147 Ω",
+            "53 Ω",
+            "32 Ω",
+            "4700 Ω"
+          ],
+          "answerIndex": 0,
+          "explanation": "In series, resistances simply add: R = R₁ + R₂."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [
+    {
+      "id": "short",
+      "when": "board.shortCircuit",
+      "message": "Short circuit! An ammeter with no resistor in the loop shorts the supply. Switch off and fix it.",
+      "severity": "warn",
+      "penalty": 15
+    }
+  ],
+  "results": [
+    {
+      "key": "total",
+      "label": "Total resistance",
+      "unit": "Ω",
+      "expected": 147,
+      "tolerancePct": 3,
+      "source": "record.total"
+    }
+  ],
+  "scoring": {
+    "accuracy": 40,
+    "procedure": 40,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 160
+}

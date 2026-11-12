@@ -1,0 +1,108 @@
+{
+  "name": "CyberSOC",
+  "title": "ECH Cyber Operations Center",
+  "size": [
+    11,
+    3.2,
+    8
+  ],
+  "style": "dark",
+  "spawn": {
+    "pos": [
+      0,
+      1.62,
+      -2.9
+    ],
+    "yaw": 0
+  },
+  "benches": [],
+  "shelves": [],
+  "stations": {
+    "desk.main": {
+      "kind": "desk",
+      "pos": [
+        0,
+        0,
+        0.4
+      ],
+      "yaw": 180
+    },
+    "desk.left": {
+      "kind": "desk",
+      "pos": [
+        -2.2,
+        0,
+        0.8
+      ],
+      "yaw": 165
+    },
+    "desk.right": {
+      "kind": "desk",
+      "pos": [
+        2.2,
+        0,
+        0.8
+      ],
+      "yaw": 195
+    },
+    "wall.screen": {
+      "kind": "wall",
+      "pos": [
+        0,
+        0,
+        3.92
+      ],
+      "yaw": 180
+    },
+    "rack.1": {
+      "kind": "rack",
+      "pos": [
+        4.6,
+        0,
+        2.6
+      ],
+      "yaw": -90
+    }
+  },
+  "props": [
+    {
+      "kind": "ledstrip"
+    },
+    {
+      "kind": "plant",
+      "pos": [
+        -4.9,
+        0,
+        -3.4
+      ]
+    }
+  ],
+  "shots": [
+    {
+      "name": "overview",
+      "pos": [
+        -3.8,
+        2.2,
+        -3.4
+      ],
+      "look": [
+        0,
+        1.2,
+        1.5
+      ]
+    },
+    {
+      "name": "desk",
+      "pos": [
+        0,
+        1.3,
+        -0.6
+      ],
+      "look": [
+        0,
+        1.0,
+        0.6
+      ]
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "intents": ["Select", "Grab", "Release", "Pour", "Rotate", "Inspect", "Toggle", "Connect", "Type"],
+  "models": {
+    "chem.titration": { "inputs": ["flask", "burette"], "outputs": ["pH", "colorIndex", "equivalenceVolumeMl"] },
+    "phys.circuit": { "inputs": ["circuit"], "outputs": ["currentA", "voltageV", "powerW"] },
+    "phys.pendulum": { "inputs": ["pendulum"], "outputs": ["periodS", "theoreticalPeriodS"] },
+    "bio.microscope": { "inputs": ["microscope"], "outputs": ["magnification", "focusQuality"] },
+    "net.firewall": { "inputs": ["firewall"], "outputs": ["blockedThreats", "allowedLegit", "riskyAllowed", "score"] }
+  },
+  "environments": {
+    "ChemLab": {
+      "title": "Chemistry Wet Lab",
+      "subjects": ["chemistry"],
+      "slots": ["benchA.left", "benchA.center", "benchA.right", "benchB.left", "benchB.center", "benchB.right", "shelf.1", "shelf.2", "shelf.3", "fumehood.center", "ppe.rack", "sink"]
+    },
+    "PhysicsLab": {
+      "title": "Physics Lab",
+      "subjects": ["physics"],
+      "slots": ["benchA.left", "benchA.center", "benchA.right", "benchB.left", "benchB.center", "benchB.right", "optics.rail", "shelf.1", "shelf.2", "ppe.rack"]
+    },
+    "BioLab": {
+      "title": "Biology Lab",
+      "subjects": ["biology"],
+      "slots": ["benchA.left", "benchA.center", "benchA.right", "scope.station", "prep.station", "shelf.1", "shelf.2", "ppe.rack", "sink"]
+    },
+    "CyberSOC": {
+      "title": "Cyber Operations Center",
+      "subjects": ["cybersecurity"],
+      "slots": ["desk.main", "desk.left", "desk.right", "wall.screen", "rack.1"]
+    },
+    "ServerRoom": {
+      "title": "Network & Server Room",
+      "subjects": ["networking"],
+      "slots": ["rack.1", "rack.2", "rack.3", "patch.panel", "desk.main", "shelf.1"]
+    },
+    "CodingBench": {
+      "title": "Coding & AI Bench",
+      "subjects": ["coding"],
+      "slots": ["desk.main", "desk.left", "desk.right", "wall.screen"]
+    }
+  },
+  "equipment": {
+    "goggles":        { "title": "Safety goggles", "category": "ppe", "intents": ["Select", "Grab"], "state": ["worn"], "init": [] },
+    "labcoat":        { "title": "Lab coat", "category": "ppe", "intents": ["Select", "Grab"], "state": ["worn"], "init": [] },
+    "gloves":         { "title": "Nitrile gloves", "category": "ppe", "intents": ["Select", "Grab"], "state": ["worn"], "init": [] },
+    "reagent_bottle": { "title": "Reagent bottle", "category": "glassware", "intents": ["Select", "Grab", "Pour", "Inspect"], "state": ["volumeMl", "poured"], "init": ["solution", "conc", "volume"] },
+    "burette":        { "title": "Burette (50 mL)", "category": "glassware", "intents": ["Select", "Grab", "Rotate", "Inspect"], "state": ["volumeMl", "dispensedMl", "filled", "rinsed", "tapOpen", "reading"], "init": ["solution", "conc", "volume"] },
+    "pipette":        { "title": "Volumetric pipette (25 mL)", "category": "glassware", "intents": ["Select", "Grab", "Pour", "Inspect"], "state": ["volumeMl", "filled"], "init": ["solution", "conc", "volume"] },
+    "conical_flask":  { "title": "Conical flask (250 mL)", "category": "glassware", "intents": ["Select", "Grab", "Inspect"], "state": ["volumeMl", "hasIndicator", "swirled"], "init": ["solution", "conc", "volume"] },
+    "beaker":         { "title": "Beaker (250 mL)", "category": "glassware", "intents": ["Select", "Grab", "Pour", "Inspect"], "state": ["volumeMl"], "init": ["solution", "conc", "volume"] },
+    "indicator":      { "title": "Indicator dropper", "category": "reagent", "intents": ["Select", "Grab", "Pour"], "state": ["dropsAdded"], "init": ["name"] },
+    "retort_stand":   { "title": "Retort stand & clamp", "category": "support", "intents": ["Select"], "state": [], "init": [] },
+    "white_tile":     { "title": "White tile", "category": "support", "intents": ["Select"], "state": [], "init": [] },
+    "funnel":         { "title": "Funnel", "category": "glassware", "intents": ["Select", "Grab"], "state": ["inPlace"], "init": [] },
+    "bunsen_burner":  { "title": "Bunsen burner", "category": "heat", "intents": ["Select", "Toggle", "Rotate"], "state": ["lit", "airHole"], "init": [] },
+    "power_supply":   { "title": "DC power supply", "category": "electrical", "intents": ["Select", "Toggle", "Rotate"], "state": ["on", "voltageV"], "init": ["maxVoltage"] },
+    "resistor":       { "title": "Resistor", "category": "electrical", "intents": ["Select", "Grab", "Connect", "Inspect"], "state": ["connected"], "init": ["ohms"] },
+    "ammeter":        { "title": "Ammeter", "category": "electrical", "intents": ["Select", "Connect", "Inspect"], "state": ["connected", "reading"], "init": [] },
+    "voltmeter":      { "title": "Voltmeter", "category": "electrical", "intents": ["Select", "Connect", "Inspect"], "state": ["connected", "reading"], "init": [] },
+    "breadboard":     { "title": "Circuit board", "category": "electrical", "intents": ["Select", "Connect", "Inspect"], "state": ["closed", "shortCircuit"], "init": [] },
+    "pendulum":       { "title": "Simple pendulum", "category": "mechanics", "intents": ["Select", "Grab", "Release", "Rotate", "Inspect"], "state": ["lengthM", "amplitudeDeg", "swinging", "oscillations"], "init": ["lengthM", "massKg"] },
+    "stopwatch":      { "title": "Stopwatch", "category": "instrument", "intents": ["Select", "Toggle"], "state": ["running", "elapsedS"], "init": [] },
+    "metre_rule":     { "title": "Metre rule", "category": "instrument", "intents": ["Select", "Inspect"], "state": [], "init": [] },
+    "microscope":     { "title": "Compound light microscope", "category": "optics", "intents": ["Select", "Rotate", "Toggle", "Inspect", "Type"], "state": ["objective", "focus", "lightOn", "slideLoaded", "lastCommand"], "init": ["objectives", "commands"] },
+    "slide":          { "title": "Microscope slide", "category": "biology", "intents": ["Select", "Grab", "Inspect"], "state": ["stained", "coverslip", "onStage"], "init": ["specimen"] },
+    "stain":          { "title": "Stain dropper", "category": "reagent", "intents": ["Select", "Grab", "Pour"], "state": ["dropsAdded"], "init": ["name"] },
+    "workstation":    { "title": "Analyst workstation", "category": "computer", "intents": ["Select", "Type", "Inspect"], "state": ["loggedIn", "commandsRun", "lastCommand"], "init": ["os", "commands"] },
+    "firewall":       { "title": "Firewall appliance", "category": "network", "intents": ["Select", "Type", "Inspect"], "state": ["rules", "applied", "commandsRun", "lastCommand"], "init": ["policy", "commands"] },
+    "server_rack":    { "title": "Server rack", "category": "network", "intents": ["Select", "Inspect", "Connect"], "state": ["powered", "linked"], "init": [] },
+    "network_switch": { "title": "Network switch", "category": "network", "intents": ["Select", "Connect", "Inspect"], "state": ["portsLinked"], "init": ["ports"] },
+    "patch_cable":    { "title": "Patch cable", "category": "network", "intents": ["Select", "Grab", "Connect"], "state": ["connected"], "init": ["color"] },
+    "wall_display":   { "title": "Holographic wall display", "category": "display", "intents": ["Select", "Inspect"], "state": [], "init": [] }
+  }
+}

@@ -1,0 +1,146 @@
+{
+  "id": "code-hello-python",
+  "version": 2,
+  "title": "Hello, Python!",
+  "summary": "Write and run your very first Python program.",
+  "subject": "coding",
+  "level": "secondary",
+  "environment": "CodingBench",
+  "difficulty": 1,
+  "tags": [
+    "start here",
+    "Python"
+  ],
+  "durationMin": 8,
+  "objectives": [
+    "Run a Python program",
+    "Use print()"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Python workstation",
+      "init": {
+        "os": "Python 3",
+        "commands": [
+          "print(\"Hello, ECH!\")",
+          "run",
+          "print(2 + 3)"
+        ]
+      }
+    },
+    {
+      "id": "screen",
+      "type": "wall_display",
+      "slot": "wall.screen",
+      "label": "Output"
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "hello",
+      "kind": "action",
+      "title": "Your first line",
+      "instruction": "Type a line that prints \"Hello, ECH!\".",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [
+        "Select the computer, \"Run a command\", then the print line."
+      ],
+      "until": "ws.lastCommand == 'print(\"Hello, ECH!\")'",
+      "say": "print() shows text on the screen."
+    },
+    {
+      "id": "run",
+      "kind": "action",
+      "title": "Run it",
+      "instruction": "Run your program.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'run'",
+      "say": "Output: Hello, ECH!"
+    },
+    {
+      "id": "maths",
+      "kind": "action",
+      "title": "Python can calculate",
+      "instruction": "Print 2 + 3.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'print(2 + 3)'"
+    },
+    {
+      "id": "out",
+      "kind": "measure",
+      "title": "Predict",
+      "instruction": "What number does print(2 + 3) show?",
+      "record": {
+        "key": "out",
+        "label": "Output",
+        "unit": "",
+        "truth": "5",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": [
+        "Python works out 2 + 3 first."
+      ]
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "What does print(\"2 + 3\") show (with the quotes)?",
+          "choices": [
+            "2 + 3",
+            "5",
+            "Error",
+            "Nothing"
+          ],
+          "answerIndex": 0,
+          "explanation": "Inside quotes it is text (a string), so it is printed exactly as written."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [
+    {
+      "key": "out",
+      "label": "Output",
+      "unit": "",
+      "expected": 5,
+      "tolerancePct": 1,
+      "source": "record.out"
+    }
+  ],
+  "scoring": {
+    "accuracy": 40,
+    "procedure": 40,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 60
+}

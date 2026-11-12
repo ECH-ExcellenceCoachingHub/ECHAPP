@@ -1,0 +1,167 @@
+{
+  "id": "net-subnetting-challenge",
+  "version": 2,
+  "title": "Expert Challenge: VLSM Design",
+  "summary": "No hints. Size subnets for 100, 50 and 20 devices from 10.0.0.0/24 using variable-length masks.",
+  "subject": "networking",
+  "level": "secondary",
+  "environment": "ServerRoom",
+  "difficulty": 5,
+  "tags": [
+    "subnetting",
+    "exam practice"
+  ],
+  "durationMin": 30,
+  "objectives": [
+    "Design a VLSM addressing plan"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Admin PC",
+      "init": {
+        "os": "ECH NetOS",
+        "commands": [
+          "show requirements",
+          "deploy plan"
+        ]
+      }
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "req",
+      "kind": "action",
+      "title": "Requirements",
+      "instruction": "Read the requirements.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'show requirements'",
+      "say": "LAN A: 100 hosts · LAN B: 50 hosts · LAN C: 20 hosts."
+    },
+    {
+      "id": "a",
+      "kind": "measure",
+      "title": "LAN A",
+      "instruction": "Smallest prefix for 100 hosts? (/?)",
+      "record": {
+        "key": "a",
+        "label": "LAN A prefix",
+        "unit": "/",
+        "truth": "25",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "b",
+      "kind": "measure",
+      "title": "LAN B",
+      "instruction": "Smallest prefix for 50 hosts? (/?)",
+      "record": {
+        "key": "b",
+        "label": "LAN B prefix",
+        "unit": "/",
+        "truth": "26",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "c",
+      "kind": "measure",
+      "title": "LAN C",
+      "instruction": "Smallest prefix for 20 hosts? (/?)",
+      "record": {
+        "key": "c",
+        "label": "LAN C prefix",
+        "unit": "/",
+        "truth": "27",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "cstart",
+      "kind": "measure",
+      "title": "LAN C",
+      "instruction": "LAN C starts after A (/25) and B (/26). Last octet of its network address?",
+      "record": {
+        "key": "cstart",
+        "label": "LAN C network",
+        "unit": "",
+        "truth": "192",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "deploy",
+      "kind": "action",
+      "title": "Deploy",
+      "instruction": "Deploy the plan.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'deploy plan'"
+    }
+  ],
+  "hazards": [],
+  "results": [
+    {
+      "key": "a",
+      "label": "LAN A",
+      "unit": "/",
+      "expected": 25,
+      "tolerancePct": 1,
+      "source": "record.a"
+    },
+    {
+      "key": "b",
+      "label": "LAN B",
+      "unit": "/",
+      "expected": 26,
+      "tolerancePct": 1,
+      "source": "record.b"
+    },
+    {
+      "key": "c",
+      "label": "LAN C",
+      "unit": "/",
+      "expected": 27,
+      "tolerancePct": 1,
+      "source": "record.c"
+    },
+    {
+      "key": "cstart",
+      "label": "LAN C network",
+      "unit": "",
+      "expected": 192,
+      "tolerancePct": 1,
+      "source": "record.cstart"
+    }
+  ],
+  "scoring": {
+    "accuracy": 70,
+    "procedure": 30,
+    "safety": 0
+  },
+  "passScore": 60,
+  "xp": 190
+}

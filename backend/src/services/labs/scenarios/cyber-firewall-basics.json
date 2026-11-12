@@ -1,0 +1,250 @@
+{
+  "id": "cyber-firewall-basics",
+  "version": 2,
+  "title": "Firewall Basics: Defending a School Network",
+  "summary": "An attacker is probing your school's network. Investigate the alerts, block dangerous services and a malicious address, keep the school website online, and apply the firewall policy.",
+  "subject": "cybersecurity",
+  "level": "secondary",
+  "environment": "CyberSOC",
+  "durationMin": 15,
+  "objectives": [
+    "Read security alerts and identify the attacked services",
+    "Write firewall rules that block telnet (23) and remote desktop (3389)",
+    "Block a known malicious IP address",
+    "Keep legitimate HTTPS (443) traffic working",
+    "Explain the principle of least privilege"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Analyst workstation",
+      "init": {
+        "os": "ECH-SOC Linux",
+        "commands": [
+          "login",
+          "show alerts",
+          "show traffic"
+        ]
+      }
+    },
+    {
+      "id": "fw",
+      "type": "firewall",
+      "slot": "rack.1",
+      "label": "Edge firewall",
+      "init": {
+        "policy": "default-deny",
+        "commands": [
+          "deny 23 telnet",
+          "deny 3389 rdp",
+          "deny malicious-ip 203.0.113.66",
+          "allow 443 https",
+          "allow 3389 rdp",
+          "allow 23 telnet",
+          "apply"
+        ]
+      }
+    },
+    {
+      "id": "screen",
+      "type": "wall_display",
+      "slot": "wall.screen",
+      "label": "Threat map"
+    }
+  ],
+  "variables": {
+    "net": {
+      "model": "net.firewall",
+      "inputs": {
+        "firewall": "fw"
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "login",
+      "kind": "action",
+      "title": "Start your shift",
+      "instruction": "Log in to the analyst workstation.",
+      "say": "Welcome to the ECH Cyber Operations Center. Our school network is under attack, so let's find out what's happening.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "until": "ws.loggedIn",
+      "focus": "ws",
+      "points": 5,
+      "hints": [
+        "Select the workstation and choose the 'login' command."
+      ]
+    },
+    {
+      "id": "alerts",
+      "kind": "action",
+      "title": "Investigate",
+      "instruction": "Run 'show alerts' to see what the attacker is trying.",
+      "say": "The alerts show repeated login attempts on port 23 (telnet) and port 3389 (remote desktop), all from 203.0.113.66.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "until": "ws.commandsRun >= 2",
+      "focus": "ws",
+      "points": 10
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Why is telnet (port 23) dangerous on the internet?",
+          "choices": [
+            "It sends usernames and passwords unencrypted",
+            "It is too slow",
+            "It only works on Windows",
+            "It uses too much electricity"
+          ],
+          "answerIndex": 0,
+          "explanation": "Telnet sends everything, including passwords, in plain text that anyone on the path can read. SSH replaced it."
+        }
+      },
+      "points": 10
+    },
+    {
+      "id": "telnet",
+      "kind": "action",
+      "title": "Block telnet",
+      "instruction": "On the edge firewall, add a rule that denies telnet (port 23).",
+      "expect": {
+        "intent": "Type",
+        "target": "fw"
+      },
+      "until": "net.blockedThreats >= 1",
+      "focus": "fw",
+      "points": 10,
+      "hints": [
+        "Select the firewall and choose 'deny 23 telnet'."
+      ]
+    },
+    {
+      "id": "rdp",
+      "kind": "action",
+      "title": "Block remote desktop",
+      "instruction": "Deny remote desktop (port 3389) from the internet.",
+      "expect": {
+        "intent": "Type",
+        "target": "fw"
+      },
+      "until": "net.blockedThreats >= 2",
+      "focus": "fw",
+      "points": 10
+    },
+    {
+      "id": "ip",
+      "kind": "action",
+      "title": "Block the attacker",
+      "instruction": "Block the malicious IP address 203.0.113.66.",
+      "expect": {
+        "intent": "Type",
+        "target": "fw"
+      },
+      "until": "net.blockedThreats >= 3",
+      "focus": "fw",
+      "points": 10
+    },
+    {
+      "id": "https",
+      "kind": "action",
+      "title": "Keep the website online",
+      "instruction": "Students still need the school website. Allow HTTPS (port 443).",
+      "expect": {
+        "intent": "Type",
+        "target": "fw"
+      },
+      "until": "net.allowedLegit >= 1",
+      "focus": "fw",
+      "points": 10
+    },
+    {
+      "id": "apply",
+      "kind": "action",
+      "title": "Apply the policy",
+      "instruction": "Apply the new firewall policy.",
+      "expect": {
+        "intent": "Type",
+        "target": "fw"
+      },
+      "until": "fw.applied",
+      "focus": "fw",
+      "points": 10
+    },
+    {
+      "id": "count",
+      "kind": "measure",
+      "title": "Report",
+      "instruction": "How many threat-blocking rules did you add?",
+      "record": {
+        "key": "threats",
+        "label": "Threat rules added",
+        "unit": "rules",
+        "truth": "net.blockedThreats",
+        "tolerance": 0
+      },
+      "points": 10
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "The firewall's policy is 'default-deny'. What does that mean?",
+          "choices": [
+            "Everything is blocked unless a rule allows it",
+            "Everything is allowed unless a rule blocks it",
+            "Only teachers can use the internet",
+            "The firewall turns off at night"
+          ],
+          "answerIndex": 0,
+          "explanation": "Default-deny follows the principle of least privilege: only traffic you explicitly need is allowed."
+        }
+      },
+      "points": 15
+    }
+  ],
+  "hazards": [
+    {
+      "id": "openedRisky",
+      "when": "net.riskyAllowed > 0",
+      "message": "Danger! You just ALLOWED a service the attacker is targeting. Remove that rule's effect by denying it again.",
+      "severity": "warn",
+      "penalty": 25
+    }
+  ],
+  "results": [
+    {
+      "key": "threats",
+      "label": "Threat rules added",
+      "unit": "rules",
+      "expected": 3,
+      "tolerancePct": 1,
+      "source": "record.threats"
+    }
+  ],
+  "scoring": {
+    "accuracy": 30,
+    "procedure": 50,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 140,
+  "difficulty": 3,
+  "tags": [
+    "firewalls"
+  ]
+}

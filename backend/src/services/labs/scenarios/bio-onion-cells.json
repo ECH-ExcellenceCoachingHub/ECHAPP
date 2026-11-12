@@ -1,0 +1,257 @@
+{
+  "id": "bio-onion-cells",
+  "version": 2,
+  "title": "Onion Epidermis Cells",
+  "summary": "Prepare a slide of onion skin, stain it with iodine and see real plant cells — cell walls, nuclei and all.",
+  "subject": "biology",
+  "level": "secondary",
+  "environment": "BioLab",
+  "difficulty": 2,
+  "tags": [
+    "microscopy",
+    "plant cells"
+  ],
+  "durationMin": 15,
+  "objectives": [
+    "Prepare a stained wet-mount slide",
+    "Focus a microscope at low power",
+    "Identify plant cell structures"
+  ],
+  "equipment": [
+    {
+      "id": "gloves1",
+      "type": "gloves",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "scope",
+      "type": "microscope",
+      "slot": "scope.station",
+      "init": {
+        "commands": [
+          "4x",
+          "10x",
+          "40x"
+        ]
+      }
+    },
+    {
+      "id": "slide1",
+      "type": "slide",
+      "slot": "prep.station",
+      "label": "Onion epidermis",
+      "init": {
+        "specimen": "onion"
+      }
+    },
+    {
+      "id": "stain1",
+      "type": "stain",
+      "slot": "benchA.center",
+      "label": "Iodine solution",
+      "init": {
+        "name": "iodine"
+      }
+    }
+  ],
+  "variables": {
+    "mic": {
+      "model": "bio.microscope",
+      "inputs": {
+        "microscope": "scope"
+      },
+      "params": {
+        "idealFocus": 0.62
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "ppe1",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your gloves.",
+      "expect": {
+        "intent": "Grab",
+        "target": "gloves1"
+      },
+      "focus": "gloves1",
+      "points": 5,
+      "hints": [
+        "Select it on the PPE station and choose \"Put on\"."
+      ]
+    },
+    {
+      "id": "stain",
+      "kind": "action",
+      "title": "Stain the specimen",
+      "instruction": "Add iodine to the onion skin on the slide.",
+      "expect": {
+        "intent": "Pour",
+        "target": "stain1",
+        "into": "slide1"
+      },
+      "focus": "stain1",
+      "points": 10,
+      "hints": [
+        "Select the stain dropper, \"Pour\", then select the slide."
+      ],
+      "until": "slide1.stained"
+    },
+    {
+      "id": "cover",
+      "kind": "action",
+      "title": "Coverslip",
+      "instruction": "Lower a coverslip onto the slide.",
+      "expect": {
+        "intent": "Select",
+        "target": "slide1"
+      },
+      "focus": "slide1",
+      "points": 10,
+      "hints": [
+        "Select the stained slide to add the coverslip.",
+        "Lower it at an angle to avoid air bubbles."
+      ],
+      "until": "slide1.coverslip"
+    },
+    {
+      "id": "stage",
+      "kind": "action",
+      "title": "Load the slide",
+      "instruction": "Place the slide on the microscope stage.",
+      "expect": {
+        "intent": "Grab",
+        "target": "slide1",
+        "into": "scope"
+      },
+      "focus": "slide1",
+      "points": 10,
+      "hints": [
+        "Pick up the slide, then select the microscope."
+      ],
+      "until": "scope.slideLoaded"
+    },
+    {
+      "id": "light",
+      "kind": "action",
+      "title": "Light",
+      "instruction": "Switch on the microscope light.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "scope"
+      },
+      "focus": "scope",
+      "points": 10,
+      "hints": [
+        "Choose \"Light on\"."
+      ],
+      "until": "scope.lightOn"
+    },
+    {
+      "id": "focus",
+      "kind": "action",
+      "title": "Focus",
+      "instruction": "Focus the image with the fine focus knob.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "scope",
+        "value": {
+          "min": 0.6,
+          "max": 0.64
+        }
+      },
+      "focus": "scope",
+      "points": 10,
+      "hints": [
+        "Choose \"Focus\" and move the slider slowly until the image is sharp (around 62%)."
+      ],
+      "until": "mic.focusQuality >= 0.8"
+    },
+    {
+      "id": "mag",
+      "kind": "measure",
+      "title": "Magnification",
+      "instruction": "Record the total magnification you are using.",
+      "record": {
+        "key": "mag",
+        "label": "Total magnification",
+        "unit": "×",
+        "truth": "mic.magnification",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": [
+        "The 4× objective with a 10× eyepiece."
+      ]
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Which structure do onion cells have that animal cells do NOT?",
+          "choices": [
+            "A cell wall",
+            "A nucleus",
+            "Cytoplasm",
+            "A cell membrane"
+          ],
+          "answerIndex": 0,
+          "explanation": "Plant cells have a rigid cellulose cell wall around the membrane."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Why did we stain the cells with iodine?",
+          "choices": [
+            "To make the transparent structures visible",
+            "To kill bacteria",
+            "To make the slide sticky",
+            "To magnify the cells"
+          ],
+          "answerIndex": 0,
+          "explanation": "Stains bind to cell structures (like the nucleus) and add contrast."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [
+    {
+      "id": "noGloves",
+      "when": "!gloves1.worn && stain1.dropsAdded > 0",
+      "message": "Iodine stains skin — wear gloves.",
+      "severity": "warn",
+      "penalty": 10
+    }
+  ],
+  "results": [
+    {
+      "key": "mag",
+      "label": "Magnification",
+      "unit": "×",
+      "expected": 40,
+      "tolerancePct": 1,
+      "source": "record.mag"
+    }
+  ],
+  "scoring": {
+    "accuracy": 40,
+    "procedure": 40,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 100
+}

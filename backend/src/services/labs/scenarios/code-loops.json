@@ -1,0 +1,141 @@
+{
+  "id": "code-loops",
+  "version": 2,
+  "title": "Loops: Repeat Without Repeating Yourself",
+  "summary": "Use for-loops and range() to repeat actions and add up numbers.",
+  "subject": "coding",
+  "level": "secondary",
+  "environment": "CodingBench",
+  "difficulty": 3,
+  "tags": [
+    "Python",
+    "loops"
+  ],
+  "durationMin": 20,
+  "objectives": [
+    "Use for and range()",
+    "Trace a loop by hand"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Python workstation",
+      "init": {
+        "os": "Python 3",
+        "commands": [
+          "for i in range(5): print(i)",
+          "total = sum(range(1, 11))",
+          "print(total)"
+        ]
+      }
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "loop",
+      "kind": "action",
+      "title": "Your first loop",
+      "instruction": "Run a loop that prints the numbers in range(5).",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [
+        "range(5) gives 0, 1, 2, 3, 4."
+      ],
+      "until": "ws.lastCommand == 'for i in range(5): print(i)'"
+    },
+    {
+      "id": "last",
+      "kind": "measure",
+      "title": "Trace",
+      "instruction": "What is the LAST number printed?",
+      "record": {
+        "key": "last",
+        "label": "Last number",
+        "unit": "",
+        "truth": "4",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": [
+        "range stops BEFORE 5."
+      ]
+    },
+    {
+      "id": "sum",
+      "kind": "action",
+      "title": "Add up",
+      "instruction": "Add the numbers 1 to 10 with sum(range(1, 11)).",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'total = sum(range(1, 11))'"
+    },
+    {
+      "id": "total",
+      "kind": "measure",
+      "title": "Predict",
+      "instruction": "What is the total?",
+      "record": {
+        "key": "total",
+        "label": "Sum 1..10",
+        "unit": "",
+        "truth": "55",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": [
+        "1 + 2 + … + 10"
+      ]
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "How many times does for i in range(3, 9) repeat?",
+          "choices": [
+            "6",
+            "9",
+            "3",
+            "5"
+          ],
+          "answerIndex": 0,
+          "explanation": "range(3, 9) gives 3, 4, 5, 6, 7, 8 → 6 values."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [
+    {
+      "key": "total",
+      "label": "Sum 1..10",
+      "unit": "",
+      "expected": 55,
+      "tolerancePct": 1,
+      "source": "record.total"
+    }
+  ],
+  "scoring": {
+    "accuracy": 40,
+    "procedure": 40,
+    "safety": 20
+  },
+  "passScore": 60,
+  "xp": 130
+}
