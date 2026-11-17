@@ -37,7 +37,13 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 app.use(cors(corsOptions));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+  limit: '10mb',
+  // Keep the exact bytes for signed partner webhooks (HMAC is computed over the raw body).
+  verify: (req, _res, buf) => {
+    if (req.originalUrl.startsWith('/api/integrations/')) req.rawBody = buf;
+  },
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Express 5 leaves `req.body` undefined when a request carries no body, where
@@ -115,6 +121,7 @@ app.use('/api/community', communityRoutes); // Course Community routes
 app.use('/api/messages', messagingRoutes); // Direct messaging routes
 app.use('/api/course-builder', courseBuilderRoutes); // AI Course Builder routes
 app.use('/api/labs', require('./src/routes/lab.routes')); // 3D/VR Virtual Labs (Unity ECH Labs engine)
+app.use('/api/integrations/eexams', require('./src/routes/eexams.routes')); // eexams.net SSO + result sync
 
 // Handle undefined routes
 app.use((req, res) => {

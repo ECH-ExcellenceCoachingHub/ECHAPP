@@ -109,7 +109,16 @@ const userSchema = new mongoose.Schema({
     _id: false,
     key: String,
     awardedAt: { type: Date, default: Date.now }
-  }]
+  }],
+  // eexams.net single sign-on link (set when eexams reports the accounts linked)
+  eexamsUserId: {
+    type: String,
+    default: null
+  },
+  eexamsLinkedAt: {
+    type: Date,
+    default: null
+  }
 }, {
   timestamps: true
 });

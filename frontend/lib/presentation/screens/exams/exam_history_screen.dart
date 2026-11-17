@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../config/app_theme.dart';
 import '../../../presentation/providers/exam_provider.dart';
 import '../../../models/quiz_submission.dart';
+import '../../widgets/eexams_section.dart';
 
 class ExamHistoryScreen extends StatefulWidget {
   const ExamHistoryScreen({super.key});
@@ -90,6 +91,9 @@ class _ExamHistoryScreenState extends State<ExamHistoryScreen> {
 
           return Column(
             children: [
+              // eexams.net practice exams (single sign-on + synced results)
+              const EexamsSection(),
+
               // Search bar
               _buildSearchBar(),
               

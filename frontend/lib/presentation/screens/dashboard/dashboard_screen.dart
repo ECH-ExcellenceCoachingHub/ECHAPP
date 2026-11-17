@@ -33,6 +33,7 @@ import 'package:excellencecoachinghub/widgets/enhanced_course_navigation.dart';
 import 'package:excellencecoachinghub/widgets/support_floating_button.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:excellencecoachinghub/presentation/widgets/eexams_section.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -3355,13 +3356,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () async {
-          final url = l10n?.examMarketplaceUrl ?? 'https://www.eexams.net/marketplace';
-          final uri = Uri.parse(url);
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          }
-        },
+        // Opens eexams already signed in as this ECH user (falls back to the public page).
+        onTap: () => openEexams(context, redirect: '/marketplace'),
         borderRadius: BorderRadius.circular(22),
         child: Ink(
           padding: EdgeInsets.all(isMobile ? 16 : 20),

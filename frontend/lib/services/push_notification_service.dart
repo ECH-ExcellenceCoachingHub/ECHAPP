@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
+import 'package:excellencecoachinghub/services/api/eexams_service.dart';
 
 // Top-level background handler (MUST be outside class for FCM to work)
 @pragma('vm:entry-point')
@@ -178,6 +179,15 @@ class PushNotificationService {
     print('Navigating to route: $route with data: $data');
 
     try {
+      // eexams.net result → open that result on eexams, already signed in.
+      final reviewPath = data?['reviewPath'];
+      if (data?['source'] == 'eexams' && reviewPath is String && reviewPath.startsWith('/')) {
+        EexamsService().open(redirect: reviewPath).catchError((_) {
+          _context?.push('/exams/history');
+          return false;
+        });
+        return;
+      }
       if (route.startsWith('/learning/') && data?['courseId'] != null) {
         _context!.push('/learning/${data!['courseId']}');
       } else if (route == '/notifications') {

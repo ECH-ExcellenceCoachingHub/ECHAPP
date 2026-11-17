@@ -6,6 +6,7 @@ import 'package:excellencecoachinghub/presentation/providers/notification_provid
 import 'package:excellencecoachinghub/models/notification.dart' as app_notification;
 import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
+import 'package:excellencecoachinghub/presentation/widgets/eexams_section.dart';
 
 class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
@@ -629,7 +630,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
         context.push('/my-courses');
         break;
       case 'exam':
-        context.push('/exams/history');
+        // eexams.net result → open that result on eexams, already signed in.
+        final data = notification.data;
+        final reviewPath = data?['reviewPath'];
+        if (data?['source'] == 'eexams' && reviewPath is String && reviewPath.startsWith('/')) {
+          openEexams(context, redirect: reviewPath);
+        } else {
+          context.push('/exams/history');
+        }
         break;
       case 'achievement':
         context.push('/profile');

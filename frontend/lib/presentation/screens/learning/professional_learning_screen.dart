@@ -41,6 +41,7 @@ import 'package:excellencecoachinghub/presentation/screens/exams/exam_taking_scr
 import 'package:excellencecoachinghub/presentation/screens/exams/course_exam_history_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/certificates/certificates_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/community/course_community_screen.dart';
+import 'package:excellencecoachinghub/presentation/widgets/eexams_section.dart';
 
 /// Everything the Lessons tab needs to launch a quiz: the quiz document,
 /// the student's previous attempts (newest first) and how many questions it has.
@@ -4817,14 +4818,9 @@ class _ExamPracticeCard extends StatelessWidget {
 
   static const _grad = [Color(0xFF8B5CF6), Color(0xFF6366F1)];
 
-  Future<void> _open(BuildContext context) async {
-    final url = AppLocalizations.of(context)?.examMarketplaceUrl ??
-        'https://www.eexams.net/marketplace';
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
+  // Opens eexams already signed in as this ECH user (falls back to the public page).
+  Future<void> _open(BuildContext context) =>
+      openEexams(context, redirect: '/marketplace');
 
   @override
   Widget build(BuildContext context) {
