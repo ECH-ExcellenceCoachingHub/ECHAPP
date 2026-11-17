@@ -18,9 +18,9 @@ function labSecret() {
   return crypto.createHmac('sha256', process.env.JWT_SECRET).update('ech-lab-token-v1').digest('hex');
 }
 
-function signLabToken({ userId, scenarioId = null, lessonId = null, courseId = null }) {
+function signLabToken({ userId, scenarioId = null, lessonId = null, courseId = null, variant = null }) {
   return jwt.sign(
-    { sub: String(userId), scope: 'lab', sid: scenarioId ? String(scenarioId) : null, lid: lessonId ? String(lessonId) : null, cid: courseId ? String(courseId) : null },
+    { sub: String(userId), scope: 'lab', sid: scenarioId ? String(scenarioId) : null, lid: lessonId ? String(lessonId) : null, cid: courseId ? String(courseId) : null, v: variant || null },
     labSecret(),
     { expiresIn: LAB_TOKEN_TTL, audience: 'ech-labs' },
   );

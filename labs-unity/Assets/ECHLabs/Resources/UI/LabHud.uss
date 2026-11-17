@@ -117,3 +117,30 @@
 .badge { background-color: rgba(59, 130, 246, 0.22); color: rgb(191, 219, 254); border-radius: 12px; padding: 6px 12px; margin: 4px; font-size: 17px; }
 .pair-code { font-size: 96px; -unity-font-style: bold; letter-spacing: 18px; color: rgb(110, 231, 183); -unity-text-align: middle-center; margin: 20px 0; }
 .result-row { flex-direction: row; justify-content: space-between; padding: 8px 0; border-bottom-width: 1px; border-color: rgba(255, 255, 255, 0.06); }
+
+/* ── Navigation: GO TO stations, joystick, controls hint ─────── */
+.stations { position: absolute; bottom: 24px; left: 680px; right: 330px; flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: center; }
+.stations-title { margin-right: 6px; }
+.station { font-size: 17px; padding: 9px 16px; margin: 4px; background-color: rgba(13, 18, 24, 0.82); border-radius: 18px; }
+.joystick { position: absolute; right: 48px; bottom: 48px; width: 210px; height: 210px; border-radius: 105px; background-color: rgba(13, 18, 24, 0.45); border-width: 2px; border-color: rgba(255, 255, 255, 0.18); align-items: center; justify-content: center; }
+.joy-knob { width: 92px; height: 92px; border-radius: 46px; background-color: rgba(16, 185, 129, 0.75); border-width: 3px; border-color: rgba(255, 255, 255, 0.7); }
+.joy-label { position: absolute; bottom: 14px; font-size: 13px; letter-spacing: 2px; color: rgba(255, 255, 255, 0.55); -unity-font-style: bold; }
+.controls-hint { position: absolute; right: 24px; bottom: 24px; width: 290px; padding: 8px 14px; border-radius: 14px; }
+.controls-hint > Label { white-space: normal; font-size: 15px; }
+
+/* ── Live graph ──────────────────────────────────────────────── */
+.graph { position: absolute; right: 24px; bottom: 150px; width: 480px; padding: 12px 14px; }
+.graph-high { bottom: 290px; }
+.graph-canvas { height: 250px; margin-top: 4px; }
+.graph-tick { font-size: 13px; color: rgb(148, 163, 184); }
+.graph-axis { font-size: 14px; color: rgb(203, 213, 225); -unity-font-style: bold; }
+.graph-ref { font-size: 13px; color: rgb(249, 168, 212); }
+.graph-fit { font-size: 14px; color: rgb(147, 197, 253); -unity-font-style: bold; }
+.graph-empty { font-size: 15px; color: rgb(100, 116, 139); }
+.btn-mini { width: 36px; height: 36px; border-radius: 18px; font-size: 20px; margin: 0; }
+
+/* ── Demo ────────────────────────────────────────────────────── */
+.demo-bar { position: absolute; bottom: 24px; left: 690px; right: 330px; padding: 12px 16px; border-color: rgba(59, 130, 246, 0.6); border-width: 2px; }
+.demo-badge { background-color: rgb(59, 130, 246); color: rgb(255, 255, 255); border-radius: 10px; padding: 4px 10px; font-size: 14px; -unity-font-style: bold; letter-spacing: 2px; margin-right: 10px; }
+.demo-step { white-space: normal; }
+.wrap { white-space: normal; }

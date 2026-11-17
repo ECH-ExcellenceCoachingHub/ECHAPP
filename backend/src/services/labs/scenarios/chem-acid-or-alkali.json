@@ -1,6 +1,6 @@
 {
   "id": "chem-acid-or-alkali",
-  "version": 2,
+  "version": 3,
   "title": "Acid or Alkali? Using Indicators",
   "summary": "Use phenolphthalein to test a solution, then add alkali drop by drop and watch the colour change appear.",
   "subject": "chemistry",
@@ -261,5 +261,13 @@
     "safety": 20
   },
   "passScore": 60,
-  "xp": 100
+  "xp": 100,
+  "randomize": [
+    {
+      "path": "flask1.conc",
+      "min": 0.03,
+      "max": 0.07,
+      "decimals": 3
+    }
+  ]
 }

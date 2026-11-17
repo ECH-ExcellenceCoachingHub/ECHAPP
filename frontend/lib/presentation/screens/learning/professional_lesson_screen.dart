@@ -27,7 +27,7 @@ import 'package:excellencecoachinghub/presentation/widgets/video_player/custom_v
 import 'package:excellencecoachinghub/presentation/widgets/video_player/optimized_video_player.dart';
 import 'package:excellencecoachinghub/presentation/widgets/video_player/video_playback_requests.dart';
 import 'package:excellencecoachinghub/services/video_progress_service.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:excellencecoachinghub/presentation/widgets/document_viewer/paged_pdf_viewer.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:excellencecoachinghub/models/download.dart';
 import 'package:excellencecoachinghub/services/api/video_api_service.dart';
@@ -3115,44 +3115,24 @@ class _ProfessionalLessonScreenState
     // satisfy browser CORS. Native platforms use the direct URL.
     final pdfUrl = mediaProxyUrl(_lesson!.notesPdfUrl);
     return Container(
-      height: 600,
+      height: 640,
       decoration: BoxDecoration(
         color: _surfaceColor,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _borderColor),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          if (pdfUrl.isNotEmpty)
-            SfPdfViewer.network(
+      child: pdfUrl.isEmpty
+          ? _buildNoNotes()
+          : PagedPdfViewer.network(
               pdfUrl,
-              canShowScrollHead: true,
-              canShowScrollStatus: true,
-              onDocumentLoadFailed: (details) {
-                _showSnack('Failed to load PDF: ${details.error}', isError: true);
-              },
-            )
-          else
-            _buildNoNotes(),
-          // Full screen button
-          Positioned(
-            top: 8,
-            right: 8,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.6),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.fullscreen, color: Colors.white),
-                onPressed: () => _openPdfFullScreen(pdfUrl),
-                tooltip: 'Full screen',
-              ),
+              key: ValueKey(pdfUrl),
+              title: _lesson!.title,
+              isDark: _isDark,
+              accentColor: _T.green,
+              onLoadFailed: (message) =>
+                  _showSnack('Failed to load PDF: $message', isError: true),
             ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -4592,14 +4572,14 @@ class _ProfessionalLessonScreenState
               ),
               Expanded(
                 child: isPdf
-                    ? SfPdfViewer.network(
+                    ? PagedPdfViewer.network(
                         mediaProxyUrl(url),
-                        canShowScrollHead: true,
-                        canShowScrollStatus: true,
-                        onDocumentLoadFailed: (details) {
-                          _showSnack('Failed to load PDF: ${details.error}', isError: true);
-                          Navigator.pop(context);
-                        },
+                        title: title,
+                        isDark: _isDark,
+                        accentColor: _T.green,
+                        showFullScreenButton: false,
+                        onLoadFailed: (message) =>
+                            _showSnack('Failed to load PDF: $message', isError: true),
                       )
                     : SingleChildScrollView(
                         padding: const EdgeInsets.all(24),
@@ -4642,52 +4622,29 @@ class _ProfessionalLessonScreenState
     Navigator.of(context).push(
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => Scaffold(
-          backgroundColor: Colors.black,
+          backgroundColor: const Color(0xFF111827),
           appBar: AppBar(
-            backgroundColor: Colors.black,
-            iconTheme: const IconThemeData(color: Colors.white),
-            title: const Text(
-              'PDF Viewer',
-              style: TextStyle(color: Colors.white),
+            backgroundColor: const Color(0xFF111827),
+            foregroundColor: Colors.white,
+            elevation: 0,
+            title: Text(
+              _lesson?.title ?? 'Document',
+              overflow: TextOverflow.ellipsis,
             ),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.info_outline, color: Colors.white),
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Pinch to zoom in/out. Use scroll to navigate.'),
-                      backgroundColor: Colors.blue,
-                    ),
-                  );
-                },
-                tooltip: 'Help',
-              ),
-            ],
           ),
-          body: SfPdfViewer.network(
+          body: PagedPdfViewer.network(
             mediaProxyUrl(url),
-            canShowScrollHead: true,
-            canShowScrollStatus: true,
-            canShowPaginationDialog: true,
-            onDocumentLoadFailed: (details) {
-              _showSnack('Failed to load PDF: ${details.error}', isError: true);
-              Navigator.pop(context);
-            },
+            isDark: true,
+            accentColor: _T.green,
+            showFullScreenButton: false,
+            onLoadFailed: (message) =>
+                _showSnack('Failed to load PDF: $message', isError: true),
           ),
         ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(0.0, 1.0);
-          const end = Offset.zero;
-          const curve = Curves.easeInOut;
-
-          var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-          var offsetAnimation = animation.drive(tween);
-
-          return SlideTransition(
-            position: offsetAnimation,
-            child: child,
-          );
+          final tween = Tween(begin: const Offset(0.0, 1.0), end: Offset.zero)
+              .chain(CurveTween(curve: Curves.easeInOut));
+          return SlideTransition(position: animation.drive(tween), child: child);
         },
       ),
     );

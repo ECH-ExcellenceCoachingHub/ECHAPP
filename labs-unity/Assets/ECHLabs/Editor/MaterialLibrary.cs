@@ -14,9 +14,9 @@ namespace ECHLabs.EditorTools
     {
         public const string Dir = "Assets/ECHLabs/Art/Materials";
 
-        static Material Lit(string name, Color color, float smoothness, float metallic = 0, Color? emission = null)
+        static Material Lit(string name, Color color, float smoothness, float metallic = 0, Color? emission = null, string dir = Dir)
         {
-            var m = LoadOrCreate(name, Shader.Find("Universal Render Pipeline/Lit"));
+            var m = LoadOrCreate(name, Shader.Find("Universal Render Pipeline/Lit"), dir);
             m.SetColor("_BaseColor", color);
             m.SetFloat("_Smoothness", smoothness);
             m.SetFloat("_Metallic", metallic);
@@ -55,10 +55,10 @@ namespace ECHLabs.EditorTools
             return m;
         }
 
-        static Material LoadOrCreate(string name, Shader shader)
+        static Material LoadOrCreate(string name, Shader shader, string dir = Dir)
         {
-            Directory.CreateDirectory(Dir);
-            string path = $"{Dir}/{name}.mat";
+            Directory.CreateDirectory(dir);
+            string path = $"{dir}/{name}.mat";
             var m = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (!m) { m = new Material(shader) { name = name }; AssetDatabase.CreateAsset(m, path); }
             else if (m.shader != shader) m.shader = shader;
@@ -121,6 +121,38 @@ namespace ECHLabs.EditorTools
         }
         public static Material Laser => Lit("Laser", new Color(0.06f, 0.72f, 0.5f, 1f), 0.5f, 0, new Color(0.06f, 0.72f, 0.5f) * 4f);
 
+        // ── Runtime FX (loaded with Resources.Load by hands, guide arrow, pour stream) ──
+        public const string FxDir = "Assets/ECHLabs/Resources/FX";
+
+        [MenuItem("ECH Labs/Rebuild runtime FX materials")]
+        public static void BuildRuntimeFx()
+        {
+            Lit("HandSkin", new Color(0.46f, 0.31f, 0.22f), 0.38f, 0, null, FxDir);
+            Lit("HandGlove", new Color(0.27f, 0.47f, 0.86f), 0.55f, 0, null, FxDir);
+            Lit("SleeveCoat", new Color(0.93f, 0.94f, 0.95f), 0.12f, 0, null, FxDir);
+            Lit("SleeveSweater", new Color(0.13f, 0.17f, 0.29f), 0.15f, 0, null, FxDir);
+            Lit("CharSkin", new Color(0.36f, 0.23f, 0.16f), 0.35f, 0, null, FxDir);
+            Lit("CharHair", new Color(0.06f, 0.05f, 0.05f), 0.3f, 0, null, FxDir);
+            Lit("CharTop", new Color(0.55f, 0.75f, 0.9f), 0.2f, 0, null, FxDir);
+            Lit("CharTrousers", new Color(0.12f, 0.15f, 0.25f), 0.2f, 0, null, FxDir);
+            Lit("CharShoes", new Color(0.08f, 0.08f, 0.09f), 0.45f, 0, null, FxDir);
+            Lit("CharCoat", new Color(0.96f, 0.96f, 0.97f), 0.15f, 0, null, FxDir);
+            Lit("CharGoggles", new Color(0.25f, 0.5f, 0.9f), 0.85f, 0, null, FxDir);
+            Lit("GuideGlow", new Color(0.12f, 0.8f, 0.55f), 0.6f, 0, new Color(0.15f, 0.95f, 0.62f) * 2.2f, FxDir);
+            // Liquid stream: unlit, transparent, coloured by the LineRenderer's vertex colours.
+            var stream = LoadOrCreate("Stream", Shader.Find("Universal Render Pipeline/Particles/Unlit"), FxDir);
+            stream.SetFloat("_Surface", 1);
+            stream.SetFloat("_Blend", 0);
+            stream.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            stream.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+            stream.SetFloat("_ZWrite", 0);
+            stream.SetColor("_BaseColor", Color.white);
+            stream.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            stream.renderQueue = (int)RenderQueue.Transparent;
+            EditorUtility.SetDirty(stream);
+            AssetDatabase.SaveAssets();
+        }
+
         [MenuItem("ECH Labs/Rebuild materials")]
         public static void BuildAll()
         {
@@ -128,6 +160,7 @@ namespace ECHLabs.EditorTools
             _ = Rubber; _ = SteelBrushed; _ = SteelDark; _ = Brass; _ = EpoxyBlack; _ = CabinetWhite; _ = FloorTerrazzo; _ = WallPaint;
             _ = Ceiling; _ = AccentEmerald; _ = AccentBlue; _ = LightPanel; _ = Screen; _ = LedGreen; _ = LedRed; _ = Fabric; _ = Wood;
             _ = Ceramic; _ = BoardGreen; _ = ResistorBeige; _ = WireRed; _ = WireBlack; _ = Reticle; _ = Laser;
+            BuildRuntimeFx();
             AssetDatabase.SaveAssets();
         }
 

@@ -1,6 +1,6 @@
 {
   "id": "phys-ohms-law",
-  "version": 2,
+  "version": 3,
   "title": "Ohm's Law: Measuring Resistance",
   "summary": "Build a series circuit with a power supply, resistor, ammeter and voltmeter, take readings and calculate the resistance using V = IR.",
   "subject": "physics",
@@ -215,7 +215,8 @@
       "unit": "Ω",
       "expected": 47,
       "tolerancePct": 4,
-      "source": "record.resistance"
+      "source": "record.resistance",
+      "expectedExpr": "r1.ohms"
     }
   ],
   "scoring": {
@@ -229,5 +230,17 @@
   "tags": [
     "Ohm's law",
     "circuits"
+  ],
+  "randomize": [
+    {
+      "path": "r1.ohms",
+      "choices": [
+        33,
+        47,
+        68,
+        82,
+        100
+      ]
+    }
   ]
 }

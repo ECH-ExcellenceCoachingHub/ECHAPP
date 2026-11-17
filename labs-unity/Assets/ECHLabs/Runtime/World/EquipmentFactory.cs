@@ -54,7 +54,7 @@ namespace ECHLabs.Runtime.World
         }
 
         /// <summary>Real-world arrangement rules: the white tile sits under the burette tip.</summary>
-        static void Arrange(Dictionary<string, EquipmentView> views)
+        public static void Arrange(Dictionary<string, EquipmentView> views)
         {
             var burette = views.Values.OfType<BuretteView>().FirstOrDefault();
             if (!burette) return;

@@ -122,6 +122,7 @@ class MainLayout extends ConsumerWidget {
     if (currentRoute.contains('/certificates')) currentPage = 'certificates';
     if (currentRoute.contains('/downloads')) currentPage = 'downloads';
     if (currentRoute.contains('/notifications')) currentPage = 'notifications';
+    if (currentRoute.contains('/labs')) currentPage = 'labs';
     if (currentRoute.contains('/payments')) currentPage = 'payments';
     if (currentRoute.contains('/exams')) currentPage = 'exams';
     if (currentRoute.contains('/profile')) currentPage = 'profile';
@@ -200,6 +201,7 @@ class MainLayout extends ConsumerWidget {
       case 'certificates': return l10n?.certificates ?? 'Certificates';
       case 'downloads': return l10n?.downloads ?? 'Downloads';
       case 'notifications': return l10n?.notifications ?? 'Notifications';
+      case 'labs': return 'Virtual Labs';
       case 'payments': return l10n?.payments ?? 'Payments';
       case 'exams': return l10n?.exams ?? 'Exams';
       case 'profile': return l10n?.profile ?? 'Profile';

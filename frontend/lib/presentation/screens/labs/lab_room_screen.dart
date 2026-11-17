@@ -60,7 +60,7 @@ class _LabRoomScreenState extends ConsumerState<LabRoomScreen> {
               ),
             ),
             if (activities.isNotEmpty && summary.activities[next.id]?.passed != true)
-              SliverToBoxAdapter(child: _RecommendedCard(lab: next, onStart: () => _openDetails(next, summary.activities[next.id]))),
+              SliverToBoxAdapter(child: _RecommendedCard(lab: next, onStart: () => _startLab(next))),
             SliverToBoxAdapter(
               child: SizedBox(
                 height: 56,
@@ -102,7 +102,9 @@ class _LabRoomScreenState extends ConsumerState<LabRoomScreen> {
                         number: activities.indexOf(lab) + 1,
                         progress: summary.activities[lab.id],
                         recommended: lab.id == next.id && summary.activities[lab.id]?.passed != true,
-                        onTap: () => _openDetails(lab, summary.activities[lab.id]),
+                        // One tap: the activity starts on this device.
+                        onTap: () => _startLab(lab),
+                        onInfo: () => _openDetails(lab, summary.activities[lab.id]),
                       ),
                     ]);
                   },
@@ -131,6 +133,8 @@ class _LabRoomScreenState extends ConsumerState<LabRoomScreen> {
     );
   }
 
+  void _startLab(LabScenario lab) => context.push('/lab/${lab.id}');
+
   void _openDetails(LabScenario lab, LabActivityProgress? progress) {
     showModalBottomSheet(
       context: context,
@@ -138,7 +142,7 @@ class _LabRoomScreenState extends ConsumerState<LabRoomScreen> {
       showDragHandle: true,
       builder: (ctx) => _ActivityDetails(lab: lab, progress: progress, onStart: () {
         Navigator.of(ctx).pop();
-        context.push('/lab/${lab.id}');
+        _startLab(lab);
       }),
     );
   }
@@ -181,8 +185,8 @@ class _ActivityTile extends StatelessWidget {
   final int number;
   final LabActivityProgress? progress;
   final bool recommended;
-  final VoidCallback onTap;
-  const _ActivityTile({required this.lab, required this.number, required this.progress, required this.recommended, required this.onTap});
+  final VoidCallback onTap, onInfo;
+  const _ActivityTile({required this.lab, required this.number, required this.progress, required this.recommended, required this.onTap, required this.onInfo});
 
   @override
   Widget build(BuildContext context) {
@@ -233,14 +237,20 @@ class _ActivityTile extends StatelessWidget {
                   ]),
                 ]),
               ),
-              const SizedBox(width: 8),
-              if (progress != null)
-                Column(children: [
+              const SizedBox(width: 4),
+              Column(mainAxisSize: MainAxisSize.min, children: [
+                if (progress != null) ...[
                   Text('${progress!.best}%', style: TextStyle(fontWeight: FontWeight.w800, color: passed ? const Color(0xFF10B981) : theme.colorScheme.error)),
                   Text('best', style: theme.textTheme.labelSmall?.copyWith(color: theme.hintColor)),
-                ])
-              else
-                Icon(Icons.chevron_right_rounded, color: theme.hintColor),
+                ] else
+                  Icon(Icons.play_circle_fill_rounded, color: d.color, size: 30),
+                IconButton(
+                  onPressed: onInfo,
+                  icon: Icon(Icons.info_outline_rounded, color: theme.hintColor, size: 20),
+                  tooltip: 'About this activity',
+                  visualDensity: VisualDensity.compact,
+                ),
+              ]),
             ]),
           ),
         ),

@@ -1,6 +1,6 @@
 {
   "id": "chem-titration-vinegar",
-  "version": 2,
+  "version": 3,
   "title": "Titration: How Strong Is Vinegar?",
   "summary": "Vinegar contains ethanoic acid, a WEAK acid. Titrate it with sodium hydroxide and see why phenolphthalein is the right indicator for a weak acid.",
   "subject": "chemistry",
@@ -335,6 +335,7 @@
       "label": "Titre",
       "unit": "cm³",
       "expected": 20.0,
+      "expectedExpr": "flask1.conc * 25 / 0.125",
       "tolerancePct": 1.5,
       "source": "record.titre"
     },
@@ -343,6 +344,7 @@
       "label": "Acid concentration",
       "unit": "mol/dm³",
       "expected": 0.1,
+      "expectedExpr": "flask1.conc",
       "tolerancePct": 2,
       "source": "record.acidConc"
     }
@@ -353,5 +355,13 @@
     "safety": 20
   },
   "passScore": 60,
-  "xp": 180
+  "xp": 180,
+  "randomize": [
+    {
+      "path": "flask1.conc",
+      "min": 0.08,
+      "max": 0.12,
+      "decimals": 3
+    }
+  ]
 }

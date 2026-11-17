@@ -1,6 +1,6 @@
 {
   "id": "net-ping-troubleshoot",
-  "version": 2,
+  "version": 3,
   "title": "Troubleshooting: \"The Internet Is Down!\"",
   "summary": "Teachers say the internet is down. Use ping and traceroute layer by layer to find the fault.",
   "subject": "networking",

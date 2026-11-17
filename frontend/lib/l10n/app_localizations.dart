@@ -3140,6 +3140,36 @@ abstract class AppLocalizations {
   /// **'Moderator'**
   String get moderatorRole;
 
+  /// No description provided for @teacherRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Teacher'**
+  String get teacherRole;
+
+  /// No description provided for @studentRoleDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Enroll in courses and learn'**
+  String get studentRoleDescription;
+
+  /// No description provided for @teacherRoleDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Create courses and teach students'**
+  String get teacherRoleDescription;
+
+  /// No description provided for @selectYourRole.
+  ///
+  /// In en, this message translates to:
+  /// **'Select Your Role'**
+  String get selectYourRole;
+
+  /// No description provided for @selectRoleSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you joining as a student or a teacher?'**
+  String get selectRoleSubtitle;
+
   /// No description provided for @feedback.
   ///
   /// In en, this message translates to:

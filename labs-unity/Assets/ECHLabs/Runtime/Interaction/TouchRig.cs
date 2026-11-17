@@ -6,14 +6,20 @@ using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 namespace ECHLabs.Runtime.Interaction
 {
     /// <summary>
-    /// Phones/tablets: tap to select, one-finger drag to orbit the current station, pinch to zoom.
+    /// Phones/tablets: tap to select, one-finger drag to look around the current station, pinch to
+    /// zoom, double-tap an object to inspect it, and the on-screen joystick to walk.
     /// The CameraDirector flies to each step's equipment, so students rarely need to navigate.
     /// </summary>
     public sealed class TouchRig : MonoBehaviour, IPointerSource
     {
         public Camera cam;
         public CameraDirector director;
-        public float orbitSpeed = 0.18f, tapMaxMove = 18f, tapMaxTime = 0.35f;
+        public float orbitSpeed = 0.18f, tapMaxMove = 18f, tapMaxTime = 0.35f, walkSpeed = 1.3f;
+        public Bounds walkBounds = new Bounds(new Vector3(0, 1.5f, 0), new Vector3(9, 3, 7));
+        /// <summary>On-screen joystick (−1..1 each axis), supplied by the HUD.</summary>
+        public System.Func<Vector2> moveInput;
+        /// <summary>The joystick owns these touches; ignore them for look/tap.</summary>
+        public System.Func<Vector2, bool> isOverControls;
 
         bool active, tapped;
         Vector2 tapPos;
@@ -49,7 +55,11 @@ namespace ECHLabs.Runtime.Interaction
         {
             tapped = false;
             if (!active || !cam) return;
-            var touches = Touch.activeTouches;
+            Walk();
+            // Fingers that started on the joystick never look around or tap the scene.
+            touches.Clear();
+            foreach (var at in Touch.activeTouches)
+                if (isOverControls == null || !isOverControls(at.startScreenPosition)) touches.Add(at);
             if (touches.Count == 1)
             {
                 var t = touches[0];
@@ -84,11 +94,30 @@ namespace ECHLabs.Runtime.Interaction
             else lastPinch = -1;
 
             // Mouse fallback (Editor / Chromebooks) so the touch rig is testable on desktop.
-            if (touches.Count == 0 && Mouse.current != null && Mouse.current.leftButton.wasReleasedThisFrame)
+            if (Touch.activeTouches.Count == 0 && Mouse.current != null && Mouse.current.leftButton.wasReleasedThisFrame
+                && (isOverControls == null || !isOverControls(Mouse.current.position.ReadValue())))
             {
                 tapped = true;
                 tapPos = Mouse.current.position.ReadValue();
             }
+        }
+
+        readonly System.Collections.Generic.List<Touch> touches = new System.Collections.Generic.List<Touch>();
+
+        void Walk()
+        {
+            var m = moveInput != null ? moveInput() : Vector2.zero;
+            if (m.sqrMagnitude < 0.01f) return;
+            director?.Cancel();
+            var fwd = cam.transform.forward; fwd.y = 0; fwd.Normalize();
+            var right = cam.transform.right; right.y = 0; right.Normalize();
+            var delta = (fwd * m.y + right * m.x) * walkSpeed * Time.deltaTime;
+            var p = cam.transform.position + delta;
+            var min = walkBounds.min; var max = walkBounds.max;
+            p = new Vector3(Mathf.Clamp(p.x, min.x, max.x), p.y, Mathf.Clamp(p.z, min.z, max.z));
+            delta = p - cam.transform.position;
+            cam.transform.position = p;
+            director?.ShiftOrbit(delta);
         }
 
         void Orbit(Vector2 delta)

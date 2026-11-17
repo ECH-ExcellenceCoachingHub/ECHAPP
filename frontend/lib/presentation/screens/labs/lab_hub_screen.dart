@@ -57,31 +57,65 @@ class LabHubScreen extends ConsumerWidget {
             ),
           ),
           labs.when(
-            loading: () => const SliverFillRemaining(hasScrollBody: false, child: Center(child: CircularProgressIndicator())),
-            error: (e, _) => SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.cloud_off_rounded, size: 48),
-                const SizedBox(height: 8),
-                Text('Could not load labs. $e', textAlign: TextAlign.center),
-                TextButton(onPressed: () => ref.invalidate(labScenariosProvider), child: const Text('Try again')),
-              ])),
-            ),
-            data: (all) => SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
-              sliver: SliverGrid(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: columns, mainAxisSpacing: 16, crossAxisSpacing: 16, mainAxisExtent: 300),
-                delegate: SliverChildBuilderDelegate(
-                  (_, i) {
-                    final room = LabRoom.all[i];
-                    final activities = all.where((s) => s.environment == room.environment).toList();
-                    final done = activities.where((s) => summary.activities[s.id]?.passed == true).length;
-                    return _RoomCard(room: room, activities: activities, completed: done, onOpen: () => context.push('/labs/room/${room.environment}'));
-                  },
-                  childCount: LabRoom.all.length,
-                ),
+            loading: () => SliverToBoxAdapter(
+              child: SizedBox(
+                height: 400,
+                child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const CircularProgressIndicator(),
+                  const SizedBox(height: 12),
+                  Text('Loading labs...', style: TextStyle(color: Theme.of(context).hintColor)),
+                ])),
               ),
             ),
+            error: (e, _) => SliverToBoxAdapter(
+              child: SizedBox(
+                height: 400,
+                child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.cloud_off_rounded, size: 48, color: Colors.redAccent),
+                  const SizedBox(height: 12),
+                  Text('Could not load labs', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.redAccent)),
+                  const SizedBox(height: 6),
+                  Text('$e', textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).hintColor, fontSize: 12)),
+                  const SizedBox(height: 16),
+                  FilledButton.icon(
+                    onPressed: () => ref.invalidate(labScenariosProvider),
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('Try again'),
+                  ),
+                ])),
+              ),
+            ),
+            data: (all) {
+              if (all.isEmpty) {
+                return SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 400,
+                    child: Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Icon(Icons.science_outlined, size: 48, color: Colors.grey),
+                      const SizedBox(height: 12),
+                      Text('No labs available', style: Theme.of(context).textTheme.titleMedium),
+                      const SizedBox(height: 6),
+                      Text('Check back later for new experiments.', textAlign: TextAlign.center, style: TextStyle(color: Theme.of(context).hintColor)),
+                    ])),
+                  ),
+                );
+              }
+              return SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+                sliver: SliverGrid(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: columns, mainAxisSpacing: 16, crossAxisSpacing: 16, mainAxisExtent: 300),
+                  delegate: SliverChildBuilderDelegate(
+                    (_, i) {
+                      final room = LabRoom.all[i];
+                      final activities = all.where((s) => s.environment == room.environment).toList();
+                      final done = activities.where((s) => summary.activities[s.id]?.passed == true).length;
+                      return _RoomCard(room: room, activities: activities, completed: done, onOpen: () => context.push('/labs/room/${room.environment}'));
+                    },
+                    childCount: LabRoom.all.length,
+                  ),
+                ),
+              );
+            },
           ),
         ]),
       ),
@@ -191,15 +225,15 @@ class _Hero extends StatelessWidget {
         gradient: const LinearGradient(colors: [Color(0xFF0B1F1A), Color(0xFF0F2D44)], begin: Alignment.topLeft, end: Alignment.bottomRight),
         boxShadow: [BoxShadow(color: const Color(0xFF10B981).withValues(alpha: 0.18), blurRadius: 30, offset: const Offset(0, 12))],
       ),
-      child: Flex(
-        direction: narrow ? Axis.vertical : Axis.horizontal,
-        crossAxisAlignment: narrow ? CrossAxisAlignment.start : CrossAxisAlignment.center,
-        children: [
-          _LevelRing(summary: summary),
-          SizedBox(width: narrow ? 0 : 24, height: narrow ? 16 : 0),
-          Flexible(
-            fit: narrow ? FlexFit.loose : FlexFit.tight,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      // Phones: ring above the text. Wider screens: ring beside it. (A Flexible inside a vertical
+      // Flex in a scroll view has unbounded height and throws, which blanked this page on phones.)
+      child: narrow
+          ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [_LevelRing(summary: summary), const SizedBox(height: 16), _text()])
+          : Row(children: [_LevelRing(summary: summary), const SizedBox(width: 24), Expanded(child: _text())]),
+    );
+  }
+
+  Widget _text() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(color: const Color(0xFF10B981), borderRadius: BorderRadius.circular(8)),
@@ -226,12 +260,7 @@ class _Hero extends StatelessWidget {
                   label: const Text('Connect VR headset'),
                 ),
               ]),
-            ]),
-          ),
-        ],
-      ),
-    );
-  }
+            ]);
 }
 
 class _LevelRing extends StatelessWidget {

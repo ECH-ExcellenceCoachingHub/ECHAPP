@@ -1,6 +1,6 @@
 {
   "id": "cyber-phishing-triage",
-  "version": 2,
+  "version": 3,
   "title": "Phishing Email Triage",
   "summary": "Three suspicious emails have been reported by teachers. Investigate them and decide which ones are phishing.",
   "subject": "cybersecurity",

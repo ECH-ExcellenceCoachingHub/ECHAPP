@@ -20,6 +20,7 @@ namespace ECHLabs.Runtime.Equipment
         {
             restPos = transform.position;
             restRot = transform.rotation;
+            connectedTo = null;
         }
 
         public void ConnectTo(Transform anchor) => connectedTo = anchor;

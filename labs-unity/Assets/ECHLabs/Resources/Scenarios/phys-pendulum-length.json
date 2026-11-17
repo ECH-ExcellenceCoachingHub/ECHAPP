@@ -1,6 +1,6 @@
 {
   "id": "phys-pendulum-length",
-  "version": 2,
+  "version": 3,
   "title": "Pendulum: A Shorter String",
   "summary": "Repeat the pendulum experiment with a 0.50 m string. Does g change? Does the period?",
   "subject": "physics",

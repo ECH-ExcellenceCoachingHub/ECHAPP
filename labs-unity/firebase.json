@@ -1,0 +1,14 @@
+{
+  "hosting": {
+    "site": "ech-labs",
+    "public": "Builds/WebGL",
+    "ignore": ["firebase.json", "**/.*"],
+    "headers": [
+      { "source": "**/*.data.br", "headers": [{ "key": "Content-Encoding", "value": "br" }, { "key": "Content-Type", "value": "application/octet-stream" }, { "key": "Cache-Control", "value": "public, max-age=604800" }] },
+      { "source": "**/*.js.br", "headers": [{ "key": "Content-Encoding", "value": "br" }, { "key": "Content-Type", "value": "application/javascript" }, { "key": "Cache-Control", "value": "public, max-age=604800" }] },
+      { "source": "**/*.wasm.br", "headers": [{ "key": "Content-Encoding", "value": "br" }, { "key": "Content-Type", "value": "application/wasm" }, { "key": "Cache-Control", "value": "public, max-age=604800" }] },
+      { "source": "index.html", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
+      { "source": "**", "headers": [{ "key": "Permissions-Policy", "value": "xr-spatial-tracking=(self), gyroscope=(self), accelerometer=(self)" }] }
+    ]
+  }
+}

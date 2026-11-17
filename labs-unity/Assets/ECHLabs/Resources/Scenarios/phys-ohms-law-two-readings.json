@@ -1,6 +1,6 @@
 {
   "id": "phys-ohms-law-two-readings",
-  "version": 2,
+  "version": 3,
   "title": "Ohm's Law: Does Current Double?",
   "summary": "Measure the current through a resistor at 3 V and at 9 V. Does tripling the voltage triple the current?",
   "subject": "physics",
@@ -35,7 +35,7 @@
       "id": "r1",
       "type": "resistor",
       "slot": "benchB.left",
-      "label": "Resistor 100 Ω",
+      "label": "Resistor {r1.ohms} Ω",
       "init": {
         "ohms": 100
       }
@@ -281,6 +281,7 @@
       "label": "Resistance",
       "unit": "Ω",
       "expected": 100,
+      "expectedExpr": "r1.ohms",
       "tolerancePct": 4,
       "source": "record.resistance"
     }
@@ -291,5 +292,17 @@
     "safety": 20
   },
   "passScore": 60,
-  "xp": 130
+  "xp": 130,
+  "randomize": [
+    {
+      "path": "r1.ohms",
+      "choices": [
+        47,
+        68,
+        100,
+        150,
+        220
+      ]
+    }
+  ]
 }

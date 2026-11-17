@@ -59,10 +59,12 @@ namespace ECHLabs.Runtime.Rendering
             locked |= byUser;
             string levelName = "ECH " + tier;
             for (int i = 0; i < QualitySettings.names.Length; i++)
-                if (QualitySettings.names[i] == levelName) { QualitySettings.SetQualityLevel(i, true); break; }
+                // Phones: no "expensive" changes (they recreate the GL surface mid-frame, which leaves some
+                // Mali/Adreno drivers presenting nothing). Each tier's URP asset already holds its settings.
+                if (QualitySettings.names[i] == levelName) { QualitySettings.SetQualityLevel(i, !Application.isMobilePlatform); break; }
 
             var urp = GraphicsSettings.currentRenderPipeline as UniversalRenderPipelineAsset;
-            if (urp)
+            if (urp && !Application.isMobilePlatform)
             {
                 urp.renderScale = tier == QualityTier.Low ? (Application.isMobilePlatform ? 0.75f : 0.85f) : 1f;
                 urp.msaaSampleCount = tier == QualityTier.Ultra ? 4 : tier == QualityTier.Medium ? 2 : 1;

@@ -254,7 +254,11 @@ class ApiClient {
           if (refreshed) {
             print('Token refreshed successfully, retrying request...');
             // Get the original request details and retry with new token
-            final originalRequest = response.request!;
+            final originalRequest = response.request;
+            if (originalRequest == null) {
+              print('Cannot retry: original request is null, returning original 401');
+              return response;
+            }
             final url = originalRequest.url.toString();
             final method = originalRequest.method;
             

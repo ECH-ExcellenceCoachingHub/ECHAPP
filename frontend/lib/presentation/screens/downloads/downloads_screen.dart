@@ -12,7 +12,7 @@ import 'package:excellencecoachinghub/presentation/widgets/video_player/optimize
 import 'package:excellencecoachinghub/presentation/widgets/downloaded_material_viewer.dart';
 import 'package:excellencecoachinghub/presentation/widgets/download_thumbnail.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:excellencecoachinghub/presentation/widgets/document_viewer/paged_pdf_viewer.dart';
 import 'package:excellencecoachinghub/utils/screen_wakelock.dart';
 import 'package:excellencecoachinghub/services/connectivity_service.dart';
 import 'dart:io';
@@ -749,7 +749,7 @@ class _DownloadsScreenState extends ConsumerState<DownloadsScreen> with TickerPr
         body: Container(
           padding: const EdgeInsets.all(16),
           child: download.url.toLowerCase().endsWith('.pdf') || download.localPath.toLowerCase().endsWith('.pdf')
-              ? SfPdfViewer.file(File(download.localPath))
+              ? PagedPdfViewer.file(File(download.localPath), title: download.originalTitle)
               : SingleChildScrollView(
                   child: MarkdownBody(
                     data: download.url, // For text notes, URL contains the content

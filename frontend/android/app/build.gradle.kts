@@ -75,6 +75,9 @@ android {
 }
 
 dependencies {
+    // ECH Labs native 3D lab (Unity as a Library), when the export is present.
+    rootProject.findProject(":unityLibrary")?.let { implementation(it) }
+
     // Import the Firebase BoM
     implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
     

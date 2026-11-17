@@ -528,14 +528,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
     );
   }
 
-  Future<void> register(String fullName, String? email, String password, String? phone) async {
+  Future<void> register(String fullName, String? email, String password, String? phone, {String? role}) async {
     debugPrint('AuthProvider: Starting registration process');
     state = state.copyWith(isLoading: true, isEmailLoading: true, error: null);
 
     // Phone-only registration: bypass Firebase (requires email), use backend directly
     final hasEmail = email != null && email.trim().isNotEmpty;
     if (!hasEmail) {
-      await _registerWithPhoneAndPassword(fullName, phone ?? '', password);
+      await _registerWithPhoneAndPassword(fullName, phone ?? '', password, role: role);
       return;
     }
     
@@ -579,7 +579,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         
         // Step 3: Send token to backend for user creation in MongoDB
         debugPrint('AuthProvider: Sending token to backend for authentication');
-        var authResponse = await _authRepository.firebaseLogin(idToken, fullName: fullName, deviceId: deviceId);
+        var authResponse = await _authRepository.firebaseLogin(idToken, fullName: fullName, deviceId: deviceId, role: role);
         debugPrint('AuthProvider: Backend authentication successful');
 
         // Step 3b: firebase-login doesn't carry the phone, so persist the one the
@@ -662,7 +662,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   // Phone-only registration — direct backend call, no Firebase
-  Future<void> _registerWithPhoneAndPassword(String fullName, String phone, String password) async {
+  Future<void> _registerWithPhoneAndPassword(String fullName, String phone, String password, {String? role}) async {
     debugPrint('AuthProvider: Starting phone-only registration for $phone');
     try {
       String? deviceId;
@@ -670,7 +670,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         deviceId = await DeviceIdUtils.getAppDeviceId();
       } catch (_) {}
 
-      final authResponse = await _authRepository.register(fullName, null, password, phone);
+      final authResponse = await _authRepository.register(fullName, null, password, phone, role: role);
 
       await _storageManager.saveAccessToken(authResponse.token);
       await _storageManager.saveRefreshToken(authResponse.refreshToken);
@@ -741,6 +741,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     String? fullName,
     String? email,
     String? phone, 
+    String? role,
     File? imageFile,
     List<String>? interests,
     String? shortTermGoal,
@@ -776,6 +777,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           fullName: fullName,
           email: email,
           phone: phone,
+          role: role,
           avatar: avatarUrl,
           interests: interests,
           shortTermGoal: shortTermGoal,

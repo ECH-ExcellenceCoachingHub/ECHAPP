@@ -25,6 +25,12 @@ namespace ECHLabs.Core
         [JsonProperty("passScore")] public double PassScore = 60;
         [JsonProperty("xp")] public int Xp = 100;
         [JsonProperty("i18n")] public Dictionary<string, JObject> I18n = new Dictionary<string, JObject>();
+        /// <summary>"New values every try" rules (see Variants).</summary>
+        [JsonProperty("randomize")] public List<RandomizeSpec> Randomize = new List<RandomizeSpec>();
+        /// <summary>True when the server already applied this attempt's values (lab session download).</summary>
+        [JsonProperty("variantApplied")] public bool VariantApplied;
+
+        public ScenarioDefinition Clone() => FromJson(JsonConvert.SerializeObject(this));
 
         public static ScenarioDefinition FromJson(string json) => JsonConvert.DeserializeObject<ScenarioDefinition>(json);
 
@@ -56,6 +62,7 @@ namespace ECHLabs.Core
         [JsonProperty("type")] public string Type;
         [JsonProperty("slot")] public string Slot;
         [JsonProperty("label")] public string Label;
+        [JsonProperty("labelTemplate")] public string LabelTemplate;
         [JsonProperty("init")] public Dictionary<string, JToken> Init = new Dictionary<string, JToken>();
 
         public double InitNumber(string key, double fallback = 0)
@@ -150,8 +157,18 @@ namespace ECHLabs.Core
         [JsonProperty("label")] public string Label;
         [JsonProperty("unit")] public string Unit;
         [JsonProperty("expected")] public double Expected;
+        [JsonProperty("expectedExpr")] public string ExpectedExpr;
         [JsonProperty("tolerancePct")] public double TolerancePct = 5;
         [JsonProperty("source")] public string Source;
+    }
+
+    public sealed class RandomizeSpec
+    {
+        [JsonProperty("path")] public string Path;          // "flask1.conc"
+        [JsonProperty("min")] public double? Min;
+        [JsonProperty("max")] public double? Max;
+        [JsonProperty("decimals")] public int Decimals = 3;
+        [JsonProperty("choices")] public List<double> Choices;
     }
 
     public sealed class ScoringSpec

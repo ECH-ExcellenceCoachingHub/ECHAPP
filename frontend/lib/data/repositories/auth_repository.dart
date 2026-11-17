@@ -90,12 +90,13 @@ class AuthRepository {
     }
   }
 
-  Future<AuthResponse> register(String fullName, String? email, String password, String? phone) async {
+  Future<AuthResponse> register(String fullName, String? email, String password, String? phone, {String? role}) async {
     try {
       final body = <String, dynamic>{
         'fullName': fullName,
         'password': password,
       };
+      if (role != null && role.trim().isNotEmpty) body['role'] = role.trim();
       if (email != null && email.trim().isNotEmpty) body['email'] = email.trim();
       if (phone != null && phone.trim().isNotEmpty) body['phone'] = phone.trim();
       final response = await _client.post(
@@ -137,7 +138,7 @@ class AuthRepository {
     }
   }
 
-  Future<AuthResponse> firebaseLogin(String idToken, {String? fullName, String? deviceId}) async {
+  Future<AuthResponse> firebaseLogin(String idToken, {String? fullName, String? deviceId, String? role}) async {
     print('AuthRepository.firebaseLogin called with idToken length: ${idToken.length}');
     
     // Automatic retry logic for connection issues on Render
@@ -152,6 +153,7 @@ class AuthRepository {
         };
         if (fullName != null) body['fullName'] = fullName;
         if (deviceId != null) body['deviceId'] = deviceId;
+        if (role != null && role.trim().isNotEmpty) body['role'] = role.trim();
         encodedBody = jsonEncode(body);
         
         final client = http.Client();
@@ -405,6 +407,7 @@ class AuthRepository {
     String? fullName,
     String? email,
     String? phone, 
+    String? role,
     String? avatar,
     List<String>? interests,
     String? shortTermGoal,
@@ -423,6 +426,7 @@ class AuthRepository {
           if (fullName != null) 'fullName': fullName,
           if (email != null) 'email': email,
           if (phone != null) 'phone': phone,
+          if (role != null) 'role': role,
           if (avatar != null) 'avatar': avatar,
           if (interests != null) 'interests': interests,
           if (shortTermGoal != null) 'shortTermGoal': shortTermGoal,

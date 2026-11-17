@@ -16,12 +16,14 @@ const { generateScenario } = require('../services/labs/generator.service');
 const { finalizeAttempt } = require('../services/labs/progress.service');
 const { scoreAttempt } = require('../services/labs/scoring.service');
 const { signLabToken, LAB_TOKEN_TTL } = require('../services/labs/token.service');
+const { pickVariant, applyVariant } = require('../services/labs/variant');
 const { ensureSeedScenarios } = require('../services/labs/seed.service');
 const { sendSuccess, sendError, sendNotFound, sendForbidden } = require('../utils/response.utils');
 
 const STAFF = ['admin', 'instructor'];
 const isStaff = (user) => !!user && STAFF.includes(user.role);
-const LAB_WEB_URL = () => process.env.LAB_WEB_URL || 'https://labs.excellencecoachinghub.com';
+// Where the WebGL build is hosted (e.g. https://ech-labs.web.app). Unset → no web launch link is offered.
+const LAB_WEB_URL = () => (process.env.LAB_WEB_URL || '').replace(/\/+$/, '') || null;
 
 async function findScenario(idOrSlug) {
   if (mongoose.isValidObjectId(idOrSlug)) {
@@ -58,7 +60,11 @@ const getScenario = async (req, res) => {
   try {
     const scenario = await findScenario(req.params.id);
     if (!scenario || !canSee(req.user, scenario)) return sendNotFound(res, 'Lab not found');
-    return sendSuccess(res, { ...scenario.toCard(), definition: scenario.definition });
+    // A lab session gets the values picked for its attempt; everyone else sees the defaults.
+    const forSession = !!(req.lab && req.lab.sid === String(scenario._id));
+    const definition = applyVariant(scenario.definition, forSession ? req.lab.v : null);
+    if (forSession) definition.variantApplied = true;
+    return sendSuccess(res, { ...scenario.toCard(), definition });
   } catch (err) {
     return sendError(res, 'Could not load lab', 500, err.message);
   }
@@ -188,9 +194,13 @@ const createSession = async (req, res) => {
       const lesson = await Lesson.findById(req.body.lessonId).select('courseId');
       if (lesson) { lessonId = lesson._id; courseId = lesson.courseId; }
     }
-    const labToken = signLabToken({ userId: req.user._id, scenarioId: scenario._id, lessonId, courseId });
-    const resume = await LabAttempt.findOne({ userId: req.user._id, scenarioId: scenario._id, status: 'in_progress' }).sort({ updatedAt: -1 }).select('clientId currentStepId completedSteps updatedAt');
-    const launch = { token: labToken, scenario: String(scenario._id), lesson: lessonId ? String(lessonId) : '', api: `${req.protocol}://${req.get('host')}/api/labs`, lang: req.body.lang || 'en' };
+    const resume = await LabAttempt.findOne({ userId: req.user._id, scenarioId: scenario._id, status: 'in_progress' }).sort({ updatedAt: -1 }).select('clientId currentStepId completedSteps updatedAt variant');
+    // New values every try — but a resumed attempt keeps the values it started with.
+    const variant = (resume && resume.variant) || pickVariant(scenario.definition);
+    const labToken = signLabToken({ userId: req.user._id, scenarioId: scenario._id, lessonId, courseId, variant });
+    // Behind Render/Cloudflare the app sees http; the public API is https.
+    const proto = String(req.get('x-forwarded-proto') || req.protocol).split(',')[0].trim();
+    const launch = { token: labToken, scenario: String(scenario._id), lesson: lessonId ? String(lessonId) : '', api: `${proto}://${req.get('host')}/api/labs`, lang: req.body.lang || 'en' };
     return sendSuccess(res, {
       labToken,
       expiresIn: LAB_TOKEN_TTL,
@@ -198,7 +208,7 @@ const createSession = async (req, res) => {
       lessonId,
       resume: resume ? { clientId: resume.clientId, currentStepId: resume.currentStepId, completedSteps: resume.completedSteps, updatedAt: resume.updatedAt } : null,
       // Web build reads its parameters from the URL fragment (never sent to servers or logs).
-      webUrl: `${LAB_WEB_URL()}/#${new URLSearchParams(launch).toString()}`,
+      webUrl: LAB_WEB_URL() ? `${LAB_WEB_URL()}/#${new URLSearchParams(launch).toString()}` : null,
       launch,
     });
   } catch (err) {
@@ -257,6 +267,7 @@ const startAttempt = async (req, res) => {
       scenarioVersion: scenario.version,
       lessonId,
       courseId: (req.lab && req.lab.cid) || null,
+      variant: (req.lab && req.lab.sid === String(scenario._id) && req.lab.v) || null,
       platform: ['android', 'ios', 'windows', 'web', 'quest', 'pcvr'].includes(req.body.platform) ? req.body.platform : 'other',
       mode: ['desktop', 'touch', 'cardboard', 'xr', 'fallback'].includes(req.body.mode) ? req.body.mode : 'desktop',
       qualityTier: ['low', 'medium', 'ultra'].includes(req.body.qualityTier) ? req.body.qualityTier : 'medium',
@@ -289,7 +300,7 @@ const updateAttempt = async (req, res) => {
     if (req.body.abandon) attempt.status = 'abandoned';
     await attempt.save();
     // Live preview of the score for the HUD.
-    const preview = scoreAttempt(scenario.definition, attempt);
+    const preview = scoreAttempt(applyVariant(scenario.definition, attempt.variant), attempt);
     return sendSuccess(res, { attempt, preview: preview.score }, 'Progress saved');
   } catch (err) {
     return sendError(res, 'Could not save progress', 500, err.message);
@@ -385,7 +396,8 @@ const pairPoll = async (req, res) => {
     pairing.claimedAt = new Date();
     await pairing.save();
     const user = await User.findById(pairing.userId).select('fullName');
-    const labToken = signLabToken({ userId: pairing.userId, scenarioId: pairing.scenarioId, lessonId: pairing.lessonId });
+    const scenario = pairing.scenarioId ? await LabScenario.findById(pairing.scenarioId).select('definition') : null;
+    const labToken = signLabToken({ userId: pairing.userId, scenarioId: pairing.scenarioId, lessonId: pairing.lessonId, variant: scenario ? pickVariant(scenario.definition) : null });
     return sendSuccess(res, { status: 'paired', labToken, scenarioId: pairing.scenarioId, lessonId: pairing.lessonId, studentName: user?.fullName || '' });
   } catch (err) {
     return sendError(res, 'Could not check pairing', 500, err.message);

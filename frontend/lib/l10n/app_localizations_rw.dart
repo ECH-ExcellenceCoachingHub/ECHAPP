@@ -1564,6 +1564,21 @@ class AppLocalizationsRw extends AppLocalizations {
   String get moderatorRole => 'Umugenzuzi';
 
   @override
+  String get teacherRole => 'Umwigisha';
+
+  @override
+  String get studentRoleDescription => 'Inyandiko ku mabo yishuri';
+
+  @override
+  String get teacherRoleDescription => 'Runda mabo naba abamenyeshuri';
+
+  @override
+  String get selectYourRole => 'Choga Icyo Umenyereye';
+
+  @override
+  String get selectRoleSubtitle => 'Ushaka kuba umunyeshuri nabwo umwigisha?';
+
+  @override
   String get feedback => 'Igitekerezo';
 
   @override

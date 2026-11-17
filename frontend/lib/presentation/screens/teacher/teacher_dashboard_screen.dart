@@ -13,7 +13,7 @@ import 'package:excellencecoachinghub/models/live_session.dart';
 import 'package:excellencecoachinghub/widgets/network_image_widget.dart';
 import 'package:excellencecoachinghub/presentation/widgets/eexams_section.dart';
 
-/// Teacher Dashboard Screen - Main dashboard for instructors
+/// Teacher Dashboard Screen - Modern dashboard for instructors with teacher tools
 class TeacherDashboardScreen extends ConsumerStatefulWidget {
   const TeacherDashboardScreen({super.key});
 
@@ -24,7 +24,7 @@ class TeacherDashboardScreen extends ConsumerStatefulWidget {
 class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen> {
   final TeacherService _teacherService = TeacherService();
   final LiveSessionService _liveSessionService = LiveSessionService();
-  
+
   bool _isLoading = true;
   TeacherDashboardStats? _stats;
   List<TeacherCourse> _courses = [];
@@ -48,7 +48,6 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
     });
 
     try {
-      // Load stats and courses together
       final statsAndCourses = await Future.wait([
         _teacherService.getDashboardStats(),
         _teacherService.getAssignedCourses(page: _currentPage),
@@ -57,40 +56,35 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
       final stats = statsAndCourses[0] as TeacherDashboardStats;
       final coursesResponse = statsAndCourses[1] as TeacherCoursesResponse;
 
-      // Load sessions separately with error handling
       List<LiveSession> sessions = [];
       List<LiveSession> readyToStart = [];
       try {
-        // Get both scheduled and live sessions
         final sessionsResponse = await _liveSessionService.getTeacherSessions(
           limit: 10,
         );
         final now = DateTime.now();
-        
-        // Filter upcoming sessions (scheduled for future)
+
         sessions = sessionsResponse.sessions.where((session) {
-          return session.status == 'scheduled' && session.scheduledAt.isAfter(now.subtract(const Duration(minutes: 5))) ||
+          return session.status == 'scheduled' &&
+                  session.scheduledAt.isAfter(now.subtract(const Duration(minutes: 5))) ||
                  session.status == 'live';
         }).toList();
         sessions.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-        
-        // Filter ready-to-start sessions (scheduled but time has passed, or already live)
+
         readyToStart = sessionsResponse.sessions.where((session) {
-          return (session.status == 'scheduled' && 
+          return (session.status == 'scheduled' &&
                   session.scheduledAt.isBefore(now.add(const Duration(minutes: 5))) &&
                   !session.isEnded) ||
                  session.status == 'live';
         }).toList();
         readyToStart.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
-        
-        // Schedule notifications for teacher sessions
+
         await PushNotificationService.scheduleLiveSessionNotifications(
           sessionsResponse.sessions,
           isTeacher: true,
         );
       } catch (sessionError) {
         debugPrint('Failed to load sessions: $sessionError');
-        // Continue without sessions - don't fail the whole dashboard
       }
 
       setState(() {
@@ -112,22 +106,19 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
 
   Future<void> _refreshSessions() async {
     try {
-      // Get both scheduled and live sessions
       final sessionsResponse = await _liveSessionService.getTeacherSessions(
         limit: 5,
       );
-      // Filter to show only upcoming sessions
       final now = DateTime.now();
       final sessions = sessionsResponse.sessions.where((session) {
-        return session.status == 'scheduled' && session.scheduledAt.isAfter(now.subtract(const Duration(minutes: 5))) ||
+        return session.status == 'scheduled' &&
+                session.scheduledAt.isAfter(now.subtract(const Duration(minutes: 5))) ||
                session.status == 'live';
       }).toList();
-      // Sort by scheduled date
       sessions.sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
 
-      // Also update ready-to-start sessions
       final readyToStart = sessionsResponse.sessions.where((session) {
-        return (session.status == 'scheduled' && 
+        return (session.status == 'scheduled' &&
                 session.scheduledAt.isBefore(now.add(const Duration(minutes: 5))) &&
                 !session.isEnded) ||
                session.status == 'live';
@@ -138,12 +129,6 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
         _recentSessions = sessions;
         _readyToStartSessions = readyToStart;
       });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sessions refreshed')),
-        );
-      }
     } catch (e) {
       debugPrint('Failed to refresh sessions: $e');
       if (mounted) {
@@ -166,11 +151,6 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
     context.push('/teacher/sessions');
   }
 
-  /// Opens the course community.
-  ///
-  /// Teacher routes live outside MainLayout, so there is no sidebar here to
-  /// reach it from — with one assigned course we go straight in, otherwise the
-  /// hub asks which one.
   void _navigateToCommunity() {
     if (_courses.length == 1) {
       context.push('/community/${_courses.first.course.id}');
@@ -179,7 +159,6 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
     }
   }
 
-  /// Jumps straight into one course's community from its card.
   void _openCourseCommunity(String courseId) {
     context.push('/community/$courseId');
   }
@@ -237,9 +216,9 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
     if (confirmed == true && mounted) {
       await ref.read(authProvider.notifier).logout();
       if (mounted) {
-        final isDesktop = !kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || 
-                                    defaultTargetPlatform == TargetPlatform.linux || 
-                                    defaultTargetPlatform == TargetPlatform.macOS);
+        final isDesktop = !kIsWeb && (defaultTargetPlatform == TargetPlatform.windows ||
+                                        defaultTargetPlatform == TargetPlatform.linux ||
+                                        defaultTargetPlatform == TargetPlatform.macOS);
         context.go(isDesktop ? '/email-auth-option' : '/auth-selection');
       }
     }
@@ -254,6 +233,7 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
     final cardColor = AppTheme.getCardColor(context);
     final textPrimary = isDark ? AppTheme.darkTextPrimary : Colors.black87;
     final textSecondary = isDark ? AppTheme.darkTextSecondary : Colors.grey[600]!;
+    final accent = const Color(0xFF10B981);
 
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
@@ -263,11 +243,10 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
               ? _buildErrorWidget()
               : CustomScrollView(
                   slivers: [
-                    // App Bar
                     SliverAppBar(
                       expandedHeight: 200,
                       pinned: true,
-                      backgroundColor: AppTheme.primaryGreen,
+                      backgroundColor: accent,
                       flexibleSpace: FlexibleSpaceBar(
                         title: Text(
                           'Welcome, ${user?.fullName?.split(' ').first ?? 'Teacher'}',
@@ -279,8 +258,8 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: [
-                                AppTheme.primaryGreen,
-                                AppTheme.primaryGreen.withOpacity(0.8),
+                                accent,
+                                accent.withOpacity(0.8),
                               ],
                             ),
                           ),
@@ -315,7 +294,6 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
                       ],
                     ),
 
-                    // Content
                     SliverToBoxAdapter(
                       child: Center(
                         child: ConstrainedBox(
@@ -325,71 +303,93 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                            // Stats Cards
-                            if (_stats != null) _buildStatsCards(),
-                            
-                            const SizedBox(height: 24),
-                            
-                            // Quick Actions
-                            _buildQuickActions(),
-                            
-                            const SizedBox(height: 24),
-                            
-                            // Ready to Start Sessions (urgent)
-                            if (_readyToStartSessions.isNotEmpty) ...[
-                              _buildSectionHeader(
-                                'Ready to Start',
-                                onSeeAll: _navigateToSessions,
-                                onRefresh: _refreshSessions,
-                                textColor: Colors.red,
-                                showWarning: true,
-                              ),
-                              _buildReadyToStartSessionsList(isDark: isDark, cardColor: cardColor, textPrimary: textPrimary, textSecondary: textSecondary),
-                              const SizedBox(height: 24),
-                            ],
-                            
-                            // Recent Sessions
-                            if (_recentSessions.isNotEmpty) ...[
-                              _buildSectionHeader('Upcoming Sessions', onSeeAll: _navigateToSessions, onRefresh: _refreshSessions, textColor: textPrimary),
-                              _buildRecentSessionsList(isDark: isDark, cardColor: cardColor, textPrimary: textPrimary, textSecondary: textSecondary),
-                              const SizedBox(height: 24),
-                            ] else ...[
-                              _buildSectionHeader('Upcoming Sessions', onSeeAll: _navigateToSessions, onRefresh: _refreshSessions, textColor: textPrimary),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 16.0),
-                                child: Card(
-                                  color: cardColor,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(24.0),
-                                    child: Center(
-                                      child: Column(
-                                        children: [
-                                          Icon(Icons.schedule_outlined, size: 48, color: textSecondary),
-                                          const SizedBox(height: 8),
-                                          Text(
-                                            'No upcoming sessions',
-                                            style: TextStyle(color: textSecondary),
+                                if (_stats != null) ...[
+                                  _buildStatsCards(isDark: isDark, cardColor: cardColor, textPrimary: textPrimary),
+                                  const SizedBox(height: 24),
+                                ],
+
+                                _buildTeacherToolsSection(
+                                  isDark: isDark,
+                                  cardColor: cardColor,
+                                  textPrimary: textPrimary,
+                                  textSecondary: textSecondary,
+                                ),
+                                const SizedBox(height: 24),
+
+                                if (_readyToStartSessions.isNotEmpty) ...[
+                                  _buildSectionHeader(
+                                    'Ready to Start',
+                                    onSeeAll: _navigateToSessions,
+                                    onRefresh: _refreshSessions,
+                                    textColor: Colors.red,
+                                    showWarning: true,
+                                  ),
+                                  _buildReadyToStartSessionsList(
+                                    isDark: isDark,
+                                    cardColor: cardColor,
+                                    textPrimary: textPrimary,
+                                    textSecondary: textSecondary,
+                                  ),
+                                  const SizedBox(height: 24),
+                                ],
+
+                                _buildSectionHeader(
+                                  'Upcoming Sessions',
+                                  onSeeAll: _navigateToSessions,
+                                  onRefresh: _refreshSessions,
+                                  textColor: textPrimary,
+                                ),
+                                if (_recentSessions.isNotEmpty) ...[
+                                  _buildRecentSessionsList(
+                                    isDark: isDark,
+                                    cardColor: cardColor,
+                                    textPrimary: textPrimary,
+                                    textSecondary: textSecondary,
+                                  ),
+                                ] else ...[
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 16.0),
+                                    child: Card(
+                                      color: cardColor,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(24.0),
+                                        child: Center(
+                                          child: Column(
+                                            children: [
+                                              Icon(Icons.schedule_outlined, size: 48, color: textSecondary),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                'No upcoming sessions',
+                                                style: TextStyle(color: textSecondary),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              TextButton.icon(
+                                                onPressed: _refreshSessions,
+                                                icon: const Icon(Icons.refresh),
+                                                label: const Text('Refresh'),
+                                              ),
+                                            ],
                                           ),
-                                          const SizedBox(height: 8),
-                                          TextButton.icon(
-                                            onPressed: _refreshSessions,
-                                            icon: const Icon(Icons.refresh),
-                                            label: const Text('Refresh'),
-                                          ),
-                                        ],
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                            ],
+                                ],
+                                const SizedBox(height: 24),
 
-                            // My Courses
-                            _buildSectionHeader('My Courses', onSeeAll: () => context.push('/teacher/courses'), textColor: textPrimary),
-                            _buildCoursesList(isDark: isDark, cardColor: cardColor, textPrimary: textPrimary, textSecondary: textSecondary),
-                            
-                            const SizedBox(height: 32),
+                                _buildSectionHeader(
+                                  'My Courses',
+                                  onSeeAll: () => context.push('/teacher/courses'),
+                                  textColor: textPrimary,
+                                ),
+                                _buildCoursesList(
+                                  isDark: isDark,
+                                  cardColor: cardColor,
+                                  textPrimary: textPrimary,
+                                  textSecondary: textSecondary,
+                                ),
+
+                                const SizedBox(height: 32),
                               ],
                             ),
                           ),
@@ -419,17 +419,17 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
     );
   }
 
-  Widget _buildStatsCards() {
+  Widget _buildStatsCards({
+    required bool isDark,
+    required Color cardColor,
+    required Color textPrimary,
+  }) {
     final stats = _stats!.overview;
     final screenWidth = MediaQuery.of(context).size.width;
     final isDesktop = screenWidth > 1200;
-    final isTablet = screenWidth > 600 && screenWidth <= 1200;
-    
-    // Responsive grid: 4 columns on desktop, 2 on tablet/mobile
     final crossAxisCount = isDesktop ? 4 : 2;
-    // Smaller aspect ratio for more compact cards
     final childAspectRatio = isDesktop ? 1.5 : 1.4;
-    
+
     return GridView.count(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -466,70 +466,35 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
     );
   }
 
-  Widget _buildQuickActions() {
+  Widget _buildTeacherToolsSection({
+    required bool isDark,
+    required Color cardColor,
+    required Color textPrimary,
+    required Color textSecondary,
+  }) {
     return Card(
+      color: cardColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Quick Actions',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(
-                  child: _QuickActionButton(
-                    icon: Icons.schedule,
-                    label: 'Schedule Session',
-                    onTap: () => _navigateToScheduleSession(),
-                    color: AppTheme.primaryGreen,
-                  ),
-                ),
+                Icon(Icons.build_circle, color: const Color(0xFF10B981), size: 24),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: _QuickActionButton(
-                    icon: Icons.video_library,
-                    label: 'View Sessions',
-                    onTap: _navigateToSessions,
-                    color: Colors.blue,
+                Text(
+                  'Teacher Tools',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: textPrimary,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: _QuickActionButton(
-                    icon: Icons.groups_rounded,
-                    label: 'Community',
-                    onTap: _navigateToCommunity,
-                    color: const Color(0xFF7C4DFF),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _QuickActionButton(
-                    icon: Icons.chat_bubble_rounded,
-                    label: 'Messages',
-                    onTap: () => context.push('/messages'),
-                    color: const Color(0xFF00C853),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Teacher Tools',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             // Teaching tools run on the eexams engine; exams are created here,
             // saved on eexams and managed there (see /teacher/exams).
             ..._toolRows([
@@ -850,6 +815,79 @@ class _QuickActionButton extends StatelessWidget {
   }
 }
 
+/// Tool Tile Widget for teacher tools
+class _ToolTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ToolTile({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(isDark ? 0.15 : 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(isDark ? 0.3 : 0.15)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: color, size: 22),
+                ),
+                const Spacer(),
+                Icon(Icons.chevron_right, color: color.withOpacity(0.5), size: 18),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black87,
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Session Card Widget
 class _SessionCard extends StatelessWidget {
   final LiveSession session;
@@ -1081,13 +1119,11 @@ class _CourseCard extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.schedule, color: AppTheme.primaryGreen),
+                    icon: const Icon(Icons.schedule, color: Color(0xFF10B981)),
                     onPressed: onSchedule,
                     tooltip: 'Schedule Session',
                     visualDensity: VisualDensity.compact,
                   ),
-                  // Straight into this course's community, where the teacher
-                  // can post announcements, publish work and grade submissions.
                   IconButton(
                     icon: const Icon(Icons.groups_rounded, color: Color(0xFF7C4DFF)),
                     onPressed: onCommunity,
@@ -1129,78 +1165,6 @@ class _CourseCard extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ToolTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String subtitle;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _ToolTile({
-    required this.icon,
-    required this.label,
-    required this.subtitle,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(isDark ? 0.15 : 0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(isDark ? 0.3 : 0.15)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: color.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(icon, color: color, size: 22),
-                ),
-                const Spacer(),
-                Icon(Icons.chevron_right, color: color.withOpacity(0.5), size: 18),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              label,
-              style: TextStyle(
-                color: isDark ? Colors.white : Colors.black87,
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

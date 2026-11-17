@@ -9,9 +9,9 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:url_launcher/link.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:excellencecoachinghub/utils/screen_wakelock.dart';
 import 'package:excellencecoachinghub/utils/media_proxy.dart';
+import 'package:excellencecoachinghub/presentation/widgets/document_viewer/paged_pdf_viewer.dart';
 
 class BookReaderScreen extends ConsumerStatefulWidget {
   final dynamic book;
@@ -27,7 +27,6 @@ class BookReaderScreen extends ConsumerStatefulWidget {
 
 class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
   final PageController _pageController = PageController();
-  final PdfViewerController _pdfViewerController = PdfViewerController();
   final int _currentPage = 0;
   final TextEditingController _searchController = TextEditingController();
   bool _showSearch = false;
@@ -47,11 +46,7 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
   final int _currentWordIndex = 0;
   
   // PDF State
-  final double _pdfZoomLevel = 1.0;
-  int _pdfPageCount = 0;
-  int _currentPdfPage = 1;
-  bool _isPdfLoading = true;
-  bool _isFullScreen = false;
+  final bool _isFullScreen = false;
   
   // Reading Progress
   final double _readingProgress = 0.0;
@@ -96,7 +91,6 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
   void dispose() {
     _wakelock.release();
     _pageController.dispose();
-    _pdfViewerController.dispose();
     _searchController.dispose();
     _flutterTts.stop();
     super.dispose();
@@ -529,6 +523,13 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
     );
   }
 
+  String get _bookTitle {
+    final book = widget.book;
+    if (book is Book) return book.title;
+    if (book is Map) return book['title']?.toString() ?? 'Book';
+    return 'Book';
+  }
+
   Widget _buildPDFViewer(BuildContext context, String url) {
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -540,140 +541,13 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
             color: _isDarkMode ? const Color(0xFF4B5563) : const Color(0xFFE5E7EB),
           ),
         ),
-        child: Column(
-          children: [
-          // PDF Header with controls
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.picture_as_pdf,
-                  color: Colors.red,
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'PDF Document',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.getSecondaryTextColor(context),
-                    ),
-                  ),
-                ),
-                // Zoom controls
-                IconButton(
-                  icon: const Icon(Icons.zoom_out),
-                  onPressed: () {
-                    _pdfViewerController.zoomLevel -= 0.25;
-                  },
-                  tooltip: 'Zoom Out',
-                ),
-                Text(
-                  '${(_pdfViewerController.zoomLevel * 100).toInt()}%',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.getSecondaryTextColor(context),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.zoom_in),
-                  onPressed: () {
-                    _pdfViewerController.zoomLevel += 0.25;
-                  },
-                  tooltip: 'Zoom In',
-                ),
-                IconButton(
-                  icon: Icon(_isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen),
-                  onPressed: () {
-                    setState(() {
-                      _isFullScreen = !_isFullScreen;
-                    });
-                  },
-                  tooltip: _isFullScreen ? 'Exit Full Screen' : 'Full Screen',
-                ),
-              ],
-            ),
-          ),
-          // PDF Viewer
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(12),
-                ),
-              ),
-              child: Stack(
-                children: [
-                  SfPdfViewer.network(
-                    mediaProxyUrl(url),
-                    controller: _pdfViewerController,
-                    canShowScrollHead: true,
-                    canShowScrollStatus: true,
-                    canShowPaginationDialog: true,
-                    pageLayoutMode: PdfPageLayoutMode.single,
-                    onDocumentLoaded: (details) {
-                      setState(() {
-                        _isPdfLoading = false;
-                        _pdfPageCount = details.document.pages.count;
-                      });
-                    },
-                    onPageChanged: (details) {
-                      setState(() {
-                        _currentPdfPage = details.newPageNumber;
-                      });
-                    },
-                  ),
-                  if (_isPdfLoading)
-                    Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const CircularProgressIndicator(
-                            color: Color(0xFF10B981),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Loading PDF...',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppTheme.getSecondaryTextColor(context),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          // Page indicator
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: _isDarkMode ? const Color(0xFF374151) : Colors.white,
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(12),
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _pdfPageCount > 0 
-                      ? 'Page $_currentPdfPage of $_pdfPageCount'
-                      : 'Page $_currentPdfPage',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.getSecondaryTextColor(context),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+        clipBehavior: Clip.antiAlias,
+        child: PagedPdfViewer.network(
+          mediaProxyUrl(url),
+          key: ValueKey(url),
+          title: _bookTitle,
+          isDark: _isDarkMode,
+          accentColor: const Color(0xFF10B981),
         ),
       ),
     );

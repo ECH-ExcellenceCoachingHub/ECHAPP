@@ -1,6 +1,6 @@
 {
   "id": "code-variables-maths",
-  "version": 2,
+  "version": 3,
   "title": "Variables & Maths",
   "summary": "Store values in variables and predict the results of Python arithmetic, including // and %.",
   "subject": "coding",

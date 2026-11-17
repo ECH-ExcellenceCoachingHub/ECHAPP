@@ -1563,6 +1563,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get moderatorRole => 'Moderator';
 
   @override
+  String get teacherRole => 'Teacher';
+
+  @override
+  String get studentRoleDescription => 'Enroll in courses and learn';
+
+  @override
+  String get teacherRoleDescription => 'Create courses and teach students';
+
+  @override
+  String get selectYourRole => 'Select Your Role';
+
+  @override
+  String get selectRoleSubtitle => 'Are you joining as a student or a teacher?';
+
+  @override
   String get feedback => 'Feedback';
 
   @override

@@ -209,12 +209,14 @@ class RegisterRequest {
   final String email;
   final String password;
   final String? phone;
+  final String? role;
 
   RegisterRequest({
     required this.fullName,
     required this.email,
     required this.password,
     this.phone,
+    this.role,
   });
 
   RegisterRequest copyWith({
@@ -222,12 +224,14 @@ class RegisterRequest {
     String? email,
     String? password,
     String? phone,
+    String? role,
   }) {
     return RegisterRequest(
       fullName: fullName ?? this.fullName,
       email: email ?? this.email,
       password: password ?? this.password,
       phone: phone ?? this.phone,
+      role: role ?? this.role,
     );
   }
 
@@ -237,6 +241,7 @@ class RegisterRequest {
       'email': email,
       'password': password,
       'phone': phone,
+      'role': role,
     };
   }
 
@@ -246,6 +251,7 @@ class RegisterRequest {
       email: map['email'] as String,
       password: map['password'] as String,
       phone: map['phone'] as String?,
+      role: map['role'] as String?,
     );
   }
 
@@ -254,7 +260,7 @@ class RegisterRequest {
   factory RegisterRequest.fromJson(String source) => RegisterRequest.fromMap(json.decode(source) as Map<String, dynamic>);
 
   @override
-  String toString() => 'RegisterRequest(fullName: $fullName, email: $email, password: $password, phone: $phone)';
+  String toString() => 'RegisterRequest(fullName: $fullName, email: $email, password: $password, phone: $phone, role: $role)';
 
   @override
   bool operator ==(Object other) {
@@ -264,9 +270,10 @@ class RegisterRequest {
       other.fullName == fullName &&
       other.email == email &&
       other.password == password &&
-      other.phone == phone;
+      other.phone == phone &&
+      other.role == role;
   }
 
   @override
-  int get hashCode => fullName.hashCode ^ email.hashCode ^ password.hashCode ^ phone.hashCode;
+  int get hashCode => fullName.hashCode ^ email.hashCode ^ password.hashCode ^ phone.hashCode ^ role.hashCode;
 }

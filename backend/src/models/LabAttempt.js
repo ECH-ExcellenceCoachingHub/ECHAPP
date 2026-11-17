@@ -24,6 +24,8 @@ const labAttemptSchema = new mongoose.Schema({
   completedSteps: [{ type: String }],
   // Readings the student typed in measure steps, e.g. { titre: 20.05 }.
   records: { type: mongoose.Schema.Types.Mixed, default: {} },
+  // Values picked for this attempt ("new values every try"), e.g. { flask1: { conc: 0.094 } }.
+  variant: { type: mongoose.Schema.Types.Mixed, default: null },
   // Compact event log (intent, target, step, t) — becomes the lab notebook.
   log: [{
     _id: false,

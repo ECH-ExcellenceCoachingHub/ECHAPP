@@ -46,6 +46,8 @@ namespace ECHLabs.Runtime.Bridge
             ECHLabs_ClearFragment(); // keep the token out of history/bookmarks
 #elif UNITY_STANDALONE && !UNITY_EDITOR
             p = LaunchParams.FromCommandLine(Environment.GetCommandLineArgs());
+#elif UNITY_ANDROID && !UNITY_EDITOR
+            p = AndroidHost.ReadIntentParams();
 #endif
 #if UNITY_EDITOR
             p.Merge(LaunchParams.FromEnvironment());
@@ -75,7 +77,9 @@ namespace ECHLabs.Runtime.Bridge
             string json = obj.ToString(Formatting.None);
 #if UNITY_WEBGL && !UNITY_EDITOR
             ECHLabs_PostToHost(json);
-#elif (UNITY_ANDROID || UNITY_IOS) && !UNITY_EDITOR
+#elif UNITY_ANDROID && !UNITY_EDITOR
+            AndroidHost.OnMessage(type, obj);
+#elif UNITY_IOS && !UNITY_EDITOR
             SendToFlutter(json);
 #else
             Debug.Log("[ECHLabs → host] " + json);
@@ -101,6 +105,55 @@ namespace ECHLabs.Runtime.Bridge
                 if (t != null) return t;
             }
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Android "Unity as a Library": the ECH app starts the lab Activity (in its own ":unity" process)
+    /// with Intent extras, and gets the result back when the lab finishes.
+    /// </summary>
+    public static class AndroidHost
+    {
+        static JObject lastResult;
+        static readonly string[] Keys = { "token", "scenario", "lesson", "api", "lang", "mode", "quality", "resume" };
+
+        public static LaunchParams ReadIntentParams()
+        {
+            var p = new LaunchParams();
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                using var unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+                using var activity = unity.GetStatic<AndroidJavaObject>("currentActivity");
+                using var intent = activity.Call<AndroidJavaObject>("getIntent");
+                foreach (var k in Keys) p.Set(k, intent.Call<string>("getStringExtra", "ech_" + k));
+            }
+            catch (Exception e) { Debug.LogWarning("[ECHLabs] No launch intent: " + e.Message); }
+#endif
+            return p;
+        }
+
+        public static void OnMessage(string type, JObject payload)
+        {
+            if (type == "completed") lastResult = payload;
+            else if (type == "exit") Finish(lastResult ?? payload);
+        }
+
+        /// <summary>Returns the result to the ECH app and closes the lab screen.</summary>
+        public static void Finish(JObject result)
+        {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            try
+            {
+                using var unity = new AndroidJavaClass("com.unity3d.player.UnityPlayer");
+                using var activity = unity.GetStatic<AndroidJavaObject>("currentActivity");
+                using var data = new AndroidJavaObject("android.content.Intent");
+                data.Call<AndroidJavaObject>("putExtra", "ech_result", (result ?? new JObject()).ToString(Formatting.None));
+                activity.Call("setResult", -1 /* RESULT_OK */, data);
+                activity.Call("finish");
+            }
+            catch (Exception e) { Debug.LogWarning("[ECHLabs] finish failed: " + e.Message); Application.Quit(); }
+#endif
         }
     }
 }

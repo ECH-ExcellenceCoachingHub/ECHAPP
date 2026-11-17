@@ -1,6 +1,6 @@
 {
   "id": "code-ai-training",
-  "version": 2,
+  "version": 3,
   "title": "Train an AI Model",
   "summary": "Load a dataset of student study hours and marks, train a simple model and use it to predict a result.",
   "subject": "coding",

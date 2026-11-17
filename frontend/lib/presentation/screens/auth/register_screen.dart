@@ -24,6 +24,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with SingleTick
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   bool _hasNavigated = false;
+  String _selectedRole = 'student';
   late AnimationController _animController;
 
   // Theme-aware getters
@@ -68,6 +69,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with SingleTick
         _emailController.text.trim(),
         _passwordController.text,
         _phoneController.text.isEmpty ? null : _phoneController.text.trim(),
+        role: _selectedRole ?? 'student',
       );
     }
   }
@@ -187,14 +189,14 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with SingleTick
                       ],
                     ),
                   ),
-                  // Form content
-                  Expanded(
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 500),
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
-                          child: _buildRightPanel(authState, l10n, createAccountText, subtitleText, fullNameText, emailText, phoneText, passwordText, confirmPasswordText, haveAccountText, signInText, requiredError, min6CharsError, mismatchError),
+                      // Form content
+                      Expanded(
+                        child: Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 700),
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 32),
+                              child: _buildRightPanel(authState, l10n, createAccountText, subtitleText, fullNameText, emailText, phoneText, passwordText, confirmPasswordText, haveAccountText, signInText, requiredError, min6CharsError, mismatchError),
                         ),
                       ),
                     ),
@@ -273,6 +275,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with SingleTick
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _buildTextField(_nameController, fullNameText, Icons.person_outline),
+                const SizedBox(height: 14),
+                _buildRoleSelector(l10n),
                 const SizedBox(height: 14),
                 _buildTextField(_emailController, '$emailText (or use phone below)', Icons.email_outlined,
                   keyboardType: TextInputType.emailAddress, required: false,
@@ -482,6 +486,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with SingleTick
                       children: [
                         _buildTextField(_nameController, fullNameText, Icons.person_outline),
                         const SizedBox(height: 10),
+                        _buildRoleSelector(l10n),
+                        const SizedBox(height: 10),
                         _buildTextField(_emailController, '$emailText (or use phone)', Icons.email_outlined,
                           keyboardType: TextInputType.emailAddress, required: false,
                           extraValidator: (value) {
@@ -562,6 +568,165 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with SingleTick
             const SizedBox(height: 12),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRoleSelector(AppLocalizations l10n) {
+    final roles = [
+      {
+        'value': 'student',
+        'label': l10n.studentRole,
+        'description': l10n.studentRoleDescription,
+        'icon': Icons.person_outline_rounded,
+        'color': const Color(0xFF10B981),
+      },
+      {
+        'value': 'instructor',
+        'label': l10n.teacherRole,
+        'description': l10n.teacherRoleDescription,
+        'icon': Icons.school_outlined,
+        'color': const Color(0xFF3B82F6),
+      },
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: _inputBorderColor, width: 1),
+        boxShadow: _isDark ? [] : [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(28, 24, 28, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.selectYourRole,
+                  style: TextStyle(
+                    color: _textColor,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  l10n.selectRoleSubtitle,
+                  style: TextStyle(
+                    color: _secondaryTextColor,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: roles.map((role) {
+              final isSelected = _selectedRole == role['value'];
+              return Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: GestureDetector(
+                    onTap: () => setState(() => _selectedRole = role['value'] as String),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? (role['color'] as Color).withOpacity(_isDark ? 0.25 : 0.08)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isSelected
+                              ? (role['color'] as Color)
+                              : _inputBorderColor,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? (role['color'] as Color)
+                                      : _inputFillColor,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                    color: (role['color'] as Color),
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Icon(
+                                  role['icon'] as IconData,
+                                  color: isSelected ? Colors.white : (role['color'] as Color),
+                                  size: 18,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      role['label'] as String,
+                                      style: TextStyle(
+                                        color: isSelected
+                                            ? (role['color'] as Color)
+                                            : _textColor,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      role['description'] as String,
+                                      style: TextStyle(
+                                        color: _secondaryTextColor,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isSelected)
+                                const Icon(
+                                  Icons.check_circle_rounded,
+                                  color: Color(0xFF10B981),
+                                  size: 20,
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 20),
+        ],
       ),
     );
   }

@@ -44,6 +44,8 @@ namespace ECHLabs.Runtime.Equipment
 
         public Vector3 FocusPosition => focusPoint ? focusPoint.position : transform.position + Vector3.up * 0.15f;
         public Transform Attach => attachPoint ? attachPoint : transform;
+        /// <summary>Where the camera should look: where the equipment is going, not where it is mid-move.</summary>
+        public virtual Vector3 SettledFocusPosition => FocusPosition;
 
         public virtual void Bind(EquipmentSpec spec, LabWorld world, IEnumerable<string> intentNames)
         {
@@ -63,6 +65,9 @@ namespace ECHLabs.Runtime.Equipment
             // Printed label on bottles/flasks ("NaOH 0.125 M").
             var printed = transform.Find("LabelText");
             if (printed && printed.TryGetComponent<TMP_Text>(out var tmp)) tmp.text = Label;
+            // Re-binding (demo → student's own run) starts from a clean visual state.
+            foreach (var c in GetComponentsInChildren<CableRenderer>()) c.ConnectTo(null);
+            highlightTarget = 0;
             OnBound(spec);
         }
 

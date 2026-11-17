@@ -17,6 +17,8 @@ namespace ECHLabs.Runtime.Equipment
         public Color liquidColor = new Color(0.72f, 0.86f, 1f, 0.42f);
 
         float shownVolume;
+        /// <summary>Drops per second leaving the tip (0 when closed) — for sound.</summary>
+        public float DropRate { get; private set; }
 
         protected override void OnBound(EquipmentSpec spec)
         {
@@ -34,6 +36,17 @@ namespace ECHLabs.Runtime.Equipment
             return base.TryGetValueRange(t, out range);
         }
 
+        /// <summary>Reading the scale: look straight at the meniscus.</summary>
+        public override Vector3 SettledFocusPosition
+        {
+            get
+            {
+                var f = FocusPosition;
+                float vol = (float)Num("volumeMl");
+                return liquid && vol > 0.01f ? new Vector3(f.x, liquid.SurfaceYFor(vol), f.z) : f;
+            }
+        }
+
         public override string ActionLabel(IntentType t) => t == IntentType.Rotate ? "Turn the tap" : t == IntentType.Inspect ? "Read the scale" : base.ActionLabel(t);
 
         public override void Render(float dt)
@@ -45,6 +58,7 @@ namespace ECHLabs.Runtime.Equipment
             if (liquid) liquid.Set(shownVolume, liquidColor);
 
             float open = (float)Num("tapOpen");
+            DropRate = open > 0 && target > 0 ? Mathf.Lerp(1.5f, 60f, Mathf.InverseLerp(0.02f, 0.5f, open)) : 0f;
             if (stopcock) stopcock.localRotation = Quaternion.Euler(0, 0, Mathf.Lerp(90f, 0f, open));
             if (drips)
             {

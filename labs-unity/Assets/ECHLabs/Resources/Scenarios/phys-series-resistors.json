@@ -1,6 +1,6 @@
 {
   "id": "phys-series-resistors",
-  "version": 2,
+  "version": 3,
   "title": "Resistors in Series",
   "summary": "Connect two resistors one after the other and discover how their resistances combine.",
   "subject": "physics",

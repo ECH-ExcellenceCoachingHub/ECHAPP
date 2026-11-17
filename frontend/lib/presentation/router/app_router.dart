@@ -705,6 +705,7 @@ class AppRouter {
             builder: (context, state) => LabPlayerScreen(
               scenarioId: state.pathParameters['scenarioId'] ?? '',
               lessonId: state.uri.queryParameters['lesson'],
+              mode: state.uri.queryParameters['mode'],
             ),
           ),
           GoRoute(

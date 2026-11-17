@@ -18,6 +18,11 @@ namespace ECHLabs.Runtime.Interaction
         Quaternion fromRot, toRot;
         float t = 1f;
         public Vector3 OrbitCenter { get; private set; } = new Vector3(0, 1f, 0);
+
+        /// <summary>Temporary lean toward far equipment (requested by the hands each frame).</summary>
+        public Vector3 LeanRequest;
+        public Vector3 Lean { get; private set; }
+        Transform leanedCamera;
         public bool Busy => t < 1f;
 
         public void FocusOn(Vector3 target, float distance = -1f, bool eyeLevel = false, Vector3? front = null)
@@ -46,12 +51,31 @@ namespace ECHLabs.Runtime.Interaction
 
         public void Cancel() => t = 1f;
 
+        /// <summary>Walking moves the point the student orbits around along with them.</summary>
+        public void ShiftOrbit(Vector3 delta) => OrbitCenter += delta;
+
+        /// <summary>Frame a whole station (several pieces of equipment) from a given side.</summary>
+        public void FocusOnArea(Bounds area, Vector3 front)
+        {
+            float size = Mathf.Max(area.extents.x, area.extents.z, 0.25f);
+            FocusOn(area.center, Mathf.Clamp(size * 2.1f + 0.35f, 0.7f, 2.6f), false, front);
+        }
+
         void LateUpdate()
         {
-            if (t >= 1f || !cameraTransform) return;
-            t = Mathf.Min(1f, t + Time.deltaTime / glideTime);
-            float e = t * t * (3f - 2f * t); // smoothstep
-            cameraTransform.SetPositionAndRotation(Vector3.Lerp(fromPos, toPos, e), Quaternion.Slerp(fromRot, toRot, e));
+            // The lean is additive: take last frame's off, run the glide, then put the new one on.
+            if (leanedCamera) leanedCamera.position -= Lean;
+            if (leanedCamera != cameraTransform) { Lean = Vector3.zero; leanedCamera = cameraTransform; }
+            if (!cameraTransform) return;
+            if (t < 1f)
+            {
+                t = Mathf.Min(1f, t + Time.deltaTime / glideTime);
+                float e = t * t * (3f - 2f * t); // smoothstep
+                cameraTransform.SetPositionAndRotation(Vector3.Lerp(fromPos, toPos, e), Quaternion.Slerp(fromRot, toRot, e));
+            }
+            Lean = Vector3.Lerp(Lean, LeanRequest, 1f - Mathf.Exp(-Time.deltaTime * 4f));
+            if (Lean.sqrMagnitude < 1e-8f && LeanRequest.sqrMagnitude < 1e-8f) Lean = Vector3.zero;
+            cameraTransform.position += Lean;
         }
     }
 }

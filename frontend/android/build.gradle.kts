@@ -2,6 +2,8 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        // ECH Labs (Unity): local .aar files such as the OpenXR loader.
+        flatDir { dirs(rootProject.file("unityLibrary/libs")) }
     }
 
     configurations.all {

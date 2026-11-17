@@ -1,6 +1,6 @@
 {
   "id": "chem-titration-challenge",
-  "version": 2,
+  "version": 3,
   "title": "Expert Challenge: Unknown Acid Concentration",
   "summary": "Exam conditions: no step-by-step hints. Find the exact concentration of an unknown hydrochloric acid sample using 0.100 mol/dm³ sodium hydroxide.",
   "subject": "chemistry",
@@ -290,6 +290,7 @@
       "label": "Titre",
       "unit": "cm³",
       "expected": 21.0,
+      "expectedExpr": "flask1.conc * 25 / 0.1",
       "tolerancePct": 1.5,
       "source": "record.titre"
     },
@@ -298,6 +299,7 @@
       "label": "Acid concentration",
       "unit": "mol/dm³",
       "expected": 0.084,
+      "expectedExpr": "flask1.conc",
       "tolerancePct": 2,
       "source": "record.acidConc"
     }
@@ -308,5 +310,13 @@
     "safety": 20
   },
   "passScore": 60,
-  "xp": 215
+  "xp": 215,
+  "randomize": [
+    {
+      "path": "flask1.conc",
+      "min": 0.067,
+      "max": 0.101,
+      "decimals": 3
+    }
+  ]
 }

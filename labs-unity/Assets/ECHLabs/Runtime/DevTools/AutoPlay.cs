@@ -2,27 +2,38 @@ using System;
 using System.Collections;
 using System.IO;
 using ECHLabs.Core;
+using ECHLabs.Runtime.Demo;
 using UnityEngine;
 
 namespace ECHLabs.Runtime.DevTools
 {
     /// <summary>
     /// End-to-end smoke test inside a real player build:
-    ///   ECHLabs.exe --scenario=chem-titration-hcl-naoh --autoplay=D:\out
-    /// A bot student performs every step through the real runtime (HUD, views, scoring),
+    ///   ECHLabs.exe --scenario=chem-titration-hcl-naoh --autoplay=D:\out [--demo]
+    /// A bot student performs every step through the real runtime (HUD, views, hands, scoring),
     /// saves a screenshot at each step and at the results screen, writes a summary, then quits.
+    /// With --demo it first watches the narrated demo (screenshots every few seconds).
     /// </summary>
     public sealed class AutoPlay : MonoBehaviour
     {
+        public static bool Active { get; private set; }
+        public static bool WantsDemo { get; private set; }
+        static bool introOnly;
+
         public string outDir;
         LabSession session;
         int shot;
+        readonly LabBot bot = new LabBot();
 
         public static void AttachIfRequested(LabSession s)
         {
-            foreach (var a in Environment.GetCommandLineArgs())
+            var args = Environment.GetCommandLineArgs();
+            foreach (var a in args) if (a == "--demo") WantsDemo = true;
+            foreach (var a in args) if (a == "--intro-only") { WantsDemo = true; introOnly = true; }
+            foreach (var a in args)
                 if (a.StartsWith("--autoplay="))
                 {
+                    Active = true;
                     var ap = s.gameObject.AddComponent<AutoPlay>();
                     ap.outDir = a.Substring("--autoplay=".Length).Trim('"');
                     ap.session = s;
@@ -35,6 +46,15 @@ namespace ECHLabs.Runtime.DevTools
 
         IEnumerator Start()
         {
+            if (WantsDemo) StartCoroutine(DemoShots());
+            if (introOnly)
+            {
+                // Character QA: screenshots through the intro only, then quit.
+                float t = 0;
+                while (t < 38f) { t += Time.unscaledDeltaTime; yield return null; }
+                Application.Quit();
+                yield break;
+            }
             while (session.Runtime == null || session.Runtime.Current == null) yield return null;
             var rt = session.Runtime;
             yield return new WaitForSeconds(2f);
@@ -69,66 +89,49 @@ namespace ECHLabs.Runtime.DevTools
             yield return Shot("results");
             var s = rt.LiveScore;
             File.WriteAllText(Path.Combine(outDir, "summary.txt"),
-                $"scenario={rt.Def.Id}\ncomplete={rt.IsComplete}\ntotal={s.Total}\naccuracy={s.Accuracy}\nprocedure={s.Procedure}\nsafety={s.Safety}\npassed={s.Passed}\nhazards={rt.Progress.HazardsTriggered.Count}\nmistakes={rt.Progress.Mistakes}\nfps={session.quality.AvgFps:0}\n");
+                $"scenario={rt.Def.Id}\ncomplete={rt.IsComplete}\ntotal={s.Total}\naccuracy={s.Accuracy}\nprocedure={s.Procedure}\nsafety={s.Safety}\npassed={s.Passed}\nhazards={rt.Progress.HazardsTriggered.Count}\nmistakes={rt.Progress.Mistakes}\nfps={session.quality.AvgFps:0}\ndemo={WantsDemo}\n");
             Application.Quit();
         }
 
+        /// <summary>Acts through the same path as a student (so the hands and pours are in the screenshots).</summary>
         IEnumerator Act(ScenarioRuntime rt, StepSpec step)
         {
-            var e = step.Expect;
-            if (e != null && Enum.TryParse<IntentType>(e.Intent, out var type))
+            var first = bot.First(rt, step);
+            if (first != null)
             {
-                double? value = e.Value != null ? (e.Value.Min + e.Value.Max) / 2 : type == IntentType.Rotate ? 1.0 : (double?)null;
-                string text = type == IntentType.Type ? NextCommand(rt, step) : null;
-                rt.Handle(new Intent { Type = type, Target = e.Target, Into = e.Into, Value = value, Text = text });
+                session.interaction.PerformScripted(first.Value, rt.Handle);
+                yield return new WaitForSeconds(0.9f);
+                yield return Shot(step.Id + "_hands");
             }
-            // Wait for the "until" condition; slow the burette near the end point like a student would.
             float t = 0;
             string id = step.Id;
-            while (!rt.IsComplete && rt.Current != null && rt.Current.Id == id && t < 40f)
+            while (!rt.IsComplete && rt.Current != null && rt.Current.Id == id && t < 150f)
             {
-                if (e != null && e.Intent == "Rotate" && rt.World.Spec(e.Target)?.Type == "burette")
-                {
-                    double nearEnd = rt.World.Var("titr", "equivalenceVolumeMl") - rt.World.Num(e.Target, "dispensedMl");
-                    if (nearEnd < 0.6) rt.Handle(Intent.Of(IntentType.Rotate, e.Target, null, 0.25)); // ≈0.16 mL/s, drop-wise
-                }
-                // Stopwatch: stop it once the pendulum has completed 20 oscillations.
-                if (e != null && e.Intent == "Toggle" && rt.World.Spec(e.Target)?.Type == "stopwatch" && rt.World.Bool(e.Target, "running"))
-                    foreach (var p in rt.World.OfType("pendulum"))
-                        if (rt.World.Num(p.Id, "oscillations") >= 20) rt.Handle(Intent.Of(IntentType.Toggle, e.Target));
-                if (e != null && e.Intent == "Type" && (int)(t * 2) % 2 == 0 && t > 0.5f)
-                    rt.Handle(new Intent { Type = IntentType.Type, Target = e.Target, Text = NextCommand(rt, step) });
+                var move = bot.Adjust(rt, step, Time.deltaTime);
+                if (move.HasValue) session.interaction.PerformScripted(move.Value.Intent, rt.Handle, move.Value.Animate);
                 t += Time.deltaTime;
                 yield return null;
             }
-            if (e != null && e.Intent == "Rotate" && rt.World.Spec(e.Target)?.Type == "burette")
-                rt.Handle(Intent.Of(IntentType.Rotate, e.Target, null, 0)); // close the tap
+            var after = bot.After(rt, step);
+            if (after != null) session.interaction.PerformScripted(after.Value, rt.Handle, false);
         }
 
-        // Terminals: walk through the offered commands, never choosing a risky "allow" for 23/3389.
-        int cmdIndex;
-        static readonly System.Text.RegularExpressions.Regex CommandUntil = new System.Text.RegularExpressions.Regex(@"lastCommand == '(.+)'");
-
-        string NextCommand(ScenarioRuntime rt, StepSpec step)
+        IEnumerator DemoShots()
         {
-            // Steps that ask for one exact command: type that command.
-            if (step.Until != null) { var m = CommandUntil.Match(step.Until); if (m.Success) return m.Groups[1].Value; }
-            var spec = rt.World.Spec(step.Expect.Target);
-            if (spec?.Init == null || !spec.Init.TryGetValue("commands", out var tok) || !(tok is Newtonsoft.Json.Linq.JArray arr) || arr.Count == 0) return "login";
-            for (int i = 0; i < arr.Count; i++)
+            int n = 0;
+            float wait = 0;
+            while (session.Runtime == null || session.Runtime.Current == null)
             {
-                var c = arr[(cmdIndex + i) % arr.Count].ToString();
-                if (c.StartsWith("allow") && (c.Contains("23") || c.Contains("3389"))) continue;
-                cmdIndex = (cmdIndex + i + 1) % arr.Count;
-                return c;
+                wait += Time.unscaledDeltaTime;
+                if (wait > 2.5f) { wait = 0; yield return Shot($"demo_{n++:000}"); }
+                yield return null;
             }
-            return "apply";
         }
 
         IEnumerator Shot(string name)
         {
             yield return new WaitForEndOfFrame();
-            ScreenCapture.CaptureScreenshot(Path.Combine(outDir, $"{shot++:00}_{name}.png"));
+            ScreenCapture.CaptureScreenshot(Path.Combine(outDir, $"{shot++:000}_{name}.png"));
             yield return null;
         }
     }

@@ -17,3 +17,6 @@ frontend/.env.*.local
 # Firebase Admin credentials in any encoding
 **/serviceAccountKey*
 **/*firebase-adminsdk*.json
+
+# Unity Android build output (regenerated on every Unity build; files exceed GitHub limits)
+frontend/android/unityLibrary/build/

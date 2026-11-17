@@ -8,6 +8,7 @@ const LabAttempt = require('../../models/LabAttempt');
 const LabScenario = require('../../models/LabScenario');
 const User = require('../../models/User');
 const { scoreAttempt, badgesFor } = require('./scoring.service');
+const { applyVariant } = require('./variant');
 
 /** Same rule as enrollment.controller updateLessonProgress. */
 async function markLessonComplete(userId, lessonId) {
@@ -32,7 +33,8 @@ async function markLessonComplete(userId, lessonId) {
 }
 
 async function finalizeAttempt(attempt, scenario) {
-  const def = scenario.definition;
+  // Graded against the values this student actually got.
+  const def = applyVariant(scenario.definition, attempt.variant);
   const outcome = scoreAttempt(def, attempt);
 
   attempt.score = outcome.score;

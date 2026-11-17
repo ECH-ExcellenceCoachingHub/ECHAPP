@@ -27,6 +27,16 @@ namespace ECHLabs.Runtime.UI
         public event Action<bool> GuidedChanged;
         public event Action ExitRequested, RetryRequested, RecenterRequested, ContinueRequested, FocusRequested;
         public event Action<EquipmentView> InspectRequested;
+        public event Action<string> StationRequested;      // station id ("" = overview)
+        public event Action DemoRequested;
+        public event Action<bool> SoundToggled, HapticsToggled, HandsToggled;
+        /// <summary>prev | replay | pause | speed | skip</summary>
+        public event Action<string> DemoCommand;
+
+        /// <summary>On-screen joystick (touch mode): -1..1 on each axis.</summary>
+        public Vector2 MoveInput { get; private set; }
+        public LiveGraph Graph { get; private set; }
+        public bool DemoActive { get; private set; }
 
         UIDocument doc;
         PanelSettings panelSettings;
@@ -40,7 +50,11 @@ namespace ECHLabs.Runtime.UI
         // Elements
         Label titleLabel, timerLabel, safetyChip, stepBadge, stepTitle, stepText, assistantText, tooltipLabel, promptLabel, hazardLabel;
         VisualElement progress, stepCard, assistant, toasts, hazard, tooltip, prompt, actions, ppeRow, valuePanel, readingPanel, quizPanel, overlay, continueBtn;
-        Button hintBtn;
+        Button hintBtn, demoPauseBtn, demoSpeedBtn, graphToggle;
+        VisualElement stationsBar, joystick, joyKnob, controlsHint, graphPanel, demoBar;
+        Label demoStepLabel, graphTitle, controlsHintLabel;
+        bool graphUserCollapsed, graphAutoCollapsed, handsShown = true;
+        string controlsMode = "desktop";
         readonly List<(VisualElement el, float until)> liveToasts = new List<(VisualElement, float)>();
         float hazardUntil;
         string typing; int typed; float typeTimer;
@@ -94,7 +108,7 @@ namespace ECHLabs.Runtime.UI
             stepText = new Label("").With("step-text"); stepCard.Add(stepText);
             ppeRow = El("ppe-row", stepCard);
             var stepActions = El("row", stepCard);
-            Btn("Show me", () => FocusRequested?.Invoke(), stepActions, "btn", "btn-ghost", "small");
+            Btn("Where do I go?", () => FocusRequested?.Invoke(), stepActions, "btn", "btn-blue", "small");
             continueBtn = Btn("Continue", () => ContinueRequested?.Invoke(), stepActions, "btn", "btn-primary");
             continueBtn.AddToClassList("hidden");
 
@@ -104,6 +118,10 @@ namespace ECHLabs.Runtime.UI
             var aCol = El("col", assistant, "grow");
             aCol.Add(new Label("DR. ECH · LAB ASSISTANT").With("assistant-name"));
             assistantText = new Label("").With("assistant-text"); aCol.Add(assistantText);
+
+            BuildNavigation();
+            BuildGraphPanel();
+            BuildDemoBar();
 
             toasts = El("toasts", root); toasts.pickingMode = PickingMode.Ignore;
             hazard = El("hazard", root, "hidden");
@@ -124,6 +142,186 @@ namespace ECHLabs.Runtime.UI
             overlay = El("overlay", root, "hidden");
 
             foreach (var e in new[] { stepCard, assistant, prompt, actions, valuePanel, readingPanel, quizPanel, overlay, hazard }) e.pickingMode = PickingMode.Position;
+        }
+
+        // ─── Navigation: stations, joystick, controls help ───────────────────
+
+        void BuildNavigation()
+        {
+            stationsBar = El("stations", root, "hidden");
+            joystick = El("joystick", root, "hidden");
+            joystick.pickingMode = PickingMode.Position;
+            joyKnob = El("joy-knob", joystick);
+            var joyLabel = new Label("WALK").With("joy-label");
+            joyLabel.pickingMode = PickingMode.Ignore;
+            joystick.Add(joyLabel);
+            joystick.RegisterCallback<PointerDownEvent>(e => { joystick.CapturePointer(e.pointerId); MoveJoystick(e.localPosition); });
+            joystick.RegisterCallback<PointerMoveEvent>(e => { if (joystick.HasPointerCapture(e.pointerId)) MoveJoystick(e.localPosition); });
+            joystick.RegisterCallback<PointerUpEvent>(e => { joystick.ReleasePointer(e.pointerId); ResetJoystick(); });
+            joystick.RegisterCallback<PointerCaptureOutEvent>(_ => ResetJoystick());
+
+            controlsHint = El("controls-hint", root, "glass");
+            controlsHintLabel = new Label("").With("small", "muted");
+            controlsHint.Add(controlsHintLabel);
+        }
+
+        void MoveJoystick(Vector2 local)
+        {
+            var size = joystick.layout.size;
+            var c = size * 0.5f;
+            var d = (local - c) / Mathf.Max(c.x * 0.7f, 1f);
+            if (d.magnitude > 1) d.Normalize();
+            MoveInput = new Vector2(d.x, -d.y);
+            joyKnob.style.translate = new Translate(d.x * c.x * 0.55f, d.y * c.y * 0.55f);
+        }
+
+        void ResetJoystick()
+        {
+            MoveInput = Vector2.zero;
+            joyKnob.style.translate = new Translate(0, 0);
+        }
+
+        /// <summary>Buttons that fly the camera to each work area of the lab (bench, shelf, PPE rack...).</summary>
+        public void SetStations(IList<(string id, string label)> stations)
+        {
+            stationsBar.Clear();
+            if (stations == null || stations.Count < 2) { stationsBar.AddToClassList("hidden"); return; }
+            stationsBar.Add(new Label("GO TO").With("tiny", "muted", "bold", "stations-title"));
+            Btn("Overview", () => StationRequested?.Invoke(""), stationsBar, "btn", "station");
+            foreach (var (id, label) in stations)
+            {
+                string sid = id;
+                Btn(label, () => StationRequested?.Invoke(sid), stationsBar, "btn", "station");
+            }
+            if (!DemoActive) stationsBar.RemoveFromClassList("hidden");
+        }
+
+        /// <summary>"touch" shows the joystick; "desktop" a keyboard/mouse hint; "stereo" neither.</summary>
+        public void SetControlsMode(string mode)
+        {
+            controlsMode = mode;
+            joystick.EnableInClassList("hidden", mode != "touch" || DemoActive);
+            controlsHint.EnableInClassList("hidden", mode != "desktop" || DemoActive);
+            controlsHintLabel.text = "W A S D walk · Right-drag look\nWheel lean in · Double-click zoom";
+            graphPanel.EnableInClassList("graph-high", mode == "touch");
+        }
+
+        public bool IsOverJoystick(Vector2 screenPosYUp)
+        {
+            if (worldSpace || root?.panel == null || joystick.ClassListContains("hidden")) return false;
+            var p = RuntimePanelUtils.ScreenToPanel(root.panel, new Vector2(screenPosYUp.x, Screen.height - screenPosYUp.y));
+            var b = joystick.worldBound;
+            b.xMin -= 30; b.yMin -= 30; b.xMax += 30; b.yMax += 30;
+            return b.Contains(p);
+        }
+
+        // ─── Live graph ──────────────────────────────────────────────────────
+
+        void BuildGraphPanel()
+        {
+            graphPanel = El("graph", root, "glass", "hidden");
+            graphPanel.pickingMode = PickingMode.Position;
+            var head = El("row", graphPanel);
+            graphTitle = new Label("").With("tiny", "emerald", "bold", "grow");
+            head.Add(graphTitle);
+            graphToggle = Btn("–", () => { graphUserCollapsed = !graphUserCollapsed; ApplyGraphCollapse(); }, head, "btn", "btn-icon", "btn-mini");
+            Graph = new LiveGraph();
+            graphPanel.Add(Graph);
+        }
+
+        public void ShowGraph(GraphSpec spec)
+        {
+            if (spec == null) { graphPanel.AddToClassList("hidden"); return; }
+            graphTitle.text = "LIVE · " + spec.Title.ToUpperInvariant();
+            Graph.Configure(spec);
+            graphPanel.RemoveFromClassList("hidden");
+            ApplyGraphCollapse();
+        }
+
+        void ApplyGraphCollapse()
+        {
+            bool min = graphUserCollapsed || graphAutoCollapsed;
+            Graph.EnableInClassList("hidden", min);
+            graphToggle.text = min ? "+" : "–";
+        }
+
+        // ─── Demo ("watch how it's done") ────────────────────────────────────
+
+        void BuildDemoBar()
+        {
+            demoBar = El("demo-bar", root, "glass", "hidden");
+            demoBar.pickingMode = PickingMode.Position;
+            var top = El("row", demoBar);
+            top.Add(new Label("DEMO").With("demo-badge"));
+            demoStepLabel = new Label("").With("grow", "small", "demo-step");
+            top.Add(demoStepLabel);
+            var row = El("row", demoBar);
+            row.style.flexWrap = Wrap.Wrap;
+            Btn("Previous", () => DemoCommand?.Invoke("prev"), row, "btn", "small");
+            Btn("Replay step", () => DemoCommand?.Invoke("replay"), row, "btn", "small");
+            demoPauseBtn = Btn("Pause", () => DemoCommand?.Invoke("pause"), row, "btn", "small");
+            demoSpeedBtn = Btn("Speed 1×", () => DemoCommand?.Invoke("speed"), row, "btn", "small");
+            Btn("Skip – my turn", () => DemoCommand?.Invoke("skip"), row, "btn", "btn-primary", "small");
+        }
+
+        public void ShowDemoOffer(string title, int minutes, Action watch, Action skip)
+        {
+            overlay.Clear();
+            var p = El("panel", overlay, "glass", "glass-strong");
+            p.Add(new Label("BEFORE YOU START").With("tiny", "emerald", "bold"));
+            p.Add(new Label("Watch how it's done").With("big-title"));
+            p.Add(new Label("A lab demonstrator performs \u201c" + title + "\u201d step by step while Dr. ECH explains. Then it's your turn, and your values will be different, so you can't just copy the numbers!").With("step-text"));
+            var row = El("row", p);
+            row.style.marginTop = 18;
+            row.style.justifyContent = Justify.FlexEnd;
+            Btn("Skip, I'm ready", () => { HideOverlay(); skip(); }, row, "btn");
+            Btn($"Watch the demo (~{Mathf.Max(1, minutes)} min)", () => { HideOverlay(); watch(); }, row, "btn", "btn-primary");
+            overlay.RemoveFromClassList("hidden");
+        }
+
+        public void SetDemoActive(bool on)
+        {
+            DemoActive = on;
+            demoBar.EnableInClassList("hidden", !on);
+            stationsBar.EnableInClassList("hidden", on || stationsBar.childCount < 2);
+            hintBtn.SetEnabled(!on);
+            SetControlsMode(controlsMode);
+            if (!on) HideTaskPanels();
+        }
+
+        public void SetDemoStep(int index, int total, string text)
+        {
+            demoStepLabel.text = $"Step {index + 1} of {total} · {text}";
+            stepBadge.text = $"DEMO · STEP {index + 1} OF {total}";
+        }
+
+        public void SetDemoCaption(string text, string title = null, string summary = null)
+        {
+            demoStepLabel.text = text;
+            stepBadge.text = "DEMO · INTRODUCTION";
+            if (title != null) { stepTitle.text = title; stepTitle.RemoveFromClassList("hidden"); }
+            if (summary != null) stepText.text = summary;
+            continueBtn.AddToClassList("hidden");
+        }
+
+        public void SetDemoState(bool paused, float speed)
+        {
+            demoPauseBtn.text = paused ? "Play" : "Pause";
+            demoSpeedBtn.text = $"Speed {speed:0.#}×";
+        }
+
+        /// <summary>The demonstrator's typed reading appears on the pad (read-only).</summary>
+        public void ShowDemoReading(RecordSpec record, string valueText)
+        {
+            readingPanel.Clear();
+            readingPanel.Add(new Label("THE DEMONSTRATOR RECORDS").With("tiny", "emerald", "bold"));
+            readingPanel.Add(new Label(record.Label).With("step-title"));
+            readingPanel.Add(new Label(valueText).With("reading-display"));
+            var unit = new Label(record.Unit ?? "").With("muted", "small");
+            unit.style.unityTextAlign = TextAnchor.MiddleRight;
+            readingPanel.Add(unit);
+            readingPanel.RemoveFromClassList("hidden");
+            graphAutoCollapsed = true; ApplyGraphCollapse();
         }
 
         // ─── World-space (stereo/VR) surface ─────────────────────────────────
@@ -229,6 +427,11 @@ namespace ECHLabs.Runtime.UI
         public void SetLab(ScenarioDefinition def)
         {
             titleLabel.text = def.Title;
+            // Before the first step: what this activity is about (no empty "STEP 1 OF 1").
+            stepBadge.text = "GET READY";
+            stepTitle.text = def.Title;
+            stepTitle.RemoveFromClassList("hidden");
+            stepText.text = def.Summary ?? "";
             progress.Clear();
             for (int i = 0; i < def.Steps.Count; i++) progress.Add(El("dot", null));
             ppeRow.Clear();
@@ -402,6 +605,7 @@ namespace ECHLabs.Runtime.UI
         public void ShowReading(RecordSpec record, Func<double, Feedback> submit)
         {
             readingPanel.Clear();
+            graphAutoCollapsed = true; ApplyGraphCollapse();
             readingPanel.Add(new Label("RECORD A MEASUREMENT").With("tiny", "emerald", "bold"));
             readingPanel.Add(new Label(record.Label).With("step-title"));
             string entry = "";
@@ -432,7 +636,7 @@ namespace ECHLabs.Runtime.UI
                 if (!double.TryParse(entry, NumberStyles.Float, CultureInfo.InvariantCulture, out var v)) { feedback.text = "Enter a number first."; return; }
                 var fb = submit(v);
                 if (fb.Kind == FeedbackKind.ReadingWrong) { feedback.text = fb.Message; feedback.EnableInClassList("danger", true); entry = ""; Show(); }
-                else readingPanel.AddToClassList("hidden");
+                else { readingPanel.AddToClassList("hidden"); graphAutoCollapsed = false; ApplyGraphCollapse(); }
             }, row, "btn", "btn-primary", "grow");
             readingPanel.RemoveFromClassList("hidden");
         }
@@ -469,6 +673,7 @@ namespace ECHLabs.Runtime.UI
         public void HideTaskPanels()
         {
             readingPanel.AddToClassList("hidden");
+            if (graphAutoCollapsed) { graphAutoCollapsed = false; ApplyGraphCollapse(); }
             valuePanel.AddToClassList("hidden");
             HideActions();
             HidePrompt();
@@ -601,11 +806,30 @@ namespace ECHLabs.Runtime.UI
             Btn("Guided mode on", () => { HideOverlay(); GuidedChanged?.Invoke(true); }, h, "btn");
             Btn("Exam mode (no tips)", () => { HideOverlay(); GuidedChanged?.Invoke(false); }, h, "btn");
             Btn("Re-centre view", () => { HideOverlay(); RecenterRequested?.Invoke(); }, h, "btn");
+            if (DemoRequested != null && !DemoActive) Btn("Watch the demo", () => { HideOverlay(); DemoRequested?.Invoke(); }, h, "btn");
+            p.Add(new Label("SOUND & FEEL").With("tiny", "muted", "bold"));
+            var fx = El("row", p);
+            fx.style.flexWrap = Wrap.Wrap;
+            Toggle(fx, "Sound", FX.LabFx.SoundOn, v => SoundToggled?.Invoke(v));
+            Toggle(fx, "Vibration", FX.LabFx.HapticsOn, v => HapticsToggled?.Invoke(v));
+            Toggle(fx, "Show my hands", handsShown, v => { handsShown = v; HandsToggled?.Invoke(v); });
+            p.Add(new Label(controlsMode == "touch"
+                ? "Drag to look around · Pinch to zoom · Double-tap an object to look closer · Joystick to walk · GO TO buttons jump to a work area"
+                : "Click an object for actions · Double-click to look closer · W A S D to walk · Right-drag to look · GO TO buttons jump to a work area").With("muted", "small", "wrap"));
             var end = El("row", p);
             end.style.justifyContent = Justify.FlexEnd;
             Btn("Exit lab", () => ExitRequested?.Invoke(), end, "btn");
             Btn("Resume", HideOverlay, end, "btn", "btn-primary");
             overlay.RemoveFromClassList("hidden");
+        }
+
+        void Toggle(VisualElement parent, string label, bool initial, Action<bool> changed)
+        {
+            bool value = initial;
+            Button b = null;
+            b = Btn("", () => { value = !value; b.text = $"{label}: {(value ? "On" : "Off")}"; b.EnableInClassList("btn-suggested", value); changed(value); }, parent, "btn");
+            b.text = $"{label}: {(value ? "On" : "Off")}";
+            b.EnableInClassList("btn-suggested", value);
         }
 
         // ─── Helpers ─────────────────────────────────────────────────────────

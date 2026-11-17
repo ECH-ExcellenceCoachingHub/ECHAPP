@@ -18,6 +18,12 @@ namespace ECHLabs.Runtime.Equipment
         public ParticleSystem flame;
         bool cableLinked;
 
+        protected override void OnBound(EquipmentSpec spec) => cableLinked = false;
+
+        /// <summary>Bunsen burner alight (for the flame roar).</summary>
+        public bool Burning => flame && Type == "bunsen_burner" && Bool("lit");
+        public float AirHole => (float)Num("airHole");
+
         public override bool TryGetValueRange(IntentType t, out ValueRange range)
         {
             range = default;

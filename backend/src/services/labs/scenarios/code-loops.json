@@ -1,6 +1,6 @@
 {
   "id": "code-loops",
-  "version": 2,
+  "version": 3,
   "title": "Loops: Repeat Without Repeating Yourself",
   "summary": "Use for-loops and range() to repeat actions and add up numbers.",
   "subject": "coding",

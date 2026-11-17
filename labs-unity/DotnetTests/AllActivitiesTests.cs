@@ -21,7 +21,51 @@ public class AllActivitiesTests
     [MemberData(nameof(Activities))]
     public void Activity_can_be_completed_and_passed(string id)
     {
-        var def = ScenarioDefinition.FromJson(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "scenarios", id + ".json")));
+        var def = Load(id);
+        Variants.Apply(def, null); // default values, templates rendered
+        Play(id, def);
+    }
+
+    public static IEnumerable<object[]> RandomizedActivities()
+        => Activities().Where(a => Load((string)a[0]).Randomize.Count > 0);
+
+    /// <summary>"New values every try": whatever values are picked, a careful student can still pass with full accuracy.</summary>
+    [Theory]
+    [MemberData(nameof(RandomizedActivities))]
+    public void Randomized_activity_passes_with_any_values(string id)
+    {
+        var seen = new HashSet<string>();
+        for (int seed = 1; seed <= 6; seed++)
+        {
+            var def = Load(id);
+            Assert.True(Variants.ApplyRandom(def, new Random(seed)));
+            seen.Add(string.Join(",", def.Randomize.Select(r => def.FindEquipment(r.Path.Split('.')[0]).InitNumber(r.Path.Split('.')[1]))));
+            var score = Play(id, def);
+            Assert.True(def.Results.Count == 0 || score.Accuracy == 100, $"{id} seed {seed}: accuracy {score.Accuracy}");
+        }
+        Assert.True(seen.Count >= 2, $"{id}: values never changed");
+    }
+
+    [Fact]
+    public void Variants_match_the_backend_rules()
+    {
+        var def = Load("phys-ohms-law-two-readings");
+        Variants.Apply(def, new Dictionary<string, Dictionary<string, double>> { ["r1"] = new Dictionary<string, double> { ["ohms"] = 47 } });
+        Assert.Equal("Resistor 47 Ω", def.FindEquipment("r1").Label);
+        Assert.Equal(47, def.Results.Single(r => r.Key == "resistance").Expected);
+        // Out-of-rule values are ignored; re-applying uses the preserved template.
+        Variants.Apply(def, new Dictionary<string, Dictionary<string, double>> { ["r1"] = new Dictionary<string, double> { ["ohms"] = 5 } });
+        Assert.Equal(47, def.FindEquipment("r1").InitNumber("ohms"));
+        var t = Load("chem-titration-hcl-naoh");
+        Variants.Apply(t, new Dictionary<string, Dictionary<string, double>> { ["flask1"] = new Dictionary<string, double> { ["conc"] = 0.09 } });
+        Assert.Equal(18.0, t.Results.Single(r => r.Key == "titre").Expected, 6);
+        Assert.Equal(0.09, t.Results.Single(r => r.Key == "hclConc").Expected, 6);
+    }
+
+    static ScenarioDefinition Load(string id) => ScenarioDefinition.FromJson(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "scenarios", id + ".json")));
+
+    static ScoreBreakdown Play(string id, ScenarioDefinition def)
+    {
         var w = new LabWorld(def, 11);
         var rt = new ScenarioRuntime(def, w);
         rt.Start();
@@ -83,6 +127,7 @@ public class AllActivitiesTests
         Assert.True(score.Passed, $"{id}: total {score.Total} (acc {score.Accuracy}, proc {score.Procedure}, safety {score.Safety})");
         Assert.True(score.Safety == 100, $"{id}: a careful run triggered hazards: {string.Join(",", rt.Progress.HazardsTriggered.Select(h => h.Id))}");
         Assert.Equal(0, rt.Progress.Mistakes);
+        return score;
     }
 
     // Terminals without an explicit command (e.g. firewall rules): walk the offered commands, skipping risky ones.

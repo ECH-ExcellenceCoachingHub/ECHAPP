@@ -136,6 +136,8 @@ test('validator catches broken labs with useful messages', () => {
   s.steps[1].until = "flask1.colour == 'pink'";
   s.steps[2].until = "done('conc')";
   s.hazards.push({ id: 'h', when: 'burette1.volumeMl >', message: 'x' });
+  delete s.randomize;
+  s.results.forEach((r) => delete r.expectedExpr);
   s.results[0].expected = 25; // wrong chemistry: the titre is 20.00 cm³
   s.scoring.safety = 30;
   const { ok, errors } = validateScenario(s);
@@ -149,6 +151,14 @@ test('validator catches broken labs with useful messages', () => {
   has(/hazards.h: Unexpected end/);
   has(/expected 25 but the chemistry gives 20.00/);
   has(/must add up to 100/);
+
+  // Randomized labs: a wrong formula for the expected titre is caught at the range extremes.
+  const r = titration();
+  r.results[0].expectedExpr = 'flask1.conc * 30 / 0.125';
+  r.results[1].expectedExpr = 'flask1.nope';
+  const bad = validateScenario(r).errors;
+  assert.ok(bad.some((e) => /with randomized values/.test(e)), bad.join(' | '));
+  assert.ok(bad.some((e) => /"flask1.nope" is not a numeric equipment setting/.test(e)));
 });
 
 // ─── Scoring ──────────────────────────────────────────────────────────────────
@@ -174,6 +184,32 @@ test('scoring: perfect run, sloppy run, unsafe run', () => {
 });
 
 // ─── Tokens ───────────────────────────────────────────────────────────────────
+
+test('new values every try: variants are picked in range, applied and tamper-proof', () => {
+  const { pickVariant, applyVariant } = require('../src/services/labs/variant');
+  const def = loadSeedDefinitions().find((d) => d.id === 'phys-ohms-law-two-readings');
+  const seen = new Set();
+  for (let i = 0; i < 40; i++) {
+    const v = pickVariant(def);
+    assert.ok([47, 68, 100, 150, 220].includes(v.r1.ohms));
+    seen.add(v.r1.ohms);
+    const applied = applyVariant(def, v);
+    assert.equal(applied.equipment.find((e) => e.id === 'r1').label, `Resistor ${v.r1.ohms} Ω`);
+    assert.equal(applied.results.find((r) => r.key === 'resistance').expected, v.r1.ohms);
+    assert.equal(validateScenario(applied).ok, true, 'applied definitions stay valid');
+  }
+  assert.ok(seen.size >= 3, 'values really change between tries');
+  // Values outside the declared rules are ignored (defaults used).
+  const hacked = applyVariant(def, { r1: { ohms: 5 }, psu: { maxVoltage: 99 } });
+  assert.equal(hacked.equipment.find((e) => e.id === 'r1').init.ohms, 100);
+  assert.equal(hacked.equipment.find((e) => e.id === 'psu').init.maxVoltage, 12);
+  // Re-applying keeps working (templates are preserved).
+  assert.equal(applyVariant(applyVariant(def, { r1: { ohms: 47 } }), { r1: { ohms: 220 } }).equipment.find((e) => e.id === 'r1').label, 'Resistor 220 Ω');
+  // Randomized ranges are science-checked at both extremes.
+  const tooMuch = { ...loadSeedDefinitions().find((d) => d.id === 'chem-titration-hcl-naoh') };
+  tooMuch.randomize = [{ path: 'flask1.conc', min: 0.1, max: 0.4 }];
+  assert.ok(validateScenario(tooMuch).errors.some((e) => /burette only holds/.test(e)));
+});
 
 test('lab tokens are not account logins (and vice versa)', () => {
   const lab = signLabToken({ userId: oid() });
@@ -229,16 +265,29 @@ test('HTTP: student plays a lab from a lesson; teacher authoring is protected', 
   assert.equal((await api('PUT', `/lessons/${lesson._id}/lab`, { token: sTok, body: { scenarioId: card.id } })).status, 403);
   assert.equal((await api('PUT', `/lessons/${lesson._id}/lab`, { token: tTok, body: { scenarioId: card.slug, required: true } })).status, 200);
 
+  // Without a hosted web build there is no web link (never a dead URL).
+  delete process.env.LAB_WEB_URL;
+  const noWeb = await api('POST', '/session', { token: sTok, body: { scenarioId: card.id } });
+  assert.equal(noWeb.body.data.webUrl, null);
+  process.env.LAB_WEB_URL = 'https://ech-labs.web.app/';
+
   // Flutter asks for a session → lab token for Unity.
   const session = await api('POST', '/session', { token: sTok, body: { scenarioId: card.id, lessonId: String(lesson._id) } });
   assert.equal(session.status, 200);
   const labTok = session.body.data.labToken;
-  assert.match(session.body.data.webUrl, /#token=/);
+  assert.match(session.body.data.webUrl, /^https:\/\/ech-labs\.web\.app\/#token=/);
   assert.equal((await api('POST', '/session', { token: labTok, body: { scenarioId: card.id } })).status, 401, 'lab token cannot mint sessions');
 
   // Unity downloads the definition and starts an attempt with the lab token.
   const scenario = await api('GET', `/scenarios/${card.slug}`, { token: labTok });
   assert.equal(scenario.body.data.definition.steps[0].id, 'ppe1');
+  // New values every try: this session's unknown acid concentration is baked into the definition.
+  const served = scenario.body.data.definition;
+  assert.equal(served.variantApplied, true);
+  const conc = served.equipment.find((e) => e.id === 'flask1').init.conc;
+  assert.ok(conc >= 0.08 && conc <= 0.12);
+  const exp = Object.fromEntries(served.results.map((r) => [r.key, r.expected]));
+  assert.ok(Math.abs(exp.titre - conc * 25 / 0.125) < 1e-6 && exp.hclConc === conc);
   const clientId = '8a6f1c2e-1111-4222-8333-123456789abc';
   const started = await api('POST', '/attempts', { token: labTok, body: { clientId, platform: 'android', mode: 'cardboard', qualityTier: 'low' } });
   assert.equal(started.status, 201);
@@ -254,7 +303,7 @@ test('HTTP: student plays a lab from a lesson; teacher authoring is protected', 
   assert.equal(saved.body.data.attempt.checkpoints[0].correct, false, 'client claim of correct is ignored');
 
   // Finish the lab.
-  const done = await api('PATCH', `/attempts/${clientId}`, { token: labTok, body: { completedSteps: steps, records: { initialReading: 0.5, finalReading: 20.5, titre: 20.0, hclConc: 0.1 }, checkpoints: [{ stepId: 'why', choice: 0 }], durationSec: 900, complete: true } });
+  const done = await api('PATCH', `/attempts/${clientId}`, { token: labTok, body: { completedSteps: steps, records: { initialReading: 0.5, finalReading: 0.5 + exp.titre, titre: exp.titre, hclConc: exp.hclConc }, checkpoints: [{ stepId: 'why', choice: 0 }], durationSec: 900, complete: true } });
   assert.equal(done.status, 200);
   const outcome = done.body.data.outcome;
   assert.equal(outcome.passed, true);
@@ -270,8 +319,10 @@ test('HTTP: student plays a lab from a lesson; teacher authoring is protected', 
   // A second pass gives no extra XP.
   const clientId2 = '8a6f1c2e-2222-4222-8333-123456789abc';
   await api('POST', '/attempts', { token: labTok, body: { clientId: clientId2 } });
-  const again = await api('PATCH', `/attempts/${clientId2}`, { token: labTok, body: { completedSteps: steps, records: { titre: 20.0, hclConc: 0.1 }, checkpoints: [{ stepId: 'why', choice: 0 }], complete: true } });
+  const again = await api('PATCH', `/attempts/${clientId2}`, { token: labTok, body: { completedSteps: steps, records: { titre: exp.titre, hclConc: exp.hclConc }, checkpoints: [{ stepId: 'why', choice: 0 }], complete: true } });
   assert.equal(again.body.data.outcome.xpAwarded, 0);
+  assert.equal(again.body.data.outcome.score.accuracy, 100, 'graded against the values this attempt got');
+  assert.deepEqual((await LabAttempt.findOne({ clientId: clientId2 })).variant, { flask1: { conc } });
 
   const summary = await api('GET', '/me/summary', { token: sTok });
   assert.equal(summary.body.data.xp, 150);

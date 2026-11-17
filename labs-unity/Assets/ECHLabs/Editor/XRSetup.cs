@@ -19,7 +19,7 @@ namespace ECHLabs.EditorTools
         public static void Configure()
         {
             var perTarget = GetOrCreatePerBuildTarget();
-            Assign(perTarget, BuildTargetGroup.Android, OpenXR, Cardboard);
+            Assign(perTarget, BuildTargetGroup.Android, Cardboard); // OpenXR is added only for the Quest build (BuildCli.Quest)
             Assign(perTarget, BuildTargetGroup.iOS, Cardboard);
             Assign(perTarget, BuildTargetGroup.Standalone, OpenXR);
             AssetDatabase.SaveAssets();

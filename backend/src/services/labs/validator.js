@@ -7,6 +7,7 @@ const Joi = require('joi');
 const catalog = require('./catalog.json');
 const expr = require('./expression');
 const sim = require('./sim');
+const { applyVariant, extremeVariants } = require('./variant');
 
 const ID = Joi.string().pattern(/^[A-Za-z][A-Za-z0-9_]{0,39}$/);
 const SLUG = Joi.string().pattern(/^[a-z0-9][a-z0-9-]{2,79}$/);
@@ -72,6 +73,7 @@ const scenarioSchema = Joi.object({
     type: Joi.string().valid(...Object.keys(catalog.equipment)).required(),
     slot: Joi.string().required(),
     label: TEXT(60),
+    labelTemplate: TEXT(80), // label with {equipment.key} placeholders (randomized values)
     init: Joi.object().pattern(Joi.string(), Joi.alternatives(Joi.number(), Joi.string(), Joi.boolean(), Joi.array().items(Joi.number()), Joi.array().items(Joi.string().max(80)).max(20))).default({}),
   })).min(1).max(40).required(),
   variables: Joi.object().pattern(ID, Joi.object({
@@ -92,9 +94,18 @@ const scenarioSchema = Joi.object({
     label: TEXT(120).required(),
     unit: Joi.string().trim().allow('').max(20),
     expected: Joi.number().required(),
+    expectedExpr: EXPR, // recomputed per attempt from the (randomized) equipment init values
     tolerancePct: Joi.number().min(0).max(100).default(5),
     source: EXPR.required(), // usually record.<key>
   })).max(10).default([]),
+  // "New values every try": init values picked per attempt (see variant.js).
+  randomize: Joi.array().items(Joi.object({
+    path: Joi.string().pattern(/^[A-Za-z][A-Za-z0-9_]{0,39}\.[A-Za-z][A-Za-z0-9_]{0,39}$/).required(),
+    min: Joi.number(),
+    max: Joi.number(),
+    decimals: Joi.number().integer().min(0).max(6).default(3),
+    choices: Joi.array().items(Joi.number()).min(1).max(20),
+  }).or('choices', 'min').and('min', 'max')).max(10).default([]),
   scoring: Joi.object({
     accuracy: Joi.number().min(0).max(100).default(40),
     procedure: Joi.number().min(0).max(100).default(40),
@@ -125,7 +136,8 @@ function scopeFor(scenario) {
  * Check that expected results agree with the reference science models.
  * Today: acid–base titration equivalence volume.
  */
-function checkScience(scenario, errors) {
+function checkScience(scenario, sink) {
+  const errors = Array.isArray(sink) ? sink : { push: (e) => sink.add(e) };
   for (const [name, v] of Object.entries(scenario.variables || {})) {
     if (v.model !== 'chem.titration') continue;
     const flask = scenario.equipment.find((e) => e.id === v.inputs.flask);
@@ -230,7 +242,28 @@ function validateScenario(input) {
   if (weights !== 100) errors.push(`scoring: accuracy + procedure + safety must add up to 100 (got ${weights})`);
   if (value.results.length === 0 && value.scoring.accuracy > 0) errors.push('scoring: accuracy is weighted but the scenario has no results to grade');
 
-  checkScience(value, errors);
+  // Randomized values: real numeric settings, sensible ranges, expected values computable.
+  for (const r of value.randomize) {
+    const [id, key] = r.path.split('.');
+    const eq = eqById.get(id);
+    if (!eq) { errors.push(`randomize.${r.path}: unknown equipment "${id}"`); continue; }
+    if (typeof eq.init[key] !== 'number') errors.push(`randomize.${r.path}: "${key}" must be a numeric init value of ${id}`);
+    if (r.min != null && !(r.max > r.min)) errors.push(`randomize.${r.path}: max must be greater than min`);
+  }
+  const numericInit = new Set();
+  for (const eq of value.equipment) for (const [k, v] of Object.entries(eq.init)) if (typeof v === 'number') numericInit.add(`${eq.id}.${k}`);
+  for (const r of value.results) {
+    if (!r.expectedExpr) continue;
+    try {
+      for (const p of expr.references(r.expectedExpr).paths) if (!numericInit.has(p)) errors.push(`results.${r.key}.expectedExpr: "${p}" is not a numeric equipment setting`);
+    } catch (e) { errors.push(`results.${r.key}.expectedExpr: ${e.message}`); }
+  }
+
+  if (value.randomize.length) {
+    const found = new Set();
+    for (const v of extremeVariants(value)) checkScience(applyVariant(value, v), found);
+    for (const e of found) errors.push(`${e} (with randomized values)`);
+  } else checkScience(value, errors);
 
   return errors.length ? { ok: false, errors } : { ok: true, value, errors: [] };
 }

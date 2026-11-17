@@ -1,6 +1,6 @@
 {
   "id": "net-build-a-network",
-  "version": 2,
+  "version": 3,
   "title": "Build Your First Network",
   "summary": "Cable a server to a switch, connect the admin PC and test the connection with ping.",
   "subject": "networking",

@@ -27,3 +27,13 @@ plugins {
 }
 
 include(":app")
+
+// ECH Labs (Unity as a Library). Present after: tools\labsuild-labs.ps1 -Step android
+if (file("unityLibrary").exists()) {
+    include(":unityLibrary")
+    project(":unityLibrary").projectDir = file("unityLibrary")
+    if (file("unityLibrary/xrmanifest.androidlib").exists()) {
+        include(":unityLibrary:xrmanifest.androidlib")
+        project(":unityLibrary:xrmanifest.androidlib").projectDir = file("unityLibrary/xrmanifest.androidlib")
+    }
+}

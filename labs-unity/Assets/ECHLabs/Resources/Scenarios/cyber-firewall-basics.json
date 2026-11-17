@@ -1,6 +1,6 @@
 {
   "id": "cyber-firewall-basics",
-  "version": 2,
+  "version": 3,
   "title": "Firewall Basics: Defending a School Network",
   "summary": "An attacker is probing your school's network. Investigate the alerts, block dangerous services and a malicious address, keep the school website online, and apply the firewall policy.",
   "subject": "cybersecurity",

@@ -1,6 +1,6 @@
 {
   "id": "cyber-incident-response",
-  "version": 2,
+  "version": 3,
   "title": "Incident Response: Contain the Attack",
   "summary": "A laptop in the computer lab is sending strange traffic. Follow the incident-response process: identify, contain, eradicate and recover.",
   "subject": "cybersecurity",

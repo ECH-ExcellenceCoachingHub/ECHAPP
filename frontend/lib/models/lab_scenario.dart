@@ -68,7 +68,8 @@ class LabActivityProgress {
 /// A launch ticket for the Unity lab engine: short-lived lab token + parameters.
 class LabSessionTicket {
   final String labToken;
-  final String webUrl;
+  /// Null when the backend has no hosted web lab configured (LAB_WEB_URL).
+  final String? webUrl;
   final Map<String, String> launch;
   final LabScenario scenario;
   final String? resumeClientId;
@@ -77,7 +78,7 @@ class LabSessionTicket {
 
   factory LabSessionTicket.fromJson(Map<String, dynamic> j) => LabSessionTicket(
         labToken: j['labToken'] as String,
-        webUrl: j['webUrl'] as String,
+        webUrl: j['webUrl'] as String?,
         launch: (j['launch'] as Map).map((k, v) => MapEntry(k.toString(), v?.toString() ?? '')),
         scenario: LabScenario.fromJson(Map<String, dynamic>.from(j['scenario'] as Map)),
         resumeClientId: (j['resume'] is Map) ? (j['resume']['clientId'] as String?) : null,

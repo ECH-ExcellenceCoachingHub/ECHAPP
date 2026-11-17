@@ -1,6 +1,6 @@
 {
   "id": "code-debugging",
-  "version": 2,
+  "version": 3,
   "title": "Debugging: Find the Bug",
   "summary": "A program that decides PASS/FAIL is giving the wrong answer. Read the code, find the bug and fix it.",
   "subject": "coding",

@@ -1,6 +1,6 @@
 {
   "id": "net-ip-addressing",
-  "version": 2,
+  "version": 3,
   "title": "IP Addresses & Subnet Masks",
   "summary": "Read and set IP addresses, and work out how many devices fit on a /24 network.",
   "subject": "networking",

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:excellencecoachinghub/config/app_theme.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:excellencecoachinghub/presentation/widgets/document_viewer/paged_pdf_viewer.dart';
 import 'package:excellencecoachinghub/utils/screen_wakelock.dart';
 import 'package:excellencecoachinghub/utils/media_proxy.dart';
 
@@ -23,11 +23,6 @@ class DocumentViewer extends StatefulWidget {
 }
 
 class _DocumentViewerState extends State<DocumentViewer> {
-  final PdfViewerController _pdfViewerController = PdfViewerController();
-  final GlobalKey<SfPdfViewerState> _pdfViewerKey = GlobalKey();
-  bool _isLoading = true;
-  int _pageCount = 0;
-  int _currentPage = 1;
 
   // A document is read, not tapped, so keep the screen on while it is open
   final ScreenWakelock _wakelock = ScreenWakelock();
@@ -53,18 +48,6 @@ class _DocumentViewerState extends State<DocumentViewer> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          if (widget.isPdf) ...[
-            IconButton(
-              icon: const Icon(Icons.zoom_in),
-              onPressed: () => _pdfViewerController.zoomLevel = (_pdfViewerController.zoomLevel + 0.25).clamp(1.0, 3.0),
-              tooltip: 'Zoom In',
-            ),
-            IconButton(
-              icon: const Icon(Icons.zoom_out),
-              onPressed: () => _pdfViewerController.zoomLevel = (_pdfViewerController.zoomLevel - 0.25).clamp(1.0, 3.0),
-              tooltip: 'Zoom Out',
-            ),
-          ],
           if (widget.canDownload)
             IconButton(
               icon: const Icon(Icons.download),
@@ -74,90 +57,25 @@ class _DocumentViewerState extends State<DocumentViewer> {
         ],
       ),
       body: _buildDocumentViewer(),
-      bottomNavigationBar: widget.isPdf && !_isLoading ? _buildBottomBar() : null,
     );
   }
 
   Widget _buildDocumentViewer() {
     if (widget.isPdf) {
-      return Stack(
-        children: [
-          SfPdfViewer.network(
-            mediaProxyUrl(widget.documentPath),
-            key: _pdfViewerKey,
-            controller: _pdfViewerController,
-            onDocumentLoaded: (PdfDocumentLoadedDetails details) {
-              setState(() {
-                _isLoading = false;
-                _pageCount = details.document.pages.count;
-              });
-            },
-            onDocumentLoadFailed: (PdfDocumentLoadFailedDetails details) {
-              setState(() {
-                _isLoading = false;
-              });
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Failed to load PDF: ${details.description}'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            },
-            onPageChanged: (PdfPageChangedDetails details) {
-              setState(() {
-                _currentPage = details.newPageNumber;
-              });
-            },
-            enableTextSelection: true,
-          ),
-          if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(
-                color: AppTheme.primaryGreen,
-              ),
+      return PagedPdfViewer.network(
+        mediaProxyUrl(widget.documentPath),
+        title: widget.title,
+        onLoadFailed: (message) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to load PDF: $message'),
+              backgroundColor: Colors.red,
             ),
-        ],
+          );
+        },
       );
-    } else {
-      return _buildTextDocument();
     }
-  }
-
-  Widget _buildBottomBar() {
-    return Container(
-      height: 60,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.chevron_left, color: AppTheme.primaryGreen),
-            onPressed: _currentPage > 1 ? () => _pdfViewerController.previousPage() : null,
-          ),
-          Text(
-            'Page $_currentPage of $_pageCount',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: AppTheme.blackColor,
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right, color: AppTheme.primaryGreen),
-            onPressed: _currentPage < _pageCount ? () => _pdfViewerController.nextPage() : null,
-          ),
-        ],
-      ),
-    );
+    return _buildTextDocument();
   }
 
   Widget _buildTextDocument() {

@@ -1,6 +1,6 @@
 {
   "id": "phys-pendulum-challenge",
-  "version": 2,
+  "version": 3,
   "title": "Expert Challenge: Measure g Precisely",
   "summary": "No hints. Use a 1.20 m pendulum and get g within 3% of 9.81 m/s².",
   "subject": "physics",

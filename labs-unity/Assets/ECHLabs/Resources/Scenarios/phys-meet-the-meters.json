@@ -1,6 +1,6 @@
 {
   "id": "phys-meet-the-meters",
-  "version": 2,
+  "version": 3,
   "title": "Meet the Meters: Ammeter & Voltmeter",
   "summary": "Learn what ammeters and voltmeters measure and how to connect them correctly before you build your first circuit.",
   "subject": "physics",
@@ -34,7 +34,7 @@
       "id": "r1",
       "type": "resistor",
       "slot": "benchB.left",
-      "label": "Resistor 47 Ω",
+      "label": "Resistor {r1.ohms} Ω",
       "init": {
         "ohms": 47
       }

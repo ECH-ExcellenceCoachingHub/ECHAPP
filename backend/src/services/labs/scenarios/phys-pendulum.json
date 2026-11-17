@@ -1,6 +1,6 @@
 {
   "id": "phys-pendulum",
-  "version": 2,
+  "version": 3,
   "title": "The Simple Pendulum: Measuring g",
   "summary": "Time 20 oscillations of a pendulum, find its period and use T = 2π√(L/g) to calculate the acceleration due to gravity.",
   "subject": "physics",
@@ -157,5 +157,13 @@
   "difficulty": 3,
   "tags": [
     "mechanics"
+  ],
+  "randomize": [
+    {
+      "path": "pend.lengthM",
+      "min": 0.5,
+      "max": 1.0,
+      "decimals": 2
+    }
   ]
 }

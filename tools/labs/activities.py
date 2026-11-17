@@ -12,7 +12,7 @@ import json
 import os
 
 OUT = os.path.join(os.path.dirname(__file__), '..', '..', 'backend', 'src', 'services', 'labs', 'scenarios')
-VERSION = 2  # bump when built-in activities change (seeded databases pick it up)
+VERSION = 3  # bump when built-in activities change (seeded databases pick it up)
 
 
 # ─── Step helpers ─────────────────────────────────────────────────────────────
@@ -64,7 +64,7 @@ PPE_EQ = {
 
 
 def lab(id, title, summary, subject, environment, difficulty, objectives, equipment, steps, *, variables=None,
-        hazards=None, results=None, scoring=None, xp=None, duration=None, tags=(), level='secondary'):
+        hazards=None, results=None, scoring=None, xp=None, duration=None, tags=(), level='secondary', randomize=None):
     if scoring is None:
         scoring = {'accuracy': 40, 'procedure': 40, 'safety': 20} if results else {'accuracy': 0, 'procedure': 80, 'safety': 20}
     return {
@@ -74,6 +74,7 @@ def lab(id, title, summary, subject, environment, difficulty, objectives, equipm
         'equipment': equipment, 'variables': variables or {}, 'steps': steps,
         'hazards': hazards or [], 'results': results or [], 'scoring': scoring,
         'passScore': 60, 'xp': xp or (40 + difficulty * 30),
+        **({'randomize': randomize} if randomize else {}),
     }
 
 
@@ -154,7 +155,8 @@ LABS.append(lab(
         quiz('q2', 'Why did the solution turn pink?', ['Enough alkali was added to raise the pH above 8.2', 'The acid evaporated', 'The tile reflected pink light', 'Phenolphthalein went off'], 0, 'Once all the acid is neutralised, a little extra alkali makes the solution alkaline and the indicator turns pink.'),
     ],
     variables={'titr': {'model': 'chem.titration', 'inputs': {'flask': 'flask1', 'burette': 'burette1'}, 'params': {'indicator': 'phenolphthalein'}}},
-    hazards=[NO_GOGGLES('burette1.volumeMl > 0')], tags=['indicators', 'pH'], xp=100))
+    hazards=[NO_GOGGLES('burette1.volumeMl > 0')], tags=['indicators', 'pH'], xp=100,
+    randomize=[{'path': 'flask1.conc', 'min': 0.03, 'max': 0.07, 'decimals': 3}]))
 
 
 def titration(id, title, summary, difficulty, acid, acid_conc, base_conc, label, hints_level, tags, extra_steps=()):
@@ -187,8 +189,9 @@ def titration(id, title, summary, difficulty, acid, acid_conc, base_conc, label,
                variables={'titr': {'model': 'chem.titration', 'inputs': {'flask': 'flask1', 'burette': 'burette1'}, 'params': {'indicator': 'phenolphthalein'}}},
                hazards=[NO_GOGGLES('(burette1.volumeMl > 0 || naoh.poured)'),
                         {'id': 'overshoot', 'when': 'titr.pH > 11.5', 'message': 'You overshot the end point — the solution is deep pink.', 'severity': 'warn', 'penalty': 10}],
-               results=[{'key': 'titre', 'label': 'Titre', 'unit': 'cm³', 'expected': round(eq, 2), 'tolerancePct': 1.5, 'source': 'record.titre'},
-                        {'key': 'acidConc', 'label': 'Acid concentration', 'unit': 'mol/dm³', 'expected': acid_conc, 'tolerancePct': 2, 'source': 'record.acidConc'}],
+               results=[{'key': 'titre', 'label': 'Titre', 'unit': 'cm³', 'expected': round(eq, 2), 'expectedExpr': f'flask1.conc * 25 / {base_conc}', 'tolerancePct': 1.5, 'source': 'record.titre'},
+                        {'key': 'acidConc', 'label': 'Acid concentration', 'unit': 'mol/dm³', 'expected': acid_conc, 'expectedExpr': 'flask1.conc', 'tolerancePct': 2, 'source': 'record.acidConc'}],
+               randomize=[{'path': 'flask1.conc', 'min': round(acid_conc * 0.8, 3), 'max': round(acid_conc * 1.2, 3), 'decimals': 3}],
                tags=tags, xp=40 + difficulty * 35)
 
 
@@ -204,7 +207,7 @@ LABS.append(titration('chem-titration-challenge', 'Expert Challenge: Unknown Aci
 CIRCUIT = lambda ohms=47: [
     {'id': 'psu', 'type': 'power_supply', 'slot': 'benchA.left', 'init': {'maxVoltage': 12}},
     {'id': 'board', 'type': 'breadboard', 'slot': 'benchA.center'},
-    {'id': 'r1', 'type': 'resistor', 'slot': 'benchB.left', 'label': f'Resistor {ohms} Ω' if ohms else 'Resistor R', 'init': {'ohms': ohms}},
+    {'id': 'r1', 'type': 'resistor', 'slot': 'benchB.left', 'label': 'Resistor {r1.ohms} Ω' if ohms else 'Resistor R', 'init': {'ohms': ohms}},
     {'id': 'amm', 'type': 'ammeter', 'slot': 'benchB.center'},
     {'id': 'volt', 'type': 'voltmeter', 'slot': 'benchB.right'},
 ]
@@ -252,7 +255,8 @@ LABS.append(lab(
     ],
     variables=CIRC_VAR, hazards=[SHORT],
     results=[{'key': 'ratio', 'label': 'I(9 V) ÷ I(3 V)', 'unit': '', 'expected': 3, 'tolerancePct': 3, 'source': 'record.ratio'},
-             {'key': 'resistance', 'label': 'Resistance', 'unit': 'Ω', 'expected': 100, 'tolerancePct': 4, 'source': 'record.resistance'}],
+             {'key': 'resistance', 'label': 'Resistance', 'unit': 'Ω', 'expected': 100, 'expectedExpr': 'r1.ohms', 'tolerancePct': 4, 'source': 'record.resistance'}],
+    randomize=[{'path': 'r1.ohms', 'choices': [47, 68, 100, 150, 220]}],
     tags=['circuits', 'Ohm\'s law']))
 
 LABS.append(lab(
@@ -665,6 +669,18 @@ LABS.append(lab(
 
 # ─── Existing hand-written labs: add difficulty/tags ──────────────────────────
 
+PATCHES = {
+    'chem-titration-hcl-naoh': {
+        'randomize': [{'path': 'flask1.conc', 'min': 0.08, 'max': 0.12, 'decimals': 3}],
+        'results': {'titre': 'flask1.conc * 25 / 0.125', 'hclConc': 'flask1.conc'},
+    },
+    'phys-ohms-law': {
+        'randomize': [{'path': 'r1.ohms', 'choices': [33, 47, 68, 82, 100]}],
+        'results': {'resistance': 'r1.ohms'},
+    },
+    'phys-pendulum': {'randomize': [{'path': 'pend.lengthM', 'min': 0.5, 'max': 1.0, 'decimals': 2}]},
+}
+
 EXISTING = {
     'chem-titration-hcl-naoh': (3, ['titration']),
     'phys-ohms-law': (2, ["Ohm's law", 'circuits']),
@@ -684,6 +700,10 @@ def main():
         with open(p, encoding='utf8') as f:
             d = json.load(f)
         d.update({'difficulty': difficulty, 'tags': tags, 'version': max(d.get('version', 1), VERSION)})
+        patch = PATCHES.get(id, {})
+        if 'randomize' in patch: d['randomize'] = patch['randomize']
+        for r in d.get('results', []):
+            if r['key'] in patch.get('results', {}): r['expectedExpr'] = patch['results'][r['key']]
         with open(p, 'w', encoding='utf8') as f:
             json.dump(d, f, ensure_ascii=False, indent=2)
             f.write('\n')

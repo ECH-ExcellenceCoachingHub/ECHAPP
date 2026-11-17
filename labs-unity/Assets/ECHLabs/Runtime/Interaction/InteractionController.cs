@@ -32,6 +32,16 @@ namespace ECHLabs.Runtime.Interaction
         double? pendingLiveValue;
 
         public event Action<EquipmentView, IntentType> ActionPerformed;
+        /// <summary>Every successful action with its receiver and feedback (hands, sound, haptics, graphs).</summary>
+        public event Action<Intent, EquipmentView, EquipmentView, Feedback> Performed;
+        /// <summary>First-person hands (null in headset mode, where the student's real hands are tracked).</summary>
+        public HandsRig hands;
+        /// <summary>Equipment picked up and waiting for a receiver ("Pour the NaOH into…").</summary>
+        public EquipmentView PendingSource => pendingSource;
+
+        float lastSelectTime = -1;
+        EquipmentView lastSelected;
+        const float DoubleTapSeconds = 0.38f;
 
         public void Init(Func<Intent, Feedback> sendIntent, Func<StepSpec> step, LabHud labHud, Dictionary<string, EquipmentView> equipmentViews)
         {
@@ -94,6 +104,16 @@ namespace ECHLabs.Runtime.Interaction
                 CompleteWithReceiver(Hovered);
                 return;
             }
+            // Double-tap / double-click an object: zoom straight in for a close look.
+            if (Hovered && Hovered == lastSelected && Time.unscaledTime - lastSelectTime < DoubleTapSeconds)
+            {
+                lastSelected = null;
+                hud.HideActions();
+                hud.RequestInspect(Hovered);
+                return;
+            }
+            lastSelected = Hovered;
+            lastSelectTime = Time.unscaledTime;
             if (Hovered) OpenMenu(Hovered);
             else hud.HideActions();
         }
@@ -120,12 +140,16 @@ namespace ECHLabs.Runtime.Interaction
             {
                 pendingSource = view;
                 pendingIntent = intent;
+                if (range.Live) hands?.BeginAdjust(view, intent);
+                hands?.AdjustValue(Mathf.InverseLerp(range.Min, range.Max, range.Default));
                 hud.ShowValue(view.Label, range, v =>
                 {
                     if (range.Live) pendingLiveValue = v;
+                    hands?.AdjustValue(Mathf.InverseLerp(range.Min, range.Max, (float)v));
                 }, v =>
                 {
-                    Perform(Intent.Of(intent, view.EquipmentId, null, v), view, null);
+                    hands?.EndAdjust();
+                    Perform(Intent.Of(intent, view.EquipmentId, null, v), view, null, animate: !range.Live);
                     pendingSource = null;
                     pendingLiveValue = null;
                 });
@@ -156,13 +180,25 @@ namespace ECHLabs.Runtime.Interaction
             Perform(Intent.Of(intent, src.EquipmentId, receiver ? receiver.EquipmentId : null), src, receiver);
         }
 
-        void Perform(Intent intent, EquipmentView src, EquipmentView receiver)
+        /// <summary>
+        /// The demonstrator (and tests) act through exactly the same path as the student, so the demo
+        /// shows the real hands, pours and animations. <paramref name="sendTo"/> is the demo's runtime.
+        /// </summary>
+        public Feedback PerformScripted(Intent intent, Func<Intent, Feedback> sendTo, bool animate = true)
         {
-            var fb = send(intent);
+            if (views == null || !views.TryGetValue(intent.Target, out var src)) return sendTo(intent);
+            EquipmentView receiver = intent.Into != null && views.TryGetValue(intent.Into, out var r) ? r : null;
+            return Perform(intent, src, receiver, animate, sendTo);
+        }
+
+        Feedback Perform(Intent intent, EquipmentView src, EquipmentView receiver, bool animate = true, Func<Intent, Feedback> sendTo = null)
+        {
+            var fb = (sendTo ?? send)(intent);
             if (fb.Kind != FeedbackKind.Impossible)
             {
                 // Visual follow-through (the science already happened in LabWorld).
-                if (intent.Type == IntentType.Pour && src is ContainerView c) c.PlayPour();
+                if (animate) hands?.Play(intent, src, receiver);
+                if (intent.Type == IntentType.Pour && src is ContainerView c) c.PlayPour(receiver);
                 if (intent.Type == IntentType.Grab && src is FlaskView f && receiver) f.PlaceAt(receiver.Attach);
                 if (intent.Type == IntentType.Connect && src is GenericView g && receiver) g.ConnectTo(receiver.Attach);
                 if (intent.Type == IntentType.Grab && src is GenericView g2 && receiver) g2.ConnectTo(receiver.Attach);
@@ -172,12 +208,15 @@ namespace ECHLabs.Runtime.Interaction
                 if (intent.Type == IntentType.Release && src.TryGetComponent<CableRenderer>(out var cable2)) cable2.ConnectTo(null);
                 if (intent.Type == IntentType.Inspect) hud.RequestInspect(src);
                 ActionPerformed?.Invoke(src, intent.Type);
+                Performed?.Invoke(intent, src, receiver, fb);
             }
             hud.HideActions();
+            return fb;
         }
 
         public void CancelPending()
         {
+            if (pendingSource) hands?.EndAdjust();
             if (pendingSource) pendingSource.SetHighlight(false);
             if (views != null) foreach (var v in views.Values) if (v != Hovered) v.SetHighlight(false);
             pendingSource = null;

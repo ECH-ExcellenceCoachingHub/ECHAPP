@@ -16,8 +16,10 @@ console.log('🚀 Excellence Coaching Hub Backend Server Starting...');
 
 const app = express();
 
-// Basic health check endpoint for Render
+// Basic health check endpoint for Render. It is registered before the CORS middleware,
+// so it allows any origin itself (the web app uses it as its connectivity probe).
 app.get('/health', (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
   res.status(200).json({ 
     status: 'success', 
     message: 'Server is running',

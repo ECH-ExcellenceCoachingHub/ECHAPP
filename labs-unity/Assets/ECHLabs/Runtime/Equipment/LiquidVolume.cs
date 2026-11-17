@@ -32,6 +32,8 @@ namespace ECHLabs.Runtime.Equipment
         static readonly int VisibleId = Shader.PropertyToID("_Visible");
 
         public float VolumeMl { get; private set; }
+        /// <summary>World height of the liquid surface (the meniscus), updated every frame.</summary>
+        public float SurfaceY { get; private set; }
         public Color Color { get; private set; } = new Color(0.9f, 0.95f, 1f, 0.15f);
 
         void Awake() => Init();
@@ -51,6 +53,15 @@ namespace ECHLabs.Runtime.Equipment
         {
             VolumeMl = Mathf.Clamp(volumeMl, 0, capacityMl * 1.02f);
             Color = color;
+        }
+
+        /// <summary>World height the surface will have at a given volume (e.g. once a fill animation ends).</summary>
+        public float SurfaceYFor(float volumeMl)
+        {
+            Init();
+            float frac = capacityMl > 0 ? Mathf.Clamp01(volumeMl / capacityMl) : 0;
+            float localY = Mathf.Lerp(minY, maxY, Mathf.Clamp01(volumeToHeight.Evaluate(frac)));
+            return transform.TransformPoint(new Vector3(0, localY, 0)).y;
         }
 
         /// <summary>A splash from pouring in: kicks the wobble.</summary>
@@ -79,6 +90,7 @@ namespace ECHLabs.Runtime.Equipment
             float h01 = Mathf.Clamp01(volumeToHeight.Evaluate(frac));
             float localY = Mathf.Lerp(minY, maxY, h01);
             float worldY = transform.TransformPoint(new Vector3(0, localY, 0)).y;
+            SurfaceY = worldY;
 
             rend.GetPropertyBlock(mpb);
             mpb.SetFloat(FillId, worldY);

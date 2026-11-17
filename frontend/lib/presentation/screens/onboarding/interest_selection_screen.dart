@@ -111,6 +111,14 @@ class _InterestSelectionScreenState extends ConsumerState<InterestSelectionScree
       return const SizedBox.shrink();
     }
 
+    // Teachers/instructors don't need interest selection — send them to their dashboard
+    if (authState.user?.role == 'instructor' || authState.user?.role == 'teacher') {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.go('/teacher/dashboard');
+      });
+      return const SizedBox.shrink();
+    }
+
     // Outside edit mode, don't ask again for interests the user already gave
     // (or anything else already collected) — move on to the next missing step.
     // Checked only on entry so returning here via Back still allows editing.

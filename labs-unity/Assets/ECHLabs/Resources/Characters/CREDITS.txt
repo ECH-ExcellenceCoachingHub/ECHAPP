@@ -1,0 +1,2 @@
+Demonstrator.glb — "Animated Woman" by Quaternius (https://quaternius.com), via https://poly.pizza/m/qJ2gsTUBHL
+Licence: CC0 1.0 (public domain). Recoloured and given a lab coat, goggles and badge at runtime by ECHLabs.Runtime.Demo.Demonstrator.

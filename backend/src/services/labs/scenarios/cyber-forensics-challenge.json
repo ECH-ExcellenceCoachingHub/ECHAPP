@@ -1,6 +1,6 @@
 {
   "id": "cyber-forensics-challenge",
-  "version": 2,
+  "version": 3,
   "title": "Expert Challenge: Log Forensics",
   "summary": "No hints. Analyse the authentication logs, count the failed logins and identify the brute-force attacker.",
   "subject": "cybersecurity",

@@ -5,13 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path/path.dart' as p;
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:excellencecoachinghub/config/app_theme.dart';
 import 'package:excellencecoachinghub/models/download.dart';
 import 'package:excellencecoachinghub/utils/media_proxy.dart';
 import 'package:excellencecoachinghub/utils/screen_wakelock.dart';
+import 'package:excellencecoachinghub/presentation/widgets/document_viewer/paged_pdf_viewer.dart';
 
 /// Opens a completed [download] from the copy on disk.
 ///
@@ -113,7 +113,10 @@ class _LocalPdfViewer extends StatelessWidget {
           backgroundColor: Colors.transparent,
           elevation: 0,
         ),
-        body: SfPdfViewer.file(File(download.localPath)),
+        body: PagedPdfViewer.file(
+          File(download.localPath),
+          title: download.originalTitle,
+        ),
       ),
     );
   }
@@ -137,12 +140,13 @@ class _WebPdfViewer extends StatelessWidget {
       ),
       body: url.isEmpty
           ? const Center(child: Text('No PDF URL available.'))
-          : SfPdfViewer.network(
+          : PagedPdfViewer.network(
               url,
-              onDocumentLoadFailed: (details) {
+              title: title,
+              onLoadFailed: (message) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Failed to load PDF: ${details.error}'),
+                    content: Text('Failed to load PDF: $message'),
                     backgroundColor: Colors.red,
                   ),
                 );
