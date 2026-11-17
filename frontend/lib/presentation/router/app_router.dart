@@ -60,6 +60,10 @@ import 'package:excellencecoachinghub/presentation/screens/admin/admin_books_scr
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_teachers_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_live_sessions_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/teacher/teacher_dashboard_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/teacher/tools/lesson_planner_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/teacher/tools/planner_studio_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/teacher/tools/teacher_exams_screen.dart';
+import 'package:excellencecoachinghub/services/api/teacher_tools_service.dart' show PlannerKind;
 import 'package:excellencecoachinghub/presentation/screens/teacher/teacher_course_detail_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/teacher/schedule_live_session_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/teacher/live_sessions_screen.dart';
@@ -544,6 +548,32 @@ class AppRouter {
           GoRoute(
             path: '/teacher/courses',
             builder: (context, state) => const TeacherDashboardScreen(),
+          ),
+          // Teaching tools (engine on eexams.net) + exam creation (saved on eexams)
+          GoRoute(
+            path: '/teacher/lesson-planner',
+            builder: (context, state) => const LessonPlannerScreen(),
+          ),
+          GoRoute(
+            path: '/teacher/slides',
+            builder: (context, state) => const PlannerStudioScreen(kind: PlannerKind.slides),
+          ),
+          GoRoute(
+            // Older "Slider Builder" tile path.
+            path: '/teacher/slider-builder',
+            redirect: (context, state) => '/teacher/slides',
+          ),
+          GoRoute(
+            path: '/teacher/exercises',
+            builder: (context, state) => const PlannerStudioScreen(kind: PlannerKind.exercises),
+          ),
+          GoRoute(
+            path: '/teacher/scheme-of-work',
+            builder: (context, state) => const PlannerStudioScreen(kind: PlannerKind.scheme),
+          ),
+          GoRoute(
+            path: '/teacher/exams',
+            builder: (context, state) => const TeacherExamsScreen(),
           ),
           GoRoute(
             path: '/teacher/courses/:courseId',

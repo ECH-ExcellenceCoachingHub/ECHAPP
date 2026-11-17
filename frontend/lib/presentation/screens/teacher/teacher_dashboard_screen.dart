@@ -11,6 +11,7 @@ import 'package:excellencecoachinghub/services/push_notification_service.dart';
 import 'package:excellencecoachinghub/models/teacher_course.dart';
 import 'package:excellencecoachinghub/models/live_session.dart';
 import 'package:excellencecoachinghub/widgets/network_image_widget.dart';
+import 'package:excellencecoachinghub/presentation/widgets/eexams_section.dart';
 
 /// Teacher Dashboard Screen - Main dashboard for instructors
 class TeacherDashboardScreen extends ConsumerStatefulWidget {
@@ -181,6 +182,36 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
   /// Jumps straight into one course's community from its card.
   void _openCourseCommunity(String courseId) {
     context.push('/community/$courseId');
+  }
+
+  void _navigateToLessonPlanner() {
+    context.push('/teacher/lesson-planner');
+  }
+
+  void _navigateToCourseGuider() {
+    context.push('/teacher/course-guider');
+  }
+
+  void _navigateToSliderBuilder() {
+    context.push('/teacher/slides');
+  }
+
+  /// Lays tool tiles out two per row.
+  List<Widget> _toolRows(List<Widget> tiles) {
+    final rows = <Widget>[];
+    for (var i = 0; i < tiles.length; i += 2) {
+      if (i > 0) rows.add(const SizedBox(height: 12));
+      rows.add(Row(children: [
+        Expanded(child: tiles[i]),
+        const SizedBox(width: 12),
+        Expanded(child: i + 1 < tiles.length ? tiles[i + 1] : const SizedBox.shrink()),
+      ]));
+    }
+    return rows;
+  }
+
+  void _navigateToCreateCourse() {
+    context.push('/admin/courses/create');
   }
 
   Future<void> _handleLogout() async {
@@ -493,6 +524,72 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
                 ),
               ],
             ),
+            const SizedBox(height: 24),
+            const Text(
+              'Teacher Tools',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            // Teaching tools run on the eexams engine; exams are created here,
+            // saved on eexams and managed there (see /teacher/exams).
+            ..._toolRows([
+              _ToolTile(
+                icon: Icons.menu_book,
+                label: 'Lesson Planner',
+                subtitle: 'REB/CBC lesson plans',
+                color: const Color(0xFF10B981),
+                onTap: _navigateToLessonPlanner,
+              ),
+              _ToolTile(
+                icon: Icons.slideshow,
+                label: 'Slides',
+                subtitle: 'PowerPoint decks',
+                color: const Color(0xFFC43E1C),
+                onTap: _navigateToSliderBuilder,
+              ),
+              _ToolTile(
+                icon: Icons.fact_check,
+                label: 'Exercises',
+                subtitle: 'Question sheets + key',
+                color: const Color(0xFF7C3AED),
+                onTap: () => context.push('/teacher/exercises'),
+              ),
+              _ToolTile(
+                icon: Icons.calendar_month,
+                label: 'Scheme of Work',
+                subtitle: 'Whole-term plan',
+                color: const Color(0xFF0891B2),
+                onTap: () => context.push('/teacher/scheme-of-work'),
+              ),
+              _ToolTile(
+                icon: Icons.assignment,
+                label: 'Create Exam',
+                subtitle: 'Saved on eexams',
+                color: const Color(0xFF0D406C),
+                onTap: () => context.push('/teacher/exams'),
+              ),
+              _ToolTile(
+                icon: Icons.open_in_new,
+                label: 'eexams Dashboard',
+                subtitle: 'Publish, results, students',
+                color: const Color(0xFF0CBD73),
+                onTap: () => openEexams(context, redirect: '/teacher'),
+              ),
+              _ToolTile(
+                icon: Icons.add_circle,
+                label: 'Create Course',
+                subtitle: 'Create a new course',
+                color: Colors.purple,
+                onTap: _navigateToCreateCourse,
+              ),
+              _ToolTile(
+                icon: Icons.school,
+                label: 'Course Guider',
+                subtitle: 'Guide your courses',
+                color: Colors.blue,
+                onTap: _navigateToCourseGuider,
+              ),
+            ]),
           ],
         ),
       ),
@@ -1032,6 +1129,78 @@ class _CourseCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ToolTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ToolTile({
+    required this.icon,
+    required this.label,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(isDark ? 0.15 : 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(isDark ? 0.3 : 0.15)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: color, size: 22),
+                ),
+                const Spacer(),
+                Icon(Icons.chevron_right, color: color.withOpacity(0.5), size: 18),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black87,
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

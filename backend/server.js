@@ -122,6 +122,7 @@ app.use('/api/messages', messagingRoutes); // Direct messaging routes
 app.use('/api/course-builder', courseBuilderRoutes); // AI Course Builder routes
 app.use('/api/labs', require('./src/routes/lab.routes')); // 3D/VR Virtual Labs (Unity ECH Labs engine)
 app.use('/api/integrations/eexams', require('./src/routes/eexams.routes')); // eexams.net SSO + result sync
+app.use('/api/teacher-tools', require('./src/routes/teacherTools.routes')); // Lesson planner + exam creation (engine on eexams.net)
 
 // Handle undefined routes
 app.use((req, res) => {

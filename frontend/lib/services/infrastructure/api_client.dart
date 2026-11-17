@@ -22,6 +22,11 @@ class ApiClient {
     iOptions: IOSOptions(accessibility: KeychainAccessibility.first_unlock),
   );
 
+  /// Auth headers for callers that build their own request (long AI calls,
+  /// multipart uploads from bytes) — same token logic as every other call.
+  Future<Map<String, String>> authHeaders({bool forceRefresh = false}) =>
+      _getAuthHeaders(forceRefresh: forceRefresh);
+
   /// Get authorization header — Firebase ID token first, stored JWT as fallback
   Future<Map<String, String>> _getAuthHeaders({bool forceRefresh = false}) async {
     // 1. Try Firebase (primary path: mobile / web / Google sign-in)

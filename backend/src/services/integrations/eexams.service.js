@@ -221,6 +221,7 @@ async function getStudentOverview(user, { limit = 50 } = {}) {
 }
 
 module.exports = {
+  isEmailVerified,
   startSso,
   checkServiceAuth,
   exchangeCode,
