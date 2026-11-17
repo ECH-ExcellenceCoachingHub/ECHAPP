@@ -155,3 +155,8 @@ Thumbs.db
 
 # Generated assistant / voice-chat speech
 uploads/voice/
+
+# Firebase Admin credentials in ANY encoding (never commit; production uses
+# the FIREBASE_SERVICE_ACCOUNT_BASE64 env var)
+serviceAccountKey*
+*firebase-adminsdk*.json

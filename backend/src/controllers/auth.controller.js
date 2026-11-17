@@ -5,6 +5,7 @@ const { sendSuccess, sendError, sendUnauthorized } = require('../utils/response.
 const { OAuth2Client } = require('google-auth-library');
 const admin = require('../config/firebase');
 const emailService = require('../services/email.service');
+const { canLinkByEmail, sendVerificationIfNeeded, notVerifiedMessage } = require('../utils/firebaseAccountLink');
 
 // Google OAuth is handled by Firebase, so we don't need separate Google OAuth client
 // const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
@@ -393,10 +394,16 @@ const firebaseLogin = async (req, res) => {
 
     // Fallback: account may have been created directly in MongoDB (e.g. via admin createTeacher)
     // without a Firebase account. Link the firebaseUid now so their role is preserved.
+    // Only with a VERIFIED email — otherwise anyone could register a Firebase
+    // account with a teacher's/admin's address and take over their account.
     if (!user && decodedToken.email) {
       const existingByEmail = await User.findOne({ email: decodedToken.email.toLowerCase() });
       if (existingByEmail && !existingByEmail.firebaseUid) {
-        console.log('Teacher/admin account found by email, linking firebaseUid:', decodedToken.uid);
+        if (!canLinkByEmail(decodedToken, existingByEmail)) {
+          const sent = await sendVerificationIfNeeded(decodedToken, existingByEmail);
+          return res.status(403).json({ success: false, code: 'EMAIL_NOT_VERIFIED', message: notVerifiedMessage(sent) });
+        }
+        console.log('Teacher/admin account found by verified email, linking firebaseUid:', decodedToken.uid);
         existingByEmail.firebaseUid = decodedToken.uid;
         await existingByEmail.save();
         user = existingByEmail;
@@ -491,8 +498,12 @@ const firebaseLogin = async (req, res) => {
             const existingByEmail = await User.findOne({ email: decodedToken.email });
             if (existingByEmail) {
               if (!existingByEmail.firebaseUid) {
-                // Orphaned record - safe to link
-                console.log('Found orphaned user by email, linking firebaseUid:', decodedToken.uid);
+                // Orphaned record - link only when the email is verified
+                if (!canLinkByEmail(decodedToken, existingByEmail)) {
+                  const sent = await sendVerificationIfNeeded(decodedToken, existingByEmail);
+                  return res.status(403).json({ success: false, code: 'EMAIL_NOT_VERIFIED', message: notVerifiedMessage(sent) });
+                }
+                console.log('Found orphaned user by verified email, linking firebaseUid:', decodedToken.uid);
                 existingByEmail.firebaseUid = decodedToken.uid;
                 await existingByEmail.save();
                 user = existingByEmail;

@@ -10,3 +10,10 @@ frontend/firebase_cpp_sdk_windows_12.7.0_fresh.zip
 frontend/.env
 frontend/.env.local
 frontend/.env.*.local
+
+# Visual Studio cache (contains a full-text index of the repo)
+.vs/
+
+# Firebase Admin credentials in any encoding
+**/serviceAccountKey*
+**/*firebase-adminsdk*.json

@@ -2,40 +2,44 @@ const User = require('../models/User');
 const { verifyToken } = require('../utils/jwt.utils');
 const { sendUnauthorized } = require('../utils/response.utils');
 const admin = require('../config/firebase');
+const { canLinkByEmail, sendVerificationIfNeeded, notVerifiedMessage } = require('../utils/firebaseAccountLink');
 
+// Never log tokens or the Authorization header: anyone who can read the
+// server logs could reuse them to act as the user.
 const protect = async (req, res, next) => {
-  console.log('=== AUTH MIDDLEWARE CALLED ===');
-  console.log('Request URL:', req.url);
-  console.log('Request method:', req.method);
-  console.log('Authorization header:', req.headers.authorization);
-  
   let token;
 
   // Check for token in header
   if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
     // Get token from header
     token = req.headers.authorization.split(' ')[1];
-    
-    if (token && token.length > 0) {
-      console.log('Token extracted:', token.substring(0, 10) + '...');
-    } else {
-      console.log('Invalid or missing token format');
+    if (!token) {
+      return sendUnauthorized(res, 'Not authorized, no token provided');
     }
-    
+
     // Try to verify as Firebase ID token first
     try {
       const decodedToken = await admin.auth().verifyIdToken(token);
-      console.log('Firebase token verified, UID:', decodedToken.uid);
-      
+
       // Find user by Firebase UID
       req.user = await User.findOne({ firebaseUid: decodedToken.uid }).select('-password');
       
-      // Fallback: teacher/admin accounts created directly in MongoDB (no firebaseUid set yet)
-      // Try to find by email and auto-link the firebaseUid so future logins resolve by UID
+      // Fallback: teacher/admin accounts created directly in MongoDB (no firebaseUid set yet).
+      // Link by email ONLY when Firebase has verified the email and the account
+      // isn't already linked to another Firebase user (prevents account takeover).
       if (!req.user && decodedToken.email) {
         const userByEmail = await User.findOne({ email: decodedToken.email.toLowerCase() });
         if (userByEmail) {
-          console.log('User not found by firebaseUid, found by email — linking firebaseUid:', decodedToken.uid);
+          if (!canLinkByEmail(decodedToken, userByEmail)) {
+            return res.status(403).json({
+              success: false,
+              code: userByEmail.firebaseUid ? 'EMAIL_IN_USE' : 'EMAIL_NOT_VERIFIED',
+              message: userByEmail.firebaseUid
+                ? 'An account with this email already exists. Please sign in with your original method.'
+                : notVerifiedMessage(await sendVerificationIfNeeded(decodedToken, userByEmail)),
+            });
+          }
+          console.log('Linking verified Firebase user to existing account by email:', decodedToken.uid);
           userByEmail.firebaseUid = decodedToken.uid;
           await userByEmail.save();
           req.user = await User.findById(userByEmail._id).select('-password');
@@ -43,53 +47,42 @@ const protect = async (req, res, next) => {
       }
 
       if (!req.user) {
-        console.log('User not found in database');
+        console.warn(`[auth] no ECH user for Firebase UID ${decodedToken.uid}`);
         return sendUnauthorized(res, 'User not found in database');
       }
-      
+
       if (!req.user.isActive) {
-        console.log('User account is deactivated');
         return sendUnauthorized(res, 'User account is deactivated');
       }
-      
-      console.log('Auth successful, proceeding to next middleware');
+
       return next();
     } catch (firebaseError) {
-      console.log('Firebase token verification failed:', firebaseError.message);
-      console.log('Trying JWT token verification...');
-      
+      // Not a Firebase ID token (or expired) — try the legacy ECH JWT.
       try {
         const decoded = verifyToken(token);
-        console.log('JWT token verified, ID:', decoded.id);
-        
+
         const user = await User.findById(decoded.id).select('-password');
         if (!user) {
-          console.log('User not found in database');
           return sendUnauthorized(res, 'User not found in database');
         }
-        
+
         if (!user.isActive) {
-          console.log('User account is deactivated');
           return sendUnauthorized(res, 'User account is deactivated');
         }
-        
+
         req.user = user;
-        console.log('Auth successful, proceeding to next middleware');
         return next();
       } catch (jwtError) {
-        console.log('JWT token verification failed:', jwtError.message);
+        console.warn(`[auth] rejected token on ${req.method} ${req.originalUrl.split('?')[0]}: ${firebaseError.code || firebaseError.message} / ${jwtError.message}`);
         return sendUnauthorized(res, 'Not authorized, invalid token');
       }
     }
   } else {
-    console.log('No authorization header provided');
     return sendUnauthorized(res, 'Not authorized, no token provided');
   }
 };
 
 const optionalProtect = (req, res, next) => {
-  console.log('=== OPTIONAL AUTH MIDDLEWARE CALLED ===');
-  
   let token;
 
   // Check for token in header
@@ -115,7 +108,6 @@ const optionalProtect = (req, res, next) => {
               if (typeof next === 'function') next();
             });
         } catch (jwtError) {
-          console.log('Optional Auth: Invalid token');
           if (typeof next === 'function') next();
         }
       });

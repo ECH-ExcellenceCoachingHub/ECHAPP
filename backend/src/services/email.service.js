@@ -113,6 +113,32 @@ class EmailService {
   }
 
   /**
+   * Send a Firebase email-verification link. Used when someone signs in with
+   * an email that belongs to an existing ECH account: the account is only
+   * connected once they prove they own the mailbox.
+   */
+  async sendEmailVerificationEmail(email, verifyUrl, fullName) {
+    const name = String(fullName || '').replace(/[<>&"]/g, '') || 'there';
+    const safeUrl = String(verifyUrl).replace(/"/g, '&quot;');
+    const msg = {
+      to: email,
+      from: { email: this.fromEmail, name: this.fromName },
+      subject: 'Verify your email - Excellence Coaching Hub',
+      text: `Hi ${name},\n\nPlease verify your email address to finish signing in to Excellence Coaching Hub:\n${verifyUrl}\n\nThen sign in again. If you did not try to sign in, you can ignore this email.`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1f2937">
+  <h2 style="color:#047857;margin-top:0">Verify your email</h2>
+  <p>Hi ${name},</p>
+  <p>Please verify your email address to finish signing in to Excellence Coaching Hub.</p>
+  <p style="margin:28px 0"><a href="${safeUrl}" style="background:#047857;color:#fff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:bold">Verify email</a></p>
+  <p>After verifying, sign in again.</p>
+  <p style="color:#6b7280;font-size:13px">If you did not try to sign in, you can ignore this email — nobody can access your account without this link.</p>
+</div>`,
+    };
+    const response = await this.sgMail.send(msg);
+    return { success: true, messageId: response[0].headers['x-message-id'] };
+  }
+
+  /**
    * Send password reset confirmation email
    */
   async sendPasswordResetConfirmationEmail(email, user) {
