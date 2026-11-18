@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../config/app_theme.dart';
 import '../../../services/api/teacher_access_service.dart';
+import 'admin_teacher_approvals_screen.dart' show AdminBackButton;
 
 final _money = NumberFormat.decimalPattern();
 
@@ -93,6 +94,8 @@ class _AdminTeacherGuidesScreenState extends State<AdminTeacherGuidesScreen> {
         onRefresh: _load,
         child: ListView(padding: const EdgeInsets.all(16), children: [
           Row(children: [
+            const AdminBackButton(),
+            const SizedBox(width: 4),
             const Expanded(child: Text("Teacher's guides", style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800))),
             IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh)),
           ]),

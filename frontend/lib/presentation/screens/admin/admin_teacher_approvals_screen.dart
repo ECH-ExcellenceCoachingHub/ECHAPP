@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../config/app_theme.dart';
@@ -118,6 +119,8 @@ class _AdminTeacherApprovalsScreenState extends State<AdminTeacherApprovalsScree
         onRefresh: _load,
         child: ListView(padding: const EdgeInsets.all(16), children: [
           Row(children: [
+            const AdminBackButton(),
+            const SizedBox(width: 4),
             const Expanded(child: Text('Teacher approvals', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800))),
             IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh)),
           ]),
@@ -176,6 +179,19 @@ class _AdminTeacherApprovalsScreenState extends State<AdminTeacherApprovalsScree
             }),
         ]),
       ),
+    );
+  }
+}
+
+/// Back to the previous screen, or to the admin dashboard when opened directly.
+class AdminBackButton extends StatelessWidget {
+  const AdminBackButton({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      tooltip: 'Back',
+      icon: const Icon(Icons.arrow_back_rounded),
+      onPressed: () => context.canPop() ? context.pop() : context.go('/admin'),
     );
   }
 }
