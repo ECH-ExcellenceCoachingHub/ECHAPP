@@ -7,6 +7,7 @@ import '../../../../config/app_theme.dart';
 import '../../../../services/api/teacher_access_service.dart';
 import '../../../providers/teacher_access_provider.dart';
 import '../../../widgets/video_player/custom_video_player.dart';
+import '../../../widgets/smart_back_button.dart';
 
 /// A course's teacher's guide: chapters → lessons.
 class TeacherGuideScreen extends ConsumerStatefulWidget {
@@ -32,7 +33,7 @@ class _TeacherGuideScreenState extends ConsumerState<TeacherGuideScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
-      appBar: AppBar(title: const Text("Teacher's guide")),
+      appBar: AppBar(title: const Text("Teacher's guide"), leading: const SmartBackButton(fallback: '/teacher/dashboard')),
       body: FutureBuilder<TeacherGuide>(
         future: _future,
         builder: (context, snap) {
@@ -146,10 +147,16 @@ class _TeacherGuideLessonScreenState extends ConsumerState<TeacherGuideLessonScr
       future: _future,
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return Scaffold(
+            appBar: AppBar(leading: SmartBackButton(fallback: '/teacher/guides/${widget.courseId}')),
+            body: const Center(child: CircularProgressIndicator()),
+          );
         }
         if (snap.hasError) {
-          return Scaffold(appBar: AppBar(), body: Center(child: Text(snap.error.toString())));
+          return Scaffold(
+            appBar: AppBar(leading: SmartBackButton(fallback: '/teacher/guides/${widget.courseId}')),
+            body: Center(child: Text(snap.error.toString())),
+          );
         }
         final l = snap.data!;
         final g = l.guide;
@@ -158,6 +165,7 @@ class _TeacherGuideLessonScreenState extends ConsumerState<TeacherGuideLessonScr
           child: Scaffold(
             backgroundColor: AppTheme.getBackgroundColor(context),
             appBar: AppBar(
+              leading: SmartBackButton(fallback: '/teacher/guides/${widget.courseId}'),
               title: Text(l.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 16)),
               bottom: const TabBar(
                 isScrollable: true,

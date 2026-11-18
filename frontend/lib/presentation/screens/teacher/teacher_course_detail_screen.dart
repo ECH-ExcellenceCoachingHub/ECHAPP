@@ -12,6 +12,7 @@ import 'package:excellencecoachinghub/models/live_session.dart';
 import 'package:excellencecoachinghub/widgets/network_image_widget.dart';
 import 'package:excellencecoachinghub/presentation/providers/auth_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:excellencecoachinghub/presentation/widgets/smart_back_button.dart';
 
 /// Teacher Course Detail Screen - Shows course content and students
 class TeacherCourseDetailScreen extends ConsumerStatefulWidget {
@@ -240,6 +241,7 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
               expandedHeight: 200,
               pinned: true,
               backgroundColor: AppTheme.primaryGreen,
+              leading: const SmartBackButton(fallback: '/teacher/dashboard', color: Colors.white),
               flexibleSpace: FlexibleSpaceBar(
                 title: Text(
                   _courseContent?.course.title ?? 'Course Detail',

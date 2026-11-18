@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../../config/app_theme.dart';
 import '../../../models/student_performance.dart';
 import '../../../services/teacher_service.dart';
+import '../../widgets/smart_back_button.dart';
 
 /// One student's progress in a course the teacher teaches: lessons, sections, quizzes.
 class TeacherStudentDetailScreen extends StatefulWidget {
@@ -31,7 +32,10 @@ class _TeacherStudentDetailScreenState extends State<TeacherStudentDetailScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
-      appBar: AppBar(title: const Text('Student progress'), actions: [IconButton(onPressed: _reload, icon: const Icon(Icons.refresh))]),
+      appBar: AppBar(
+          leading: SmartBackButton(fallback: '/teacher/courses/${widget.courseId}'),
+          title: const Text('Student progress'),
+          actions: [IconButton(onPressed: _reload, icon: const Icon(Icons.refresh))]),
       body: FutureBuilder<DetailedStudentPerformance>(
         future: _future,
         builder: (context, snap) {

@@ -8,6 +8,7 @@ import '../../../../services/api/teacher_access_service.dart';
 import '../../../providers/auth_provider.dart';
 import '../../../providers/teacher_access_provider.dart';
 import 'teacher_journey_widgets.dart';
+import '../../../widgets/smart_back_button.dart';
 
 const _subjects = [
   'Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'Kinyarwanda', 'French', 'Kiswahili',
@@ -164,8 +165,8 @@ class _TeacherOnboardingScreenState extends ConsumerState<TeacherOnboardingScree
       appBar: AppBar(
         title: Text(_wasApproved ? 'Edit teacher profile' : 'Teacher profile'),
         leading: _step > 0
-            ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _step--))
-            : (context.canPop() ? null : const SizedBox.shrink()),
+            ? IconButton(tooltip: 'Previous step', icon: const Icon(Icons.arrow_back_rounded), onPressed: () => setState(() => _step--))
+            : SmartBackButton(fallback: '/teacher/dashboard', signOutWhenRoot: !_wasApproved),
         actions: const [TeacherLogoutButton()],
       ),
       body: !_loaded

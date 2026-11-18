@@ -6,6 +6,7 @@ import '../../../../config/app_theme.dart';
 import '../../../../services/api/teacher_access_service.dart';
 import '../../../providers/teacher_access_provider.dart';
 import 'teacher_journey_widgets.dart';
+import '../../../widgets/smart_back_button.dart';
 
 /// Step 2: waiting for an admin to approve (or fix-and-resubmit after a rejection).
 class TeacherPendingScreen extends ConsumerWidget {
@@ -16,7 +17,11 @@ class TeacherPendingScreen extends ConsumerWidget {
     final access = ref.watch(teacherAccessProvider);
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
-      appBar: AppBar(title: const Text('Teacher account'), automaticallyImplyLeading: false, actions: const [TeacherLogoutButton()]),
+      appBar: AppBar(
+        title: const Text('Teacher account'),
+        leading: const SmartBackButton(signOutWhenRoot: true),
+        actions: const [TeacherLogoutButton()],
+      ),
       body: access.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => _Retry(message: e.toString(), onRetry: () => ref.invalidate(teacherAccessProvider)),

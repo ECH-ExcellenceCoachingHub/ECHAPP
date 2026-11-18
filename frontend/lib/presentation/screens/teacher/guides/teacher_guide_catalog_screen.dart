@@ -11,6 +11,7 @@ import '../../../../services/api/teacher_access_service.dart';
 import '../../../../widgets/network_image_widget.dart';
 import '../../../providers/teacher_access_provider.dart';
 import '../onboarding/teacher_journey_widgets.dart';
+import '../../../widgets/smart_back_button.dart';
 
 final _money = NumberFormat.decimalPattern();
 
@@ -138,7 +139,7 @@ class _TeacherGuideCatalogScreenState extends ConsumerState<TeacherGuideCatalogS
       backgroundColor: AppTheme.getBackgroundColor(context),
       appBar: AppBar(
         title: Text(widget.journey ? 'Choose your course' : "Teacher's guides"),
-        automaticallyImplyLeading: !widget.journey,
+        leading: SmartBackButton(fallback: '/teacher/dashboard', signOutWhenRoot: widget.journey),
         actions: [
           IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh)),
           if (widget.journey) const TeacherLogoutButton(),

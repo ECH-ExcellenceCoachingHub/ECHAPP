@@ -6,6 +6,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/teacher_access_provider.dart';
 import '../../router/post_auth_navigation.dart';
+import '../../widgets/smart_back_button.dart';
 
 /// Shown once to new Google / phone accounts: "Are you a student or a teacher?"
 /// (email sign-up asks this inside the registration form).
@@ -46,6 +47,11 @@ class _RoleSelectionScreenState extends ConsumerState<RoleSelectionScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: const SmartBackButton(signOutWhenRoot: true),
+      ),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
