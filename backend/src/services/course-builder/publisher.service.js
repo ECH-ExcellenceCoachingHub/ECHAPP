@@ -59,6 +59,10 @@ async function publishLocked(job, { chapterIndex = null, itemIds = null }) {
   const items = await CourseBuildItem.find(filter);
   items.sort((a, b) => (a.chapterIndex ?? 1e9) - (b.chapterIndex ?? 1e9) || a.order - b.order);
 
+  // A teacher's guide is never turned into student lessons: its approved items
+  // become readable by teachers who hold the course, and the course points at it.
+  if (job.purpose === 'teacher_guide') return publishGuide(job, items);
+
   let published = 0;
   for (const item of items) {
     const sectionId = await ensureSection(job, item);
@@ -67,6 +71,26 @@ async function publishLocked(job, { chapterIndex = null, itemIds = null }) {
   }
   await fillCourseDetails(job);
   return { published };
+}
+
+async function publishGuide(job, items) {
+  const now = new Date();
+  if (items.length) {
+    await CourseBuildItem.updateMany(
+      { _id: { $in: items.map(i => i._id) } },
+      { $set: { status: 'published', 'published.at': now, dirtyAfterPublish: false } },
+    );
+  }
+  if (items.length) {
+    await require('../video/video-jobs.service').onGuideItemsPublished(job.toObject ? job.toObject() : job, items.map(i => i._id)).catch(() => {});
+  }
+  const published = await CourseBuildItem.countDocuments({ jobId: job._id, status: 'published' });
+  if (published) {
+    await Course.updateOne({ _id: job.courseId }, {
+      $set: { 'teacherGuide.buildJobId': job._id, 'teacherGuide.publishedAt': now },
+    });
+  }
+  return { published: items.length, guideLessons: published };
 }
 
 // Section ids are saved as soon as the section exists, so a publish that fails

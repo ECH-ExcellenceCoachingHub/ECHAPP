@@ -112,13 +112,13 @@ function scoreItem(item, pages) {
     } else if ((c.notes || '').length < 400) {
       warnings.push('Lesson notes are short — the source section may be thin.');
     }
-    if (item.kind === 'lesson') {
+    if (item.kind === 'lesson' && !c.guide) {
       const coverage = sourceCoverage(c, pages);
       if (coverage != null && coverage < 0.5) {
         warnings.push(`Lesson notes leave out much of the book section (about ${Math.round(coverage * 100)}% of its key vocabulary is covered) — regenerate it.`);
       }
     }
-    if (item.content && !(c.activities || []).length) warnings.push('No interactive activities — regenerate to add some.');
+    if (item.content && !c.guide && !(c.activities || []).length) warnings.push('No interactive activities — regenerate to add some.');
   }
 
   const parts = [];

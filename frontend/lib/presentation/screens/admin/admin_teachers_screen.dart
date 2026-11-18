@@ -682,6 +682,31 @@ class _AdminTeachersScreenState extends ConsumerState<AdminTeachersScreen> {
                       ),
                       const SizedBox(width: 12),
                       Text(teacher.fullName),
+                      if (teacher.teacherStatus != null) ...[
+                        const SizedBox(width: 8),
+                        Tooltip(
+                          message: 'Registered themselves — manage in Teacher Approvals',
+                          child: InkWell(
+                            onTap: () => context.go('/admin/teacher-approvals'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: (teacher.teacherStatus == 'approved' ? Colors.green : teacher.teacherStatus == 'rejected' ? Colors.red : Colors.orange).withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                switch (teacher.teacherStatus) {
+                                  'approved' => 'Self-registered',
+                                  'rejected' => 'Rejected',
+                                  'pending' => 'Awaiting approval',
+                                  _ => 'Profile incomplete',
+                                },
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -760,6 +785,8 @@ class TeacherData {
   final bool isActive;
   final int assignedCourseCount;
   final DateTime? createdAt;
+  /// Self-registered teachers only: profile_incomplete | pending | approved | rejected.
+  final String? teacherStatus;
 
   TeacherData({
     required this.id,
@@ -771,6 +798,7 @@ class TeacherData {
     this.isActive = true,
     this.assignedCourseCount = 0,
     this.createdAt,
+    this.teacherStatus,
   });
 
   factory TeacherData.fromJson(Map<String, dynamic> json) {
@@ -783,6 +811,7 @@ class TeacherData {
       role: json['role'] ?? 'instructor',
       isActive: json['isActive'] ?? true,
       assignedCourseCount: json['assignedCourseCount'] ?? 0,
+      teacherStatus: json['teacherStatus'] as String?,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'])
           : null,

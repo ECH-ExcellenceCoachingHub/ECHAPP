@@ -23,7 +23,7 @@ const paymentSchema = new mongoose.Schema({
   paymentMethod: {
     type: String,
     required: [true, 'Payment method is required'],
-    enum: ['mtn_momo', 'airtel_money']
+    enum: ['mtn_momo', 'airtel_money', 'free']
   },
   transactionId: {
     type: String,
@@ -46,6 +46,12 @@ const paymentSchema = new mongoose.Schema({
     adminNotes: {
       type: String
     }
+  },
+  // 'course' = student enrollment; 'teacher_guide' = teacher access to a course's guide
+  purpose: {
+    type: String,
+    enum: ['course', 'teacher_guide'],
+    default: 'course'
   },
   contactInfo: {
     type: String,

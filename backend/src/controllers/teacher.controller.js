@@ -35,6 +35,25 @@ const getAssignedCourses = async (req, res) => {
       assignments.map(async (assignment) => {
         const course = assignment.courseId;
         if (!course) return null;
+        const guideOnly = assignment.source === 'guide_purchase';
+        const guide = {
+          available: !!(course.teacherGuide?.enabled && course.teacherGuide?.publishedAt),
+          classLevels: course.teacherGuide?.classLevels || [],
+        };
+        if (guideOnly) {
+          return {
+            assignmentId: assignment._id,
+            assignedAt: assignment.assignedAt,
+            notes: assignment.notes,
+            source: 'guide_purchase',
+            course: {
+              id: course._id, title: course.title, description: course.description, thumbnail: course.thumbnail,
+              level: course.level, price: course.price, isPublished: course.isPublished, category: course.category,
+              enrollmentCount: 0, activeStudents: 0, completedStudents: 0, upcomingSessions: 0,
+              teacherGuide: guide,
+            }
+          };
+        }
 
         const enrollmentCount = await Enrollment.countDocuments({ courseId: course._id });
         const activeStudents = await Enrollment.countDocuments({
@@ -59,7 +78,9 @@ const getAssignedCourses = async (req, res) => {
           assignmentId: assignment._id,
           assignedAt: assignment.assignedAt,
           notes: assignment.notes,
+          source: assignment.source || 'admin',
           course: {
+            teacherGuide: guide,
             id: course._id,
             title: course.title,
             description: course.description,
@@ -186,7 +207,14 @@ const getCourseContent = async (req, res) => {
         ...course.toObject(),
         stats
       },
-      sections: sectionsWithLessons
+      sections: sectionsWithLessons,
+      // What this teacher may do in the course (drives which buttons the app shows).
+      access: {
+        source: assignment.source || 'admin',
+        canSeeStudents: assignment.source !== 'guide_purchase',
+        canEditContent: !req.user.teacherStatus,
+        guideAvailable: !!(course.teacherGuide?.enabled && course.teacherGuide?.publishedAt),
+      }
     }, 'Course content retrieved successfully');
   } catch (error) {
     console.error('Get Course Content Error:', error);
@@ -207,7 +235,7 @@ const getCourseStudents = async (req, res) => {
     const assignment = await TeacherAssignment.findOne({
       teacherId,
       courseId,
-      isActive: true
+      isActive: true, source: { $ne: 'guide_purchase' }
     });
 
     if (!assignment) {
@@ -323,7 +351,7 @@ const getStudentPerformance = async (req, res) => {
     const assignment = await TeacherAssignment.findOne({
       teacherId,
       courseId,
-      isActive: true
+      isActive: true, source: { $ne: 'guide_purchase' }
     });
 
     if (!assignment) {
@@ -355,7 +383,9 @@ const getDashboardStats = async (req, res) => {
       isActive: true
     });
 
-    const courseIds = assignments.map(a => a.courseId);
+    // Students are only counted for courses an admin assigned; a teacher's-guide
+    // purchase gives the guide, not access to ECH learners.
+    const courseIds = assignments.filter(a => a.source !== 'guide_purchase').map(a => a.courseId);
 
     // Calculate stats
     const totalCourses = assignments.length;

@@ -60,6 +60,15 @@ import 'package:excellencecoachinghub/presentation/screens/admin/admin_books_scr
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_teachers_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_live_sessions_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/teacher/teacher_dashboard_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/teacher/teacher_student_detail_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/teacher/onboarding/teacher_onboarding_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/teacher/onboarding/teacher_pending_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/teacher/guides/teacher_guide_catalog_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/teacher/guides/teacher_guide_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/auth/role_selection_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/admin/admin_teacher_approvals_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/admin/admin_teacher_guides_screen.dart';
+import 'package:excellencecoachinghub/presentation/widgets/teacher_access_gate.dart';
 import 'package:excellencecoachinghub/presentation/screens/teacher/tools/lesson_planner_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/teacher/tools/planner_studio_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/teacher/tools/teacher_exams_screen.dart';
@@ -228,6 +237,24 @@ class AppRouter {
           GoRoute(
             path: '/phone-collection',
             builder: (context, state) => const PhoneCollectionScreen(),
+          ),
+          // Student / Teacher choice for new Google & phone accounts
+          GoRoute(
+            path: '/role-selection',
+            builder: (context, state) => const RoleSelectionScreen(),
+          ),
+          // New teacher journey: profile → approval → first course (not gated)
+          GoRoute(
+            path: '/teacher/onboarding',
+            builder: (context, state) => const TeacherOnboardingScreen(),
+          ),
+          GoRoute(
+            path: '/teacher/pending',
+            builder: (context, state) => const TeacherPendingScreen(),
+          ),
+          GoRoute(
+            path: '/teacher/choose-course',
+            builder: (context, state) => const TeacherGuideCatalogScreen(journey: true),
           ),
           // Name Collection - for phone sign-in users without a name
           GoRoute(
@@ -526,6 +553,24 @@ class AppRouter {
             ),
           ),
           GoRoute(
+            path: '/admin/teacher-approvals',
+            builder: (context, state) => const AdminLayoutWrapper(
+              screenName: 'Teacher Approvals',
+              child: AdminTeacherApprovalsScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/teacher-guides',
+            builder: (context, state) => const AdminLayoutWrapper(
+              screenName: "Teacher's Guides",
+              child: AdminTeacherGuidesScreen(),
+            ),
+          ),
+          GoRoute(
+            path: '/admin/courses/:courseId/teacher-guide-builder',
+            builder: (context, state) => CourseBuilderScreen(courseId: state.pathParameters['courseId'] ?? '', teacherGuide: true),
+          ),
+          GoRoute(
             path: '/admin/live-sessions',
             builder: (context, state) => const AdminLayoutWrapper(
               screenName: 'Admin Live Sessions',
@@ -541,6 +586,11 @@ class AppRouter {
           ),
 
           // Teacher Routes - Outside MainLayout for full-screen experience
+          // Every teacher screen is behind the access gate: a self-registered
+          // teacher must be approved and hold a course first.
+          ShellRoute(
+            builder: (context, state, child) => TeacherAccessGate(child: child),
+            routes: [
           GoRoute(
             path: '/teacher/dashboard',
             builder: (context, state) => const TeacherDashboardScreen(),
@@ -611,38 +661,10 @@ class AppRouter {
           ),
           GoRoute(
             path: '/teacher/courses/:courseId/students/:studentId',
-            builder: (context, state) {
-              final courseId = state.pathParameters['courseId'] ?? '';
-              final studentId = state.pathParameters['studentId'] ?? '';
-              return Scaffold(
-                appBar: AppBar(
-                  title: const Text('Student Details'),
-                  backgroundColor: AppTheme.primaryGreen,
-                ),
-                body: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.person, size: 64, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Student ID: $studentId',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      Text(
-                        'Course ID: $courseId',
-                        style: const TextStyle(fontSize: 14, color: Colors.grey),
-                      ),
-                      const SizedBox(height: 32),
-                      const Text(
-                        'Student detail screen coming soon',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
+            builder: (context, state) => TeacherStudentDetailScreen(
+              courseId: state.pathParameters['courseId'] ?? '',
+              studentId: state.pathParameters['studentId'] ?? '',
+            ),
           ),
           GoRoute(
             path: '/teacher/courses/:courseId/create-section',
@@ -661,6 +683,23 @@ class AppRouter {
                 sectionId: sectionId,
               );
             },
+          ),
+          GoRoute(
+            path: '/teacher/guides',
+            builder: (context, state) => const TeacherGuideCatalogScreen(),
+          ),
+          GoRoute(
+            path: '/teacher/guides/:courseId',
+            builder: (context, state) => TeacherGuideScreen(courseId: state.pathParameters['courseId'] ?? ''),
+          ),
+          GoRoute(
+            path: '/teacher/guides/:courseId/lessons/:itemId',
+            builder: (context, state) => TeacherGuideLessonScreen(
+              courseId: state.pathParameters['courseId'] ?? '',
+              itemId: state.pathParameters['itemId'] ?? '',
+            ),
+          ),
+            ],
           ),
 
           // Learning Routes - Outside MainLayout for full-screen focus

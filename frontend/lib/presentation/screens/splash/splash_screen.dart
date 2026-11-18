@@ -157,6 +157,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       final user = authState.user!;
       final nextStep = nextOnboardingRoute(user);
 
+      // Staff go straight to their own area (the teacher dashboard's access
+      // gate then shows a new teacher the step they are on).
+      if (user.role == 'admin' || user.role == 'instructor' || user.needsRoleSelection) {
+        await continueAfterAuth(context, ref);
+        return;
+      }
+
       if (user.role != 'admin' && user.role != 'instructor' &&
           (nextStep != null || !user.hasCompletedOnboarding)) {
         // Only the onboarding steps the user hasn't already answered.

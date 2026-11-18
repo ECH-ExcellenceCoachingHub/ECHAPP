@@ -27,6 +27,8 @@ const outlineChapterSchema = new mongoose.Schema({
 const courseBuildJobSchema = new mongoose.Schema({
   courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course', required: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  // 'course' builds student lessons; 'teacher_guide' builds how-to-teach guides (teachers only).
+  purpose: { type: String, enum: ['course', 'teacher_guide'], default: 'course' },
 
   status: {
     type: String,

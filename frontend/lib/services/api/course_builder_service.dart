@@ -48,8 +48,9 @@ class CourseBuilderService {
 
   // ─── Jobs ──────────────────────────────────────────────────────────────────
 
-  Future<List<CourseBuildJob>> listJobs(String courseId) async {
-    final data = _data(await _api.get('$_base/courses/$courseId/jobs')) as List;
+  /// [purpose] 'course' (student lessons) or 'teacher_guide' (admin-only teacher's guide).
+  Future<List<CourseBuildJob>> listJobs(String courseId, {String purpose = 'course'}) async {
+    final data = _data(await _api.get('$_base/courses/$courseId/jobs?purpose=$purpose')) as List;
     return data.map((e) => CourseBuildJob.fromJson(Map<String, dynamic>.from(e))).toList();
   }
 
@@ -59,11 +60,13 @@ class CourseBuilderService {
     required PlatformFile file,
     required BuildOptions options,
     void Function(double progress)? onProgress,
+    String purpose = 'course',
   }) async {
     final uri = Uri.parse('$_base/courses/$courseId/jobs');
     final request = http.MultipartRequest('POST', uri);
     request.headers.addAll(await _authHeaders());
     request.fields['options'] = jsonEncode(options.toJson());
+    request.fields['purpose'] = purpose;
 
     final contentType = _mediaType(file.extension);
     if (!kIsWeb && file.path != null) {

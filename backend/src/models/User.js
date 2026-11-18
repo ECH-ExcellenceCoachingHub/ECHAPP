@@ -118,6 +118,38 @@ const userSchema = new mongoose.Schema({
   eexamsLinkedAt: {
     type: Date,
     default: null
+  },
+  // Set on accounts created by Google/phone sign-in without a role choice:
+  // the app asks "Student or Teacher?" once, then clears it.
+  needsRoleSelection: {
+    type: Boolean,
+    default: false
+  },
+  // Self-registered teachers only (admin-created teachers leave this null and
+  // keep full access). profile_incomplete → pending → approved | rejected.
+  teacherStatus: {
+    type: String,
+    enum: ['profile_incomplete', 'pending', 'approved', 'rejected', null],
+    default: null
+  },
+  teacherProfile: {
+    school: { type: String, trim: true, maxlength: 200 },
+    schoolType: { type: String, trim: true, maxlength: 60 },
+    district: { type: String, trim: true, maxlength: 100 },
+    province: { type: String, trim: true, maxlength: 100 },
+    country: { type: String, trim: true, maxlength: 100 },
+    levels: [{ type: String, trim: true, maxlength: 40 }],
+    subjects: [{ type: String, trim: true, maxlength: 80 }],
+    yearsExperience: { type: Number, min: 0, max: 60 },
+    qualification: { type: String, trim: true, maxlength: 200 },
+    phone: { type: String, trim: true, maxlength: 30 },
+    bio: { type: String, trim: true, maxlength: 1000 },
+    submittedAt: Date
+  },
+  teacherReview: {
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    reviewedAt: Date,
+    reason: { type: String, maxlength: 1000 }
   }
 }, {
   timestamps: true

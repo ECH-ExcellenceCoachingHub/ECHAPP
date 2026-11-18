@@ -680,6 +680,124 @@ ${pagesToSource(pages, 18000, unit)}`;
   return generateValidContent(prompt, 'revision sheet');
 }
 
+// ─── Teacher's guide ─────────────────────────────────────────────────────────
+
+const GUIDE_SPEC = `{
+  "summary": "2-3 sentences: what learners learn in this lesson and the teaching approach",
+  "learningObjectives": ["Learners will be able to ..."],
+  "keyPoints": ["the subject ideas learners must leave with"],
+  "keyTerms": [ { "term": "...", "definition": "from the source", "page": 14 } ],
+  "notes": "markdown — the full teacher's guide, see NOTES FORMAT",
+  "sources": [ { "page": 14, "section": "..." } ],
+  "estimatedMinutes": 40,
+  "guide": {
+    "overview": "what this lesson is about and why it matters, for the teacher",
+    "durationMinutes": 40,
+    "priorKnowledge": ["what learners should already know"],
+    "materials": ["teaching and learning materials, low-cost or locally available first"],
+    "preparation": ["what the teacher prepares before the lesson"],
+    "lessonFlow": [
+      { "stage": "Introduction", "minutes": 5, "teacher": "what the teacher does and says", "learners": "what learners do", "tip": "optional practical tip" }
+    ],
+    "modernMethods": [ { "method": "e.g. Think-Pair-Share, gallery walk, role play, simple experiment, video/phone/projector, real-life case", "how": "exactly how to use it in THIS lesson" } ],
+    "misconceptions": [ { "misconception": "a common learner mistake", "fix": "how the teacher corrects it" } ],
+    "differentiation": { "support": ["help for learners who struggle / with special needs"], "extension": ["challenge for fast learners"] },
+    "assessment": [ { "question": "check-for-understanding question", "expectedAnswer": "..." } ],
+    "homework": "a short, meaningful home task",
+    "competences": ["generic competences / cross-cutting issues this lesson develops (e.g. critical thinking, cooperation, environment)"],
+    "teacherBackground": "short subject background so the teacher feels confident"
+  }
+}`;
+
+/**
+ * One lesson of a teacher's guide: HOW to teach the lesson in a modern,
+ * learner-centred way. Subject facts come only from the source; pedagogy
+ * (methods, activities, timing) is the AI's professional advice.
+ */
+async function generateTeachingGuide({ job, chapterTitle, lessonTitle, siblingTitles, pages }) {
+  const unit = job.source?.pageUnit || 'page';
+  const label = unit === 'segment' ? 'Part' : 'Page';
+  const level = job.outline?.level || '';
+  const prompt = `You are an expert teacher trainer. Write the TEACHER'S GUIDE for one lesson: it tells a classroom teacher exactly HOW to teach this lesson in a modern, learner-centred, competence-based way (as in the Rwanda CBC), easy to follow even for a new teacher.
+
+${lessonHeader(job, chapterTitle, lessonTitle, siblingTitles)}
+${level ? `CLASS / LEVEL: ${level}` : ''}
+
+RULES:
+- Subject content (facts, definitions, numbers, examples, formulas) comes ONLY from the SOURCE. Never invent facts. If the SOURCE is itself a teacher's guide, keep and improve its teaching steps.
+- Teaching advice (methods, activities, timing, questions, classroom management) is your professional expertise: practical, realistic for a normal school with limited resources (large classes, few devices), and specific to THIS lesson — never generic advice.
+- Write to the teacher ("Start by asking learners…", "Put learners in groups of four…"). Simple, clear English (or the LANGUAGE above).
+- lessonFlow: 4-7 timed stages that add up to the lesson duration (introduction/hook, discovery or activity, explanation, practice, assessment, conclusion). Each stage says what the TEACHER does and what LEARNERS do.
+- modernMethods: 2-4 active methods, each explained for this lesson. Include one idea using a phone, projector, video or simple digital tool when it truly helps, with a no-technology alternative.
+- misconceptions: 2-4. assessment: 3-5 questions with expected answers. differentiation: at least 2 support and 2 extension ideas.
+- The source contains [[${label} n]] markers; put the ${label.toLowerCase()} number in every "page" field.
+
+NOTES FORMAT ("notes", markdown, 600-1500 words) — the complete guide a teacher reads before class, using these ## headings in this order:
+## Lesson overview
+## Learning objectives
+## Before the lesson (materials and preparation)
+## Step-by-step lesson plan   (one ### per stage, with minutes, teacher actions and learner actions)
+## Modern teaching ideas
+## Common misconceptions
+## Supporting every learner
+## Checking understanding
+## Homework
+## Teacher's background notes
+
+Return JSON at the TOP LEVEL:
+${GUIDE_SPEC}
+
+SOURCE:
+${pagesToSource(pages, LESSON_SOURCE_CHARS, unit)}`;
+
+  let lastProblem = '';
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const extra = attempt === 1 ? '' : `\n\nIMPORTANT: your previous answer was rejected (${lastProblem}). Fix this and return the full object at the top level.`;
+    const raw = unwrapContent(await completeJson(prompt + extra, { maxTokens: 12000, temperature: 0.4 }));
+    const content = { ...normalizeContent(raw), guide: normalizeGuide(raw.guide || {}) };
+    lastProblem = contentProblem(content, 'guide') || guideProblem(content.guide);
+    if (!lastProblem) return content;
+  }
+  throw new Error(`AI returned an incomplete teacher's guide: ${lastProblem}`);
+}
+
+function guideProblem(g) {
+  if (g.lessonFlow.length < 3) return 'lessonFlow needs at least 3 timed stages';
+  if (!g.modernMethods.length) return 'modernMethods is empty';
+  if (!g.assessment.length) return 'assessment is empty';
+  return '';
+}
+
+function normalizeGuide(raw) {
+  const arr = (v) => (Array.isArray(v) ? v : []);
+  const str = (v) => (typeof v === 'string' ? v.trim() : v == null ? '' : String(v).trim());
+  const strs = (v, max = 12) => arr(v).map(str).filter(Boolean).slice(0, max);
+  const mins = (v) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n > 0 ? Math.min(240, n) : null; };
+  const flow = arr(raw.lessonFlow)
+    .filter(s => s && (s.stage || s.teacher))
+    .map(s => ({ stage: str(s.stage) || 'Stage', minutes: mins(s.minutes), teacher: str(s.teacher), learners: str(s.learners), tip: str(s.tip) }))
+    .slice(0, 10);
+  const total = flow.reduce((n, s) => n + (s.minutes || 0), 0);
+  return {
+    overview: str(raw.overview),
+    durationMinutes: mins(raw.durationMinutes) || total || 40,
+    priorKnowledge: strs(raw.priorKnowledge),
+    materials: strs(raw.materials, 20),
+    preparation: strs(raw.preparation),
+    lessonFlow: flow,
+    modernMethods: arr(raw.modernMethods).filter(m => m && m.method).map(m => ({ method: str(m.method), how: str(m.how) })).slice(0, 6),
+    misconceptions: arr(raw.misconceptions).filter(m => m && m.misconception).map(m => ({ misconception: str(m.misconception), fix: str(m.fix) })).slice(0, 6),
+    differentiation: {
+      support: strs(raw.differentiation?.support, 8),
+      extension: strs(raw.differentiation?.extension, 8),
+    },
+    assessment: arr(raw.assessment).filter(q => q && q.question).map(q => ({ question: str(q.question), expectedAnswer: str(q.expectedAnswer) })).slice(0, 10),
+    homework: str(raw.homework),
+    competences: strs(raw.competences, 10),
+    teacherBackground: str(raw.teacherBackground),
+  };
+}
+
 function normalizeContent(raw) {
   const arr = (v) => (Array.isArray(v) ? v : []);
   const str = (v) => (typeof v === 'string' ? v.trim() : v == null ? '' : String(v));
@@ -909,6 +1027,8 @@ module.exports = {
   normalizeContent,
   generateOutline,
   generateLessonContent,
+  generateTeachingGuide,
+  normalizeGuide,
   generateRevisionNotes,
   generateQuestions,
   difficultyCounts,

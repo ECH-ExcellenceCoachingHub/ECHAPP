@@ -243,6 +243,17 @@ class CourseBuilderRunner {
       }
     };
 
+    // A teacher's guide has one "how to teach it" item per lesson — no tests or exams.
+    if (job.purpose === 'teacher_guide') {
+      for (const ch of chapters) {
+        ch.lessons.forEach((l, i) => add({
+          kind: 'lesson', chapterIndex: ch.index, order: i, title: l.title, pageStart: l.pageStart, pageEnd: l.pageEnd,
+        }));
+      }
+      if (toCreate.length) await CourseBuildItem.insertMany(toCreate);
+      return toCreate.length;
+    }
+
     for (const ch of chapters) {
       if (LESSON_MODES.includes(mode)) {
         ch.lessons.forEach((l, i) => add({
@@ -362,7 +373,13 @@ class CourseBuilderRunner {
       let content = item.content;
       let questions = (item.questions || []).map(q => (q.toObject ? q.toObject() : q));
 
-      if (item.kind === 'lesson') {
+      if (item.kind === 'lesson' && job.purpose === 'teacher_guide') {
+        if (part !== 'questions') {
+          const siblings = (chapter?.lessons || []).map(l => l.title).filter(t => t !== item.title);
+          content = await ai.generateTeachingGuide({ job: jobForPrompt, chapterTitle, lessonTitle: item.title, siblingTitles: siblings, pages: contextPages });
+        }
+        questions = [];
+      } else if (item.kind === 'lesson') {
         const wantContent = o.mode !== 'quizzes_only' && part !== 'questions';
         const wantQuestions = ['full', 'selected', 'quizzes_only'].includes(o.mode) && o.questionsPerLesson > 0 && part !== 'content';
         const siblings = (chapter?.lessons || []).map(l => l.title).filter(t => t !== item.title);

@@ -1,7 +1,7 @@
 const User = require('../models/User');
 const crypto = require('crypto');
 const { generateToken, generateRefreshToken } = require('../utils/jwt.utils');
-const { sendSuccess, sendError, sendUnauthorized } = require('../utils/response.utils');
+const { sendSuccess, sendError, sendUnauthorized, sendNotFound } = require('../utils/response.utils');
 const { OAuth2Client } = require('google-auth-library');
 const admin = require('../config/firebase');
 const emailService = require('../services/email.service');
@@ -11,10 +11,27 @@ const { canLinkByEmail, sendVerificationIfNeeded, notVerifiedMessage } = require
 // const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 // const client = new OAuth2Client(CLIENT_ID);
 
+/**
+ * Roles a person may choose for themselves. Never 'admin'. A self-chosen
+ * teacher starts with an incomplete profile and must be approved by an admin.
+ */
+const SELF_SERVICE_ROLES = ['student', 'instructor'];
+function normalizeSelfRole(role) {
+  const r = String(role || '').trim().toLowerCase();
+  if (r === 'teacher') return 'instructor';
+  return SELF_SERVICE_ROLES.includes(r) ? r : null;
+}
+function roleFields(role) {
+  return role === 'instructor'
+    ? { role: 'instructor', teacherStatus: 'profile_incomplete' }
+    : { role: 'student' };
+}
+
 // Register user
 const register = async (req, res) => {
   try {
     const { fullName, email, password, phone } = req.body;
+    const chosenRole = normalizeSelfRole(req.body.role) || 'student';
 
     // Either email or phone is required
     if (!email && !phone) {
@@ -40,7 +57,8 @@ const register = async (req, res) => {
       fullName,
       email,
       password,
-      phone
+      phone,
+      ...roleFields(chosenRole)
     });
 
     if (user) {
@@ -62,6 +80,8 @@ const register = async (req, res) => {
           fullName: user.fullName,
           email: user.email,
           role: user.role,
+          teacherStatus: user.teacherStatus || null,
+          needsRoleSelection: !!user.needsRoleSelection,
           phone: user.phone,
           avatar: user.avatar,
           createdAt: user.createdAt.getTime()
@@ -121,6 +141,8 @@ const login = async (req, res) => {
           fullName: user.fullName,
           email: user.email,
           role: user.role,
+          teacherStatus: user.teacherStatus || null,
+          needsRoleSelection: !!user.needsRoleSelection,
           phone: user.phone,
           avatar: user.avatar,
           hasCompletedOnboarding: user.hasCompletedOnboarding,
@@ -186,6 +208,8 @@ const getProfile = async (req, res) => {
       fullName: user.fullName,
       email: user.email,
       role: user.role,
+      teacherStatus: user.teacherStatus || null,
+      needsRoleSelection: !!user.needsRoleSelection,
       phone: user.phone,
       avatar: user.avatar,
       createdAt: user.createdAt.getTime()
@@ -238,6 +262,8 @@ const updateProfile = async (req, res) => {
       fullName: user.fullName,
       email: user.email,
       role: user.role,
+      teacherStatus: user.teacherStatus || null,
+      needsRoleSelection: !!user.needsRoleSelection,
       phone: user.phone,
       avatar: user.avatar,
       interests: user.interests,
@@ -315,6 +341,7 @@ const recordSessionHeartbeat = async (req, res) => {
 const googleSignIn = async (req, res) => {
   try {
     const { idToken } = req.body;
+    const chosenRole = normalizeSelfRole(req.body.role);
     
     if (!idToken) {
       return sendError(res, 'ID token is required', 400);
@@ -335,7 +362,8 @@ const googleSignIn = async (req, res) => {
         firebaseUid: decodedToken.uid,
         email: decodedToken.email,
         fullName: decodedToken.name || 'Google User',
-        role: 'student',
+        ...roleFields(chosenRole || 'student'),
+        needsRoleSelection: !chosenRole,
         provider: 'google',
         isVerified: decodedToken.email_verified || false,
         isActive: true,
@@ -354,6 +382,8 @@ const googleSignIn = async (req, res) => {
         fullName: user.fullName,
         email: user.email,
         role: user.role,
+        teacherStatus: user.teacherStatus || null,
+        needsRoleSelection: !!user.needsRoleSelection,
         avatar: user.avatar,
         provider: user.provider,
         createdAt: user.createdAt.getTime()
@@ -371,6 +401,7 @@ const googleSignIn = async (req, res) => {
 const firebaseLogin = async (req, res) => {
   try {
     const { idToken, fullName, deviceId } = req.body;
+    const chosenRole = normalizeSelfRole(req.body.role);
     
     // Debug logging
     console.log('=== Firebase Login Debug ===');
@@ -458,7 +489,9 @@ const firebaseLogin = async (req, res) => {
           firebaseUid: decodedToken.uid,
           ...(decodedToken.email && { email: decodedToken.email }),
           fullName: displayName,
-          role: 'student',
+          ...roleFields(chosenRole || 'student'),
+          // Google / phone sign-up without a role choice: ask once in the app.
+          needsRoleSelection: !chosenRole,
           provider: 'firebase',
           isVerified: decodedToken.email_verified || false,
           isActive: true,
@@ -594,6 +627,8 @@ const firebaseLogin = async (req, res) => {
         fullName: user.fullName,
         email: user.email,
         role: user.role,
+        teacherStatus: user.teacherStatus || null,
+        needsRoleSelection: !!user.needsRoleSelection,
         phone: user.phone,
         avatar: user.avatar,
         provider: user.provider,
@@ -845,7 +880,41 @@ const deleteAccount = async (req, res) => {
   }
 };
 
+// Choose the account role once, after a Google / phone sign-up (PUT /auth/role)
+const chooseRole = async (req, res) => {
+  try {
+    const role = normalizeSelfRole(req.body?.role);
+    if (!role) return sendError(res, 'Role must be "student" or "instructor"', 400);
+    const user = await User.findById(req.user._id || req.user.id);
+    if (!user) return sendNotFound(res, 'User not found');
+    if (!user.needsRoleSelection) {
+      return sendError(res, 'Your role has already been set. Contact support to change it.', 409);
+    }
+    Object.assign(user, roleFields(role));
+    user.needsRoleSelection = false;
+    await user.save();
+    sendSuccess(res, {
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+        teacherStatus: user.teacherStatus || null,
+        needsRoleSelection: false,
+        avatar: user.avatar,
+        hasCompletedOnboarding: user.hasCompletedOnboarding,
+        interests: user.interests,
+        createdAt: user.createdAt.getTime()
+      }
+    }, 'Role saved');
+  } catch (error) {
+    sendError(res, 'Failed to save role', 500, error.message);
+  }
+};
+
 module.exports = {
+  chooseRole,
   register,
   login,
   refreshToken,

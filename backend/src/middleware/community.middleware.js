@@ -48,7 +48,7 @@ const loadCommunityContext = async (req, res, next) => {
       const assignment = await TeacherAssignment.findOne({
         teacherId: userId,
         courseId,
-        isActive: true
+        isActive: true, source: { $ne: 'guide_purchase' }
       }).lean();
 
       if (assignment) {

@@ -11,6 +11,7 @@ import 'package:excellencecoachinghub/models/student_performance.dart';
 import 'package:excellencecoachinghub/models/live_session.dart';
 import 'package:excellencecoachinghub/widgets/network_image_widget.dart';
 import 'package:excellencecoachinghub/presentation/providers/auth_provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Teacher Course Detail Screen - Shows course content and students
 class TeacherCourseDetailScreen extends ConsumerStatefulWidget {
@@ -60,31 +61,39 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
     });
 
     try {
-      final futures = await Future.wait([
-        _teacherService.getCourseContent(widget.courseId),
-        _teacherService.getCourseStudents(widget.courseId, page: _studentsPage),
-        _liveSessionService.getTeacherSessions(status: 'scheduled'),
-      ]);
-
-      final courseContent = futures[0] as CourseContent;
-      final studentsResponse = futures[1] as CourseStudentsResponse;
-      final sessionsResponse = futures[2] as LiveSessionsResponse;
-
-      // Filter sessions for this course
-      final courseSessions = sessionsResponse.sessions
-          .where((s) => s.courseId == widget.courseId)
-          .toList();
-
+      final courseContent = await _teacherService.getCourseContent(widget.courseId);
+      List<StudentPerformance> students = [];
+      var studentsTotalPages = 1;
+      List<LiveSession> courseSessions = [];
+      // Students and live classes exist only for courses ECH assigned to the
+      // teacher; a teacher's-guide course has neither.
+      if (courseContent.canSeeStudents) {
+        try {
+          final r = await _teacherService.getCourseStudents(widget.courseId, page: _studentsPage);
+          students = r.students;
+          studentsTotalPages = r.totalPages;
+        } catch (e) {
+          debugPrint('Students not loaded: $e');
+        }
+        try {
+          final r = await _liveSessionService.getTeacherSessions(status: 'scheduled');
+          courseSessions = r.sessions.where((s) => s.courseId == widget.courseId).toList();
+        } catch (e) {
+          debugPrint('Sessions not loaded: $e');
+        }
+      }
+      if (!mounted) return;
       setState(() {
         _courseContent = courseContent;
-        _students = studentsResponse.students;
-        _studentsTotalPages = studentsResponse.totalPages;
+        _students = students;
+        _studentsTotalPages = studentsTotalPages;
         _sessions = courseSessions;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
-        _errorMessage = 'Error loading course data: $e';
+        _errorMessage = 'Could not load this course. ${e.toString()}';
         _isLoading = false;
       });
     }
@@ -190,9 +199,14 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
             const Text('Click below to join the BigBlueButton meeting:'),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: () {
-                // Launch URL
+              onPressed: () async {
                 Navigator.pop(context);
+                final uri = Uri.tryParse(joinUrl);
+                if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('Could not open the meeting link')));
+                  }
+                }
               },
               icon: const Icon(Icons.open_in_browser),
               label: const Text('Open Meeting'),
@@ -214,8 +228,11 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
 
   @override
   Widget build(BuildContext context) {
+    final c = _courseContent;
+    final canEdit = c?.canEditContent ?? false;
+    final canStudents = c?.canSeeStudents ?? false;
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: AppTheme.getBackgroundColor(context),
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
@@ -243,16 +260,24 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
               actions: [
                 // Teachers reach their course community from here — these
                 // screens sit outside MainLayout, so there is no sidebar.
-                IconButton(
-                  icon: const Icon(Icons.auto_awesome, color: Colors.white),
-                  tooltip: 'Build lessons from a book with AI',
-                  onPressed: () => context.push('/teacher/courses/${widget.courseId}/ai-builder').then((_) => _loadCourseData()),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.groups_rounded, color: Colors.white),
-                  tooltip: 'Course community',
-                  onPressed: () => context.push('/community/${widget.courseId}'),
-                ),
+                if (c?.guideAvailable == true)
+                  IconButton(
+                    icon: const Icon(Icons.auto_stories, color: Colors.white),
+                    tooltip: "Teacher's guide",
+                    onPressed: () => context.push('/teacher/guides/${widget.courseId}'),
+                  ),
+                if (canEdit)
+                  IconButton(
+                    icon: const Icon(Icons.auto_awesome, color: Colors.white),
+                    tooltip: 'Build lessons from a book with AI',
+                    onPressed: () => context.push('/teacher/courses/${widget.courseId}/ai-builder').then((_) => _loadCourseData()),
+                  ),
+                if (canStudents)
+                  IconButton(
+                    icon: const Icon(Icons.groups_rounded, color: Colors.white),
+                    tooltip: 'Course community',
+                    onPressed: () => context.push('/community/${widget.courseId}'),
+                  ),
                 IconButton(
                   icon: const Icon(Icons.refresh, color: Colors.white),
                   onPressed: _loadCourseData,
@@ -265,7 +290,7 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
             ),
             SliverToBoxAdapter(
               child: Container(
-                color: Colors.white,
+                color: AppTheme.getCardColor(context),
                 child: TabBar(
                   controller: _tabController,
                   labelColor: AppTheme.primaryGreen,
@@ -294,12 +319,14 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
                     ],
                   ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _scheduleSession(),
-        icon: const Icon(Icons.add),
-        label: const Text('Schedule Session'),
-        backgroundColor: AppTheme.primaryGreen,
-      ),
+      floatingActionButton: canStudents
+          ? FloatingActionButton.extended(
+              onPressed: () => _scheduleSession(),
+              icon: const Icon(Icons.add),
+              label: const Text('Schedule Session'),
+              backgroundColor: AppTheme.primaryGreen,
+            )
+          : null,
     );
   }
 
@@ -325,8 +352,20 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
   Widget _buildContentTab() {
     return Column(
       children: [
+        if (_courseContent != null && _courseContent!.guideAvailable)
+          Container(
+            margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: const Color(0xFF3B82F6).withOpacity(0.08), borderRadius: BorderRadius.circular(12)),
+            child: Row(children: [
+              const Icon(Icons.auto_stories, color: Color(0xFF3B82F6)),
+              const SizedBox(width: 10),
+              const Expanded(child: Text('How to teach every lesson: step-by-step plans, modern methods and videos.')),
+              FilledButton(onPressed: () => context.push('/teacher/guides/${widget.courseId}'), child: const Text("Open teacher's guide")),
+            ]),
+          ),
         // Create Section Button
-        if (_courseContent != null)
+        if (_courseContent != null && _courseContent!.canEditContent)
           Container(
             margin: const EdgeInsets.all(16),
             child: Wrap(
@@ -387,22 +426,26 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Create your first section to get started',
+                        _courseContent?.canEditContent == true
+                            ? 'Create your first section to get started'
+                            : 'ECH is preparing the lessons of this course.',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[500],
                         ),
                       ),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: _createSection,
-                        icon: const Icon(Icons.add),
-                        label: const Text('Create First Section'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryGreen,
-                          foregroundColor: Colors.white,
+                      if (_courseContent?.canEditContent == true) ...[
+                        const SizedBox(height: 24),
+                        ElevatedButton.icon(
+                          onPressed: _createSection,
+                          icon: const Icon(Icons.add),
+                          label: const Text('Create First Section'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryGreen,
+                            foregroundColor: Colors.white,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 )
@@ -422,11 +465,13 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
                               style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                             subtitle: Text('${section.lessons.length} lessons'),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.add_circle_outline, color: AppTheme.primaryGreen),
-                              onPressed: () => _createLesson(section.id),
-                              tooltip: 'Add Lesson',
-                            ),
+                            trailing: _courseContent!.canEditContent
+                                ? IconButton(
+                                    icon: const Icon(Icons.add_circle_outline, color: AppTheme.primaryGreen),
+                                    onPressed: () => _createLesson(section.id),
+                                    tooltip: 'Add Lesson',
+                                  )
+                                : null,
                           ),
                           
                           // Lessons
@@ -459,11 +504,12 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.schedule, color: AppTheme.primaryGreen),
-                                      onPressed: () => _scheduleSession(section.id, lesson.id),
-                                      tooltip: 'Schedule Live Session',
-                                    ),
+                                    if (_courseContent!.canSeeStudents)
+                                      IconButton(
+                                        icon: const Icon(Icons.schedule, color: AppTheme.primaryGreen),
+                                        onPressed: () => _scheduleSession(section.id, lesson.id),
+                                        tooltip: 'Schedule Live Session',
+                                      ),
                                     if (lesson.hasRecording)
                                       IconButton(
                                         icon: const Icon(Icons.video_library, color: Colors.blue),
@@ -478,7 +524,7 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
                             }).toList(),
                           
                           // Add Lesson Button for Empty Sections
-                          if (section.lessons.isEmpty)
+                          if (section.lessons.isEmpty && _courseContent!.canEditContent)
                             Padding(
                               padding: const EdgeInsets.all(16),
                               child: OutlinedButton.icon(
@@ -503,6 +549,7 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
 
   // Students Tab
   Widget _buildStudentsTab() {
+    if (_courseContent?.canSeeStudents == false) return const _GuideOnlyNote(what: 'students');
     return Column(
       children: [
         // Search bar
@@ -525,7 +572,7 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
                   : null,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: AppTheme.getCardColor(context),
             ),
             onSubmitted: (value) {
               setState(() => _studentSearchQuery = value.trim());
@@ -586,6 +633,7 @@ class _TeacherCourseDetailScreenState extends ConsumerState<TeacherCourseDetailS
 
   // Sessions Tab
   Widget _buildSessionsTab() {
+    if (_courseContent?.canSeeStudents == false) return const _GuideOnlyNote(what: 'live classes');
     if (_sessions.isEmpty) {
       return Center(
         child: Column(
@@ -807,6 +855,29 @@ class _SessionCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Students and live classes belong to courses ECH assigns; a course taken for
+/// its teacher's guide shows this instead.
+class _GuideOnlyNote extends StatelessWidget {
+  final String what;
+  const _GuideOnlyNote({required this.what});
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(Icons.info_outline, size: 48, color: Theme.of(context).hintColor),
+          const SizedBox(height: 12),
+          Text(
+            "You have this course for its teacher's guide. ECH $what appear here only for courses ECH assigns you to teach online.",
+            textAlign: TextAlign.center,
+          ),
+        ]),
       ),
     );
   }

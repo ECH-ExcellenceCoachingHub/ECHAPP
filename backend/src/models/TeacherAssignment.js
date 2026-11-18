@@ -24,6 +24,17 @@ const teacherAssignmentSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  // 'admin' = assigned by an admin; 'guide_purchase' = approved teacher's-guide request
+  source: {
+    type: String,
+    enum: ['admin', 'guide_purchase'],
+    default: 'admin'
+  },
+  paymentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Payment',
+    default: null
+  },
   notes: {
     type: String,
     maxlength: [500, 'Notes cannot exceed 500 characters']

@@ -97,6 +97,17 @@ const courseSchema = new mongoose.Schema({
     paused: { type: Boolean, default: false },
     pausedAt: { type: Date, default: null },
     pausedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+  },
+  // Teacher's guide sold to teachers (separate from the student price).
+  // Content lives in the CourseBuildItems of `buildJobId` (purpose 'teacher_guide').
+  teacherGuide: {
+    enabled: { type: Boolean, default: false },
+    price: { type: Number, default: 0, min: 0 },
+    classLevels: [{ type: String, trim: true }],
+    subject: { type: String, trim: true, default: '' },
+    description: { type: String, trim: true, default: '' },
+    buildJobId: { type: mongoose.Schema.Types.ObjectId, ref: 'CourseBuildJob', default: null },
+    publishedAt: { type: Date, default: null }
   }
 }, {
   timestamps: true
@@ -108,5 +119,6 @@ courseSchema.index({ level: 1 });
 courseSchema.index({ price: 1 });
 courseSchema.index({ isPublished: 1 });
 courseSchema.index({ assignedTeacherIds: 1 });
+courseSchema.index({ 'teacherGuide.enabled': 1 });
 
 module.exports = mongoose.model('Course', courseSchema);

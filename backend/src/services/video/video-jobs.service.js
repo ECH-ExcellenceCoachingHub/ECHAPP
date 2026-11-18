@@ -54,6 +54,8 @@ async function videoConfig({ buildJob, course, variant }) {
     durationSec: subject.durationSec,
     renderer: RENDERER_VERSION,
     tts: (process.env.VIDEO_TTS_PROVIDER || 'auto').toLowerCase(),
+    // Teacher's-guide videos coach the teacher on how to teach the lesson.
+    ...(buildJob?.purpose === 'teacher_guide' ? { audience: 'teacher' } : {}),
   };
 }
 
@@ -144,6 +146,10 @@ async function queueForTarget({ buildJob, item = null, lesson = null, policyOnCh
     return { skipped: 'stale_manual' };
   }
   const results = { explainer: await enqueueVideo({ buildJob, item, lesson, variant: 'explainer' }) };
+  if (buildJob?.purpose === 'teacher_guide') {
+    if (results.explainer.created) log(`Queued the teaching video for "${target.title}"`);
+    return results;
+  }
   const config = await videoConfig({ buildJob, variant: 'experiment' });
   const content = item ? item.content : lesson.aiContent;
   const assessment = assessExperiment(config.subject, content);
@@ -171,6 +177,18 @@ async function onLessonPublished(item, lessonId) {
     if (buildJob?.options?.generateVideos !== false) {
       const fresh = await CourseBuildItem.findById(item._id).lean();
       await queueForTarget({ buildJob, item: fresh, policyOnChange: p.onChange }).catch(() => {});
+    }
+  }
+}
+
+/** Teacher's-guide items are never turned into lessons; honour the publish trigger here. */
+async function onGuideItemsPublished(buildJob, itemIds) {
+  const p = policy();
+  if (!p.enabled || p.trigger !== 'publish' || buildJob?.options?.generateVideos === false) return;
+  for (const id of itemIds) {
+    const item = await CourseBuildItem.findById(id).lean();
+    if (item?.kind === 'lesson' && item.content) {
+      await queueForTarget({ buildJob, item, policyOnChange: p.onChange }).catch(() => {});
     }
   }
 }
@@ -407,6 +425,7 @@ async function summaryForBuild(buildJobId) {
 }
 
 module.exports = {
+  onGuideItemsPublished,
   enqueueVideo,
   onLessonContentSaved,
   onLessonPublished,

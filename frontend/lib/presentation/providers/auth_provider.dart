@@ -729,6 +729,45 @@ class AuthNotifier extends StateNotifier<AuthState> {
     return authResponse.token;
   }
 
+  /// Saves the Student / Teacher choice of a new Google or phone account.
+  /// Throws with a readable message on failure.
+  Future<User> chooseRole(String role) async {
+    var token = await _getOrRefreshAccessToken();
+    User updated;
+    try {
+      updated = await _authRepository.chooseRole(token, role);
+    } catch (e) {
+      if (!e.toString().contains('Not authorized') && !e.toString().contains('invalid token')) rethrow;
+      token = await _refreshBackendToken();
+      updated = await _authRepository.chooseRole(token, role);
+    }
+    await _storageManager.saveUserRole(updated.role);
+    final current = state.user;
+    final merged = current == null
+        ? updated
+        : User(
+            id: current.id,
+            fullName: current.fullName,
+            email: current.email,
+            profilePicture: current.profilePicture,
+            phone: current.phone,
+            role: updated.role,
+            deviceId: current.deviceId,
+            disabled: current.disabled,
+            createdAt: current.createdAt,
+            lastActive: current.lastActive,
+            interests: current.interests,
+            shortTermGoal: current.shortTermGoal,
+            midTermGoal: current.midTermGoal,
+            longTermGoal: current.longTermGoal,
+            hasCompletedOnboarding: current.hasCompletedOnboarding,
+            teacherStatus: updated.teacherStatus,
+            needsRoleSelection: false,
+          );
+    state = state.copyWith(user: merged);
+    return merged;
+  }
+
   Future<String> _getOrRefreshAccessToken() async {
     String? token = await _storageManager.getAccessToken();
     if (token == null) {

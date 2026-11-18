@@ -12,7 +12,9 @@ import 'widgets/build_options_panel.dart';
 class CourseBuilderScreen extends StatefulWidget {
   final String courseId;
   final bool isTeacher;
-  const CourseBuilderScreen({super.key, required this.courseId, this.isTeacher = false});
+  /// Builds a teacher's guide (how to teach each lesson) instead of student lessons.
+  final bool teacherGuide;
+  const CourseBuilderScreen({super.key, required this.courseId, this.isTeacher = false, this.teacherGuide = false});
 
   @override
   State<CourseBuilderScreen> createState() => _CourseBuilderScreenState();
@@ -44,7 +46,7 @@ class _CourseBuilderScreenState extends State<CourseBuilderScreen> {
 
   Future<void> _load() async {
     try {
-      final jobs = await _service.listJobs(widget.courseId);
+      final jobs = await _service.listJobs(widget.courseId, purpose: widget.teacherGuide ? 'teacher_guide' : 'course');
       if (!mounted) return;
       setState(() {
         _jobs = jobs;
@@ -80,6 +82,7 @@ class _CourseBuilderScreenState extends State<CourseBuilderScreen> {
         courseId: widget.courseId,
         file: file,
         options: _options,
+        purpose: widget.teacherGuide ? 'teacher_guide' : 'course',
         onProgress: (p) {
           if (mounted) setState(() => _uploadProgress = p);
         },
@@ -103,7 +106,7 @@ class _CourseBuilderScreenState extends State<CourseBuilderScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F8F7),
       appBar: AppBar(
-        title: const Text('AI Course Builder', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: Text(widget.teacherGuide ? "Teacher's Guide Builder" : 'AI Course Builder', style: const TextStyle(fontWeight: FontWeight.w700)),
         backgroundColor: builderGreen,
         foregroundColor: Colors.white,
         actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh), tooltip: 'Refresh')],
@@ -121,7 +124,7 @@ class _CourseBuilderScreenState extends State<CourseBuilderScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const _PipelineHero(),
+                          widget.teacherGuide ? const _GuideHero() : const _PipelineHero(),
                           const SizedBox(height: 20),
                           if (wide)
                             Row(
@@ -150,7 +153,7 @@ class _CourseBuilderScreenState extends State<CourseBuilderScreen> {
   Widget _buildNewBuildCard() {
     final uploading = _uploadProgress != null;
     return _Panel(
-      title: 'New build from a book',
+      title: widget.teacherGuide ? "Upload the teacher's guide book" : 'New build from a book',
       icon: Icons.auto_awesome,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -193,7 +196,10 @@ class _CourseBuilderScreenState extends State<CourseBuilderScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          BuildOptionsPanel(options: _options, onChanged: () => setState(() {}), showAutoGenerate: true),
+          if (widget.teacherGuide)
+            _GuideOptions(options: _options, onChanged: () => setState(() {}))
+          else
+            BuildOptionsPanel(options: _options, onChanged: () => setState(() {}), showAutoGenerate: true),
           const SizedBox(height: 18),
           if (uploading) ...[
             ClipRRect(
@@ -212,7 +218,9 @@ class _CourseBuilderScreenState extends State<CourseBuilderScreen> {
             child: ElevatedButton.icon(
               onPressed: _file == null || uploading ? null : _upload,
               icon: const Icon(Icons.rocket_launch_outlined),
-              label: Text(_options.autoGenerate ? 'Upload & generate course' : 'Upload & analyse book'),
+              label: Text(_options.autoGenerate
+                  ? (widget.teacherGuide ? 'Upload & generate guide' : 'Upload & generate course')
+                  : 'Upload & analyse book'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: builderGreen,
                 foregroundColor: Colors.white,
@@ -222,13 +230,15 @@ class _CourseBuilderScreenState extends State<CourseBuilderScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          const Row(children: [
-            Icon(Icons.verified_user_outlined, size: 16, color: builderMuted),
-            SizedBox(width: 6),
+          Row(children: [
+            const Icon(Icons.verified_user_outlined, size: 16, color: builderMuted),
+            const SizedBox(width: 6),
             Expanded(
               child: Text(
-                'Nothing is shown to students until you review and publish it.',
-                style: TextStyle(fontSize: 12, color: builderMuted),
+                widget.teacherGuide
+                    ? 'Teachers only see the guide after you review and publish it. Students never see it.'
+                    : 'Nothing is shown to students until you review and publish it.',
+                style: const TextStyle(fontSize: 12, color: builderMuted),
               ),
             ),
           ]),
@@ -276,7 +286,7 @@ class _CourseBuilderScreenState extends State<CourseBuilderScreen> {
                             const SizedBox(height: 4),
                             Text(
                               [
-                                BuildMode.byId(j.options.mode).label,
+                                if (!widget.teacherGuide) BuildMode.byId(j.options.mode).label,
                                 if (j.pageCount > 0) '${j.pageCount} ${j.pageLabel}s',
                                 if (j.statLessons > 0) '${j.statLessons} lessons',
                                 if (j.statQuestions > 0) '${j.statQuestions} questions',
@@ -387,5 +397,100 @@ class _PipelineHero extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _GuideHero extends StatelessWidget {
+  const _GuideHero();
+
+  @override
+  Widget build(BuildContext context) {
+    const steps = [
+      (Icons.upload_file, 'Upload guide book'),
+      (Icons.account_tree_outlined, 'Detect chapters & lessons'),
+      (Icons.auto_awesome, 'AI writes how to teach each lesson'),
+      (Icons.smart_display_outlined, 'Teaching videos (Rekka AI, voice + slides fallback)'),
+      (Icons.fact_check_outlined, 'You review'),
+      (Icons.public, 'Publish to teachers'),
+    ];
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(colors: [Color(0xFF1D4ED8), Color(0xFF3B82F6)]),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const Text("Turn a teacher's guide into modern lesson guides",
+            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 6),
+        const Text(
+          'Every lesson gets objectives, materials, a timed step-by-step plan, modern teaching methods, '
+          'misconceptions, support for every learner, assessment questions and a short how-to-teach video.',
+          style: TextStyle(color: Colors.white70, height: 1.5),
+        ),
+        const SizedBox(height: 16),
+        Wrap(spacing: 6, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          for (var i = 0; i < steps.length; i++) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(steps[i].$1, size: 15, color: Colors.white),
+                const SizedBox(width: 6),
+                Text(steps[i].$2, style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+            if (i < steps.length - 1) const Icon(Icons.chevron_right, color: Colors.white70, size: 18),
+          ],
+        ]),
+      ]),
+    );
+  }
+}
+
+/// The few options that matter for a teacher's guide (no quizzes or exams).
+class _GuideOptions extends StatelessWidget {
+  final BuildOptions options;
+  final VoidCallback onChanged;
+  const _GuideOptions({required this.options, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        value: options.generateVideos,
+        onChanged: (v) {
+          options.generateVideos = v;
+          onChanged();
+        },
+        title: const Text('Make a how-to-teach video for every lesson'),
+        subtitle: const Text('Rekka AI first; narrated slides when Rekka is unavailable. Counts toward the video budget.'),
+      ),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        value: options.autoGenerate,
+        onChanged: (v) {
+          options.autoGenerate = v;
+          onChanged();
+        },
+        title: const Text('Generate right after the chapters are detected'),
+        subtitle: const Text('Off: check the chapter and lesson list first.'),
+      ),
+      const SizedBox(height: 8),
+      TextFormField(
+        initialValue: options.instructions,
+        minLines: 2,
+        maxLines: 4,
+        decoration: const InputDecoration(
+          labelText: 'Extra instructions for the AI (optional)',
+          hintText: 'e.g. Classes of 50+ learners, few devices; use Kinyarwanda examples; CBC competences.',
+          border: OutlineInputBorder(),
+        ),
+        onChanged: (v) {
+          options.instructions = v;
+        },
+      ),
+    ]);
   }
 }

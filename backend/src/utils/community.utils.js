@@ -13,7 +13,7 @@ const getStudentIds = async (courseId) => {
 
 /** Teachers actively assigned to a course. */
 const getTeacherIds = async (courseId) => {
-  const assignments = await TeacherAssignment.find({ courseId, isActive: true })
+  const assignments = await TeacherAssignment.find({ courseId, isActive: true, source: { $ne: 'guide_purchase' } })
     .select('teacherId')
     .lean();
   return assignments.map((a) => String(a.teacherId));

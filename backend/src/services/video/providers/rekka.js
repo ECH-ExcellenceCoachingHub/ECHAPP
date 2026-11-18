@@ -147,7 +147,8 @@ function chaptersFor(durationSec) {
  * with the book's exact numbers, inside the length limit.
  * Sections are added in priority order while they fit.
  */
-function buildRequest({ title, content, subject, level, language, durationSec }) {
+function buildRequest({ title, content, subject, level, language, durationSec, audience }) {
+  if (audience === 'teacher') return buildTeacherRequest({ title, content, subject, level, language, durationSec });
   const steps = teachingSteps(content).slice(0, 4);
   const subj = subject && subject !== 'general' ? subject.replace('_', ' ') : '';
   const chapters = chaptersFor(durationSec);
@@ -185,6 +186,41 @@ function buildRequest({ title, content, subject, level, language, durationSec })
     prompt,
   };
   // `chapters` sets the length precisely (`length: short` alone is not bounded).
+  if (process.env.REKKA_LENGTH) body.length = lengthFor(durationSec);
+  else body.chapters = chapters;
+  return body;
+}
+
+/**
+ * Teacher's-guide video: an experienced teacher trainer shows a classroom
+ * teacher HOW to teach the lesson (steps, activities, questions, pitfalls).
+ */
+function buildTeacherRequest({ title, content, subject, level, language, durationSec }) {
+  const g = content.guide || {};
+  const subj = subject && subject !== 'general' ? subject.replace('_', ' ') : '';
+  const chapters = chaptersFor(durationSec);
+  const minutes = Math.floor((seconds(durationSec) || 240) / 60);
+  const flow = (g.lessonFlow || []).slice(0, 6).map((s, i) => `${i + 1}. ${clean(s.stage)}${s.minutes ? ` (${s.minutes} min)` : ''}: teacher — ${clip(clean(s.teacher), 140)}; learners — ${clip(clean(s.learners), 100)}`);
+  const sections = [
+    `You are an experienced, encouraging teacher trainer coaching a classroom teacher on HOW TO TEACH this ${subj ? `${subj} ` : ''}lesson${level ? ` to ${level} learners` : ''} in a modern, learner-centred way. Speak directly to the teacher ("Start by…", "Ask your learners…"). The whole video must be under ${minutes} minutes and use ${chapters} chapter${chapters > 1 ? 's' : ''}: what learners must achieve, the lesson step by step, then tips and how to check understanding.`,
+    `Narrator voice: ${clip(clean(process.env.REKKA_TEACHER_VOICE || 'a warm, confident, experienced teacher trainer; calm, practical and encouraging, speaking at a relaxed pace.'), 300)}`,
+    language && !/^en/i.test(language) ? `Speak in ${language}.` : '',
+    (content.learningObjectives || []).length ? `Learning objectives: ${content.learningObjectives.slice(0, 4).map(clean).join('; ')}.` : '',
+    flow.length ? `Show the lesson flow on the board, stage by stage:\n${flow.join('\n')}` : '',
+    (g.modernMethods || []).length ? `Modern methods to demonstrate: ${g.modernMethods.slice(0, 3).map(m => `${clean(m.method)} — ${clip(clean(m.how), 120)}`).join(' | ')}` : '',
+    (g.misconceptions || []).length ? `Warn about: ${g.misconceptions.slice(0, 2).map(m => `${clean(m.misconception)} (fix: ${clip(clean(m.fix), 90)})`).join(' | ')}` : '',
+    (g.assessment || []).length ? `Questions to check understanding: ${g.assessment.slice(0, 3).map(q => clean(q.question)).join(' | ')}` : '',
+    (g.materials || []).length ? `Materials: ${g.materials.slice(0, 6).map(clean).join(', ')}.` : '',
+  ].filter(Boolean);
+  const closing = `Use only the subject facts from this lesson guide. Keep the whole video under ${minutes} minutes.`;
+  let prompt = '';
+  for (const s of sections) {
+    const next = prompt ? `${prompt}\n\n${s}` : s;
+    if (next.length + closing.length + 2 <= PROMPT_MAX) prompt = next;
+  }
+  prompt = `${prompt}\n\n${closing}`.slice(0, PROMPT_MAX);
+  let topic = `How to teach: ${clean(title) || 'this lesson'}`;
+  const body = { topic: topic.slice(0, 300), style: styleFor(subject), format: pick(process.env.REKKA_FORMAT, FORMATS, 'landscape'), prompt };
   if (process.env.REKKA_LENGTH) body.length = lengthFor(durationSec);
   else body.chapters = chapters;
   return body;

@@ -40,7 +40,14 @@ Future<void> continueAfterAuth(BuildContext context, WidgetRef ref) async {
     context.go('/admin');
     return;
   }
+  // New Google / phone accounts choose Student or Teacher first.
+  if (user.needsRoleSelection) {
+    context.go('/role-selection');
+    return;
+  }
   if (user.role == 'instructor') {
+    // The dashboard's access gate forwards a new teacher to their next step
+    // (profile, waiting for approval, or choosing a course).
     context.go('/teacher/dashboard');
     return;
   }

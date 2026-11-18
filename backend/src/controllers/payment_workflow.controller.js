@@ -269,7 +269,35 @@ const verifyPayment = async (req, res) => {
       
       console.log('Admin approval object created:', payment.adminApproval);
 
-      if (status === 'approved') {
+      if (status === 'approved' && payment.purpose === 'teacher_guide') {
+        // A teacher's-guide request: give the teacher the course (guide + tools),
+        // never a student enrollment.
+        payment.paymentDate = new Date();
+        const TeacherAssignment = require('../models/TeacherAssignment');
+        await TeacherAssignment.findOneAndUpdate(
+          { teacherId: userIdInfo.id, courseId: courseIdInfo.id },
+          {
+            $set: { isActive: true, paymentId: payment._id, assignedAt: new Date() },
+            // An existing admin assignment keeps its source (and its student access).
+            $setOnInsert: { assignedBy: adminId, source: 'guide_purchase' },
+          },
+          { upsert: true, new: true }
+        );
+        try {
+          const { notify } = require('./teacherAccess.controller');
+          await notify([userIdInfo.id], 'Your course is unlocked',
+            `Your request for "${courseIdInfo.title}" was approved. Open your teacher dashboard to start teaching with the guide.`,
+            { type: 'teacher_guide_approved', courseId: String(courseIdInfo.id) });
+        } catch (notificationError) {
+          console.error('Error creating teacher guide notification:', notificationError);
+        }
+      } else if (payment.purpose === 'teacher_guide' && ['failed', 'cancelled'].includes(status)) {
+        // Reversing an approval takes the guide course away again.
+        await require('../models/TeacherAssignment').updateOne(
+          { paymentId: payment._id, source: 'guide_purchase' },
+          { $set: { isActive: false } }
+        );
+      } else if (status === 'approved') {
         payment.paymentDate = new Date();
         
         console.log('Checking for existing enrollment for user:', userIdInfo.id, 'course:', courseIdInfo.id);
@@ -466,6 +494,8 @@ const getAllPayments = async (req, res) => {
     if (status) filter.status = status;
     if (courseId) filter.courseId = courseId;
     if (userId) filter.userId = userId;
+    if (req.query.purpose === 'teacher_guide') filter.purpose = 'teacher_guide';
+    else if (req.query.purpose === 'course') filter.purpose = { $ne: 'teacher_guide' };
 
     const payments = await Payment.find(filter)
       .populate('userId', 'fullName email')
@@ -532,6 +562,9 @@ const cancelPayment = async (req, res) => {
 
     // Delete associated enrollment
     await Enrollment.findOneAndDelete({ paymentId: payment._id });
+    if (payment.purpose === 'teacher_guide') {
+      await require('../models/TeacherAssignment').updateOne({ paymentId: payment._id, source: 'guide_purchase' }, { $set: { isActive: false } });
+    }
 
     sendSuccess(res, {
       paymentId: payment._id,
@@ -578,6 +611,9 @@ const deletePayment = async (req, res) => {
     // Delete associated enrollment if it exists
     if (payment.status === 'approved' || payment.status === 'completed') {
       try {
+        if (payment.purpose === 'teacher_guide') {
+          await require('../models/TeacherAssignment').updateOne({ paymentId: payment._id, source: 'guide_purchase' }, { $set: { isActive: false } });
+        }
         const deletedEnrollment = await Enrollment.findOneAndDelete({ paymentId: payment._id });
         if (deletedEnrollment) {
           console.log('Deleted associated enrollment for payment:', payment.transactionId);

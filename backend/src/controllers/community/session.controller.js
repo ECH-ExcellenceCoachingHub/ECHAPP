@@ -44,7 +44,7 @@ class SessionController {
 
       const [enrollments, assignments] = await Promise.all([
         Enrollment.find({ userId }).select('courseId').lean(),
-        TeacherAssignment.find({ teacherId: userId, isActive: true })
+        TeacherAssignment.find({ teacherId: userId, isActive: true, source: { $ne: 'guide_purchase' } })
           .select('courseId')
           .lean()
       ]);

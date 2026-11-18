@@ -378,6 +378,13 @@ class _PaymentManagementScreenState extends ConsumerState<PaymentManagementScree
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      if (payment.isTeacherGuide)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(color: const Color(0xFF3B82F6).withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
+                          child: const Text("TEACHER'S GUIDE REQUEST", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF3B82F6))),
+                        ),
                       Text(
                         payment.course?.title ?? 'Unknown Course',
                         style: const TextStyle(fontWeight: FontWeight.w500),
@@ -672,6 +679,11 @@ class _PaymentManagementScreenState extends ConsumerState<PaymentManagementScree
               'Course: ${payment.course?.title ?? 'Unknown Course'}',
               style: const TextStyle(fontWeight: FontWeight.w500),
             ),
+            if (payment.isTeacherGuide)
+              const Text(
+                "Teacher's guide request — approving gives this teacher the course's guide and unlocks their teacher tools (not a student enrollment).",
+                style: TextStyle(fontSize: 12, color: Color(0xFF3B82F6)),
+              ),
             Text(
               'Amount: ${payment.amount} ${payment.currency}',
               style: const TextStyle(fontWeight: FontWeight.w500),

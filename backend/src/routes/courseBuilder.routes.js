@@ -2,13 +2,14 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/auth.middleware');
 const { authorize } = require('../middleware/role.middleware');
+const { denySelfRegisteredTeacher } = require('../services/teacherAccess.service');
 const c = require('../controllers/courseBuilder.controller');
 const v = require('../controllers/lessonVideo.controller');
 const d = require('../controllers/demo.controller');
 const { generationLimiter } = require('../middleware/generationLimiter.middleware');
 
 // AI Course Builder — admins and teachers assigned to the course
-router.use(protect, authorize('admin', 'instructor'));
+router.use(protect, authorize('admin', 'instructor'), denySelfRegisteredTeacher);
 
 // Builds for a course
 router.get('/courses/:courseId/jobs', c.listJobs);

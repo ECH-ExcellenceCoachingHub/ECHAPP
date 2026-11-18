@@ -37,7 +37,7 @@ const createSession = async (req, res) => {
     const assignment = await TeacherAssignment.findOne({
       teacherId,
       courseId,
-      isActive: true
+      isActive: true, source: { $ne: 'guide_purchase' }
     });
 
     if (!assignment) {

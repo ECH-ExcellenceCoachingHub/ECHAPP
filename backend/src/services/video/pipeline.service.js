@@ -184,7 +184,7 @@ async function tryRekka(job, src, ctx, work, stage) {
     let id = prior?.id;
     if (!id) {
       const durationSec = targetDuration(cfg.durationSec || subject.durationSec);
-      const body = rekka.buildRequest({ title: src.title, content: src.content, subject: subject.key, level: cfg.level, language: cfg.language, durationSec });
+      const body = rekka.buildRequest({ title: src.title, content: src.content, subject: subject.key, level: cfg.level, language: cfg.language, durationSec, audience: cfg.audience });
       const credits = rekka.estimateCredits(durationSec, body.chapters);
       const rate = rekka.usdPerCredit();
       if (rate != null) await cost.assertWithinBudget({ job: await refreshCost(job), buildJob: src.buildJob, estimateUsd: credits * rate });
@@ -332,6 +332,7 @@ async function runLocalPipeline(job, ctx, src, stage) {
         variant,
         experimentInfo: assessment,
         lessonText,
+        audience: cfg.audience,
       }, {
         completeJson: ai.completeJson,
         onUsage: (u) => { tokens += u.total_tokens || 0; requestId = u.requestId || requestId; },

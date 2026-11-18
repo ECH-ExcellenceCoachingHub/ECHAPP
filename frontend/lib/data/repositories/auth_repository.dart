@@ -452,6 +452,23 @@ class AuthRepository {
     }
   }
 
+  /// Choose Student or Teacher once, after a Google / phone sign-up.
+  Future<User> chooseRole(String token, String role) async {
+    final response = await _client.put(
+      Uri.parse('${ApiConfig.baseUrl}/auth/role'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({'role': role}),
+    );
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+    if (response.statusCode == 200) {
+      return User.fromJson(Map<String, dynamic>.from(data['data']['user'] as Map));
+    }
+    throw Exception(data['message'] ?? 'Could not save your role');
+  }
+
   Future<String> uploadImage(String token, File imageFile) async {
     try {
       final request = http.MultipartRequest(

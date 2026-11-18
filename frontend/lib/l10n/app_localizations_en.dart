@@ -1569,7 +1569,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get studentRoleDescription => 'Enroll in courses and learn';
 
   @override
-  String get teacherRoleDescription => 'Create courses and teach students';
+  String get teacherRoleDescription =>
+      'Teacher guides, lesson tools and your classes';
 
   @override
   String get selectYourRole => 'Select Your Role';

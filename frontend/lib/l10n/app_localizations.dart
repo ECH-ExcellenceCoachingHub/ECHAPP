@@ -3155,7 +3155,7 @@ abstract class AppLocalizations {
   /// No description provided for @teacherRoleDescription.
   ///
   /// In en, this message translates to:
-  /// **'Create courses and teach students'**
+  /// **'Teacher guides, lesson tools and your classes'**
   String get teacherRoleDescription;
 
   /// No description provided for @selectYourRole.

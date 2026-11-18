@@ -26,7 +26,7 @@ const PUBLIC_USER_FIELDS = 'fullName avatar role lastActive';
 const getUserCourseIds = async (userId) => {
   const [enrollments, assignments] = await Promise.all([
     Enrollment.find({ userId }).select('courseId').lean(),
-    TeacherAssignment.find({ teacherId: userId, isActive: true })
+    TeacherAssignment.find({ teacherId: userId, isActive: true, source: { $ne: 'guide_purchase' } })
       .select('courseId')
       .lean()
   ]);
@@ -94,7 +94,7 @@ const listContactableUsers = async (actor, { search = '', limit = 60 } = {}) => 
 
     const [classmates, teachers] = await Promise.all([
       Enrollment.find({ courseId: { $in: courseIds } }).select('userId').lean(),
-      TeacherAssignment.find({ courseId: { $in: courseIds }, isActive: true })
+      TeacherAssignment.find({ courseId: { $in: courseIds }, isActive: true, source: { $ne: 'guide_purchase' } })
         .select('teacherId')
         .lean()
     ]);

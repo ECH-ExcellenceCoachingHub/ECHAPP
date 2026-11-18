@@ -11,6 +11,13 @@ class TeacherCourse {
   final int activeStudents;
   final int completedStudents;
   final int upcomingSessions;
+  /// 'admin' (assigned by ECH, with students) or 'guide_purchase' (teacher guide only).
+  final String source;
+  /// The course has a published teacher guide the teacher can open.
+  final bool guideAvailable;
+  final List<String> guideClassLevels;
+
+  bool get isGuideOnly => source == 'guide_purchase';
 
   TeacherCourse({
     required this.assignmentId,
@@ -21,9 +28,16 @@ class TeacherCourse {
     this.activeStudents = 0,
     this.completedStudents = 0,
     this.upcomingSessions = 0,
+    this.source = 'admin',
+    this.guideAvailable = false,
+    this.guideClassLevels = const [],
   });
 
   factory TeacherCourse.fromJson(Map<String, dynamic> json) {
+    // Per-course numbers are sent inside "course"; older servers sent them at the top.
+    final c = (json['course'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+    int n(String k) => ((json[k] ?? c[k]) as num?)?.toInt() ?? 0;
+    final guide = (c['teacherGuide'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
     return TeacherCourse(
       assignmentId: json['assignmentId'] ?? '',
       assignedAt: json['assignedAt'] != null
@@ -33,10 +47,13 @@ class TeacherCourse {
       course: json['course'] != null
           ? Course.fromJson(json['course'])
           : Course.empty(),
-      enrollmentCount: json['enrollmentCount'] ?? 0,
-      activeStudents: json['activeStudents'] ?? 0,
-      completedStudents: json['completedStudents'] ?? 0,
-      upcomingSessions: json['upcomingSessions'] ?? 0,
+      enrollmentCount: n('enrollmentCount'),
+      activeStudents: n('activeStudents'),
+      completedStudents: n('completedStudents'),
+      upcomingSessions: n('upcomingSessions'),
+      source: json['source']?.toString() ?? 'admin',
+      guideAvailable: guide['available'] == true,
+      guideClassLevels: ((guide['classLevels'] as List?) ?? const []).map((e) => e.toString()).toList(),
     );
   }
 
@@ -58,14 +75,27 @@ class TeacherCourse {
 class CourseContent {
   final Course course;
   final List<SectionWithLessons> sections;
+  /// False for a course held only through a teacher's-guide request.
+  final bool canSeeStudents;
+  /// False for self-registered teachers (ECH admins manage course content).
+  final bool canEditContent;
+  /// The course has a published teacher's guide.
+  final bool guideAvailable;
 
   CourseContent({
     required this.course,
     required this.sections,
+    this.canSeeStudents = true,
+    this.canEditContent = true,
+    this.guideAvailable = false,
   });
 
   factory CourseContent.fromJson(Map<String, dynamic> json) {
+    final access = (json['access'] as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
     return CourseContent(
+      canSeeStudents: access['canSeeStudents'] != false,
+      canEditContent: access['canEditContent'] != false,
+      guideAvailable: access['guideAvailable'] == true,
       course: json['course'] != null
           ? Course.fromJson(json['course'])
           : Course.empty(),

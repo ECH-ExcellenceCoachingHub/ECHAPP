@@ -42,6 +42,7 @@ async function loadJob(req, res) {
   const job = await CourseBuildJob.findById(req.params.jobId);
   if (!job) { sendNotFound(res, 'Build not found'); return null; }
   if (!(await canManageCourse(req.user, job.courseId))) { sendForbidden(res, 'You cannot manage this course'); return null; }
+  if (job.purpose === 'teacher_guide' && req.user.role !== 'admin') { sendForbidden(res, 'Only admins can manage teacher guides'); return null; }
   return job;
 }
 
@@ -50,6 +51,9 @@ async function loadItem(req, res) {
   const item = await CourseBuildItem.findById(req.params.itemId);
   if (!item) { sendNotFound(res, 'Item not found'); return null; }
   if (!(await canManageCourse(req.user, item.courseId))) { sendForbidden(res, 'You cannot manage this course'); return null; }
+  if (req.user.role !== 'admin' && (await CourseBuildJob.exists({ _id: item.jobId, purpose: 'teacher_guide' }))) {
+    sendForbidden(res, 'Only admins can manage teacher guides'); return null;
+  }
   return item;
 }
 
@@ -108,8 +112,10 @@ const listJobs = async (req, res) => {
   try {
     const { courseId } = req.params;
     if (!(await canManageCourse(req.user, courseId))) return sendForbidden(res, 'You cannot manage this course');
-    const jobs = await CourseBuildJob.find({ courseId })
-      .select('status source.fileName source.pageCount options.mode outline.bookTitle progress stats createdAt updatedAt error')
+    // Course builds and teacher's-guide builds of the same course are listed separately.
+    const purpose = req.query.purpose === 'teacher_guide' ? 'teacher_guide' : 'course';
+    const jobs = await CourseBuildJob.find({ courseId, purpose: purpose === 'course' ? { $ne: 'teacher_guide' } : 'teacher_guide' })
+      .select('purpose status source.fileName source.pageCount options.mode outline.bookTitle progress stats createdAt updatedAt error')
       .sort({ createdAt: -1 })
       .limit(30)
       .lean();
@@ -129,12 +135,17 @@ const createJob = [
       const { courseId } = req.params;
       if (!(await canManageCourse(req.user, courseId))) return sendForbidden(res, 'You cannot manage this course');
       if (!req.file) return sendError(res, 'Please attach a book file (field "book")', 400);
+      const purpose = req.body.purpose === 'teacher_guide' ? 'teacher_guide' : 'course';
+      if (purpose === 'teacher_guide' && req.user.role !== 'admin') {
+        return sendForbidden(res, 'Only admins can build teacher guides');
+      }
 
       let options = {};
       try { options = typeof req.body.options === 'string' ? JSON.parse(req.body.options) : (req.body.options || {}); } catch (_) { /* ignore */ }
 
       const job = await CourseBuildJob.create({
         courseId,
+        purpose,
         createdBy: req.user._id || req.user.id,
         status: 'uploaded',
         source: { fileName: req.file.originalname, mimeType: req.file.mimetype, size: req.file.size },

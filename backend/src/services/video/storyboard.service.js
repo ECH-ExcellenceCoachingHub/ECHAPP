@@ -60,7 +60,7 @@ function sceneSpec(types) {
   return types.map(t => `  ${all[t]}`).join(',\n');
 }
 
-function buildPrompt({ lesson, subject, level, language, durationSec, figures, variant, experimentInfo }) {
+function buildPrompt({ lesson, subject, level, language, durationSec, figures, variant, experimentInfo, audience }) {
   const s = subjectByKey(subject);
   const types = variant === 'experiment' ? EXPERIMENT_SCENES : s.scenes;
   const c = lesson.content || {};
@@ -75,7 +75,20 @@ THIS IS AN EXPERIMENT DEMONSTRATION VIDEO (simulated, not real footage).
 - Observations: describe what the lesson says will be observed. Do not state numeric results unless that exact number appears in the lesson.
 - Safety: age-appropriate precautions for every hazard (${(experimentInfo?.hazards || []).map(h => h.category).join(', ') || 'none detected'}). Never suggest unsafe shortcuts.` : '';
 
+  const g = c.guide || {};
+  const teacherRules = audience === 'teacher' ? `
+THIS IS A TEACHER-TRAINING VIDEO from a teacher's guide. It overrides the NARRATOR and AUDIENCE rules below:
+- NARRATOR = an experienced teacher trainer speaking to a CLASSROOM TEACHER, explaining HOW TO TEACH this lesson ("Start the lesson by…", "Put learners in pairs…", "Watch out for…").
+- Cover, in order: what learners must achieve, materials, the lesson flow stage by stage with timings (teacher actions and learner actions), one or two modern methods, a common misconception and its fix, and how to check understanding.
+- Use "bullets" scenes for steps and "check" scenes only as questions the teacher can ask the class.
+LESSON FLOW: ${(g.lessonFlow || []).map(s => `${s.stage} (${s.minutes || '?'} min): teacher — ${s.teacher}; learners — ${s.learners}`).join(' | ') || '-'}
+MODERN METHODS: ${(g.modernMethods || []).map(m => `${m.method}: ${m.how}`).join(' | ') || '-'}
+MISCONCEPTIONS: ${(g.misconceptions || []).map(m => `${m.misconception} → ${m.fix}`).join(' | ') || '-'}
+MATERIALS: ${(g.materials || []).join(', ') || '-'}
+` : '';
+
   return `Plan a short TEACHING video for one lesson. It must teach — explain, show and check understanding — not just read slides.
+${teacherRules}
 
 SUBJECT: ${s.key}
 LEVEL: ${level || 'general'}

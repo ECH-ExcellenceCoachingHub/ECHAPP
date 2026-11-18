@@ -10,6 +10,9 @@ class Payment {
   final String transactionId;
   final PaymentStatus status;
   final String contactInfo;
+  /// 'course' (student enrollment) or 'teacher_guide' (teacher access to a course's guide).
+  final String purpose;
+  bool get isTeacherGuide => purpose == 'teacher_guide';
   final DateTime? paymentDate;
   final PaymentAdminApproval? adminApproval;
   final DateTime createdAt;
@@ -29,6 +32,7 @@ class Payment {
     required this.transactionId,
     required this.status,
     required this.contactInfo,
+    this.purpose = 'course',
     this.paymentDate,
     this.adminApproval,
     required this.createdAt,
@@ -68,6 +72,7 @@ class Payment {
       transactionId: json['transactionId'] as String? ?? '',
       status: _parsePaymentStatus(json['status']),
       contactInfo: json['contactInfo'] as String? ?? '',
+      purpose: json['purpose'] as String? ?? 'course',
       paymentDate: json['paymentDate'] != null 
           ? DateTime.parse(json['paymentDate'].toString()) 
           : null,

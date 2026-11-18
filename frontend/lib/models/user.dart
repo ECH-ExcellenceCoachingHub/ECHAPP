@@ -15,6 +15,10 @@ class User {
   final String? midTermGoal;
   final String? longTermGoal;
   final bool hasCompletedOnboarding;
+  /// Self-registered teachers: profile_incomplete | pending | approved | rejected (null otherwise).
+  final String? teacherStatus;
+  /// New Google / phone accounts that still have to pick Student or Teacher.
+  final bool needsRoleSelection;
 
   User({
     required this.id,
@@ -32,6 +36,8 @@ class User {
     this.midTermGoal,
     this.longTermGoal,
     this.hasCompletedOnboarding = false,
+    this.teacherStatus,
+    this.needsRoleSelection = false,
   });
 
   /// Alias for fullName to maintain compatibility with legacy code
@@ -67,6 +73,8 @@ class User {
       midTermGoal: _getStringValue(json['midTermGoal']),
       longTermGoal: _getStringValue(json['longTermGoal']),
       hasCompletedOnboarding: json['hasCompletedOnboarding'] == true,
+      teacherStatus: _getStringValue(json['teacherStatus']),
+      needsRoleSelection: json['needsRoleSelection'] == true,
     );
   }
 
@@ -88,6 +96,8 @@ class User {
       'midTermGoal': midTermGoal,
       'longTermGoal': longTermGoal,
       'hasCompletedOnboarding': hasCompletedOnboarding,
+      'teacherStatus': teacherStatus,
+      'needsRoleSelection': needsRoleSelection,
     };
   }
 

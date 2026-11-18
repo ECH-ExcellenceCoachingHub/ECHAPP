@@ -125,6 +125,10 @@ app.use('/api/course-builder', courseBuilderRoutes); // AI Course Builder routes
 app.use('/api/labs', require('./src/routes/lab.routes')); // 3D/VR Virtual Labs (Unity ECH Labs engine)
 app.use('/api/integrations/eexams', require('./src/routes/eexams.routes')); // eexams.net SSO + result sync
 app.use('/api/teacher-tools', require('./src/routes/teacherTools.routes')); // Lesson planner + exam creation (engine on eexams.net)
+const teacherAccessRoutes = require('./src/routes/teacherAccess.routes');
+app.use('/api/teacher-access', teacherAccessRoutes.access); // Teacher profile, approval status, guide requests
+app.use('/api/teacher-guides', teacherAccessRoutes.guides); // Teacher's guide reader
+app.use('/api/admin', teacherAccessRoutes.admin); // Teacher approvals + guide settings
 
 // Handle undefined routes
 app.use((req, res) => {
