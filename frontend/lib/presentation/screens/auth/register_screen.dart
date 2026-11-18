@@ -6,6 +6,7 @@ import 'package:excellencecoachinghub/presentation/router/post_auth_navigation.d
 import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
 import 'package:excellencecoachinghub/presentation/widgets/desktop_brand_panel.dart';
+import 'package:excellencecoachinghub/presentation/widgets/password_strength_meter.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -112,8 +113,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with SingleTick
     final String haveAccountText = l10n.alreadyHaveAccount;
     final String signInText = l10n.loginNow;
     final String requiredError = 'Required';
-    final String min6CharsError = 'Min 6 chars';
-    final String mismatchError = 'Mismatch';
+    final String min6CharsError = 'Password must be at least 6 characters';
+    final String mismatchError = "Passwords don't match";
 
     return Scaffold(
       backgroundColor: _backgroundColor,
@@ -303,15 +304,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with SingleTick
                 const SizedBox(height: 14),
                 _buildPasswordField(_passwordController, passwordText, (value) {
                   if (value == null || value.isEmpty) return requiredError;
-                  if (value.length < 6) return min6CharsError;
+                  if (value.length < kMinPasswordLength) return min6CharsError;
                   return null;
                 }),
+                PasswordStrengthMeter(controller: _passwordController),
                 const SizedBox(height: 14),
                 _buildPasswordField(_confirmController, confirmPasswordText, (value) {
                   if (value == null || value.isEmpty) return requiredError;
                   if (value != _passwordController.text) return mismatchError;
                   return null;
                 }, TextInputAction.done, _register),
+                PasswordMatchHint(password: _passwordController, confirm: _confirmController),
                 const SizedBox(height: 24),
                 _buildSignUpButton(authState, createAccountText),
                 if (authState.error != null) ...[
@@ -382,8 +385,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with SingleTick
     final String haveAccountText = l10n.alreadyHaveAccount;
     final String signInText = l10n.loginNow;
     final String requiredError = 'Required';
-    final String min6CharsError = 'Min 6 chars';
-    final String mismatchError = 'Mismatch';
+    final String min6CharsError = 'Password must be at least 6 characters';
+    final String mismatchError = "Passwords don't match";
 
     return Scaffold(
       backgroundColor: _backgroundColor,
@@ -513,15 +516,17 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with SingleTick
                         const SizedBox(height: 10),
                         _buildPasswordField(_passwordController, passwordText, (value) { 
                           if (value == null || value.isEmpty) return requiredError; 
-                          if (value.length < 6) return min6CharsError; 
+                          if (value.length < kMinPasswordLength) return min6CharsError; 
                           return null; 
                         }),
+                        PasswordStrengthMeter(controller: _passwordController),
                         const SizedBox(height: 10),
                         _buildPasswordField(_confirmController, confirmPasswordText, (value) { 
                           if (value == null || value.isEmpty) return requiredError; 
                           if (value != _passwordController.text) return mismatchError; 
                           return null; 
                         }, TextInputAction.done, _register),
+                        PasswordMatchHint(password: _passwordController, confirm: _confirmController),
                         const SizedBox(height: 16),
                         _buildSignUpButton(authState, createAccountText),
                         const SizedBox(height: 12),
@@ -770,7 +775,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with SingleTick
 
   Widget _buildTextField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType, bool required = true, TextInputAction textInputAction = TextInputAction.next, String? Function(String?)? extraValidator}) {
     return Container(
-      height: 56,
+      constraints: const BoxConstraints(minHeight: 56),
       decoration: BoxDecoration(
         color: _inputFillColor,
         borderRadius: BorderRadius.circular(12),
@@ -799,7 +804,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with SingleTick
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          errorStyle: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.w600),
         ),
         validator: (value) {
           if (extraValidator != null) return extraValidator(value);
@@ -817,7 +823,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with SingleTick
   Widget _buildPasswordField(TextEditingController controller, String label, String? Function(String?) validator, [TextInputAction textInputAction = TextInputAction.next, VoidCallback? onSubmitted]) {
     bool obscure = label.contains('Confirm') ? _obscureConfirm : _obscurePassword;
     return Container(
-      height: 56,
+      constraints: const BoxConstraints(minHeight: 56),
       decoration: BoxDecoration(
         color: _inputFillColor,
         borderRadius: BorderRadius.circular(12),
@@ -857,7 +863,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> with SingleTick
           border: InputBorder.none,
           enabledBorder: InputBorder.none,
           focusedBorder: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          errorStyle: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.w600),
         ),
         validator: validator,
       ),
