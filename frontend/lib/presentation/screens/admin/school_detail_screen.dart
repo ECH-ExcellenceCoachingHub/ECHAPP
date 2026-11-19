@@ -378,7 +378,6 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen> {
                     ? const Center(child: Text('School not found'))
                     : _buildBody(context, _school!),
       ),
-    ),
     );
   }
 
