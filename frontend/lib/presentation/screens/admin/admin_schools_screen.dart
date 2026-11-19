@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:excellencecoachinghub/config/app_theme.dart';
 import 'package:excellencecoachinghub/services/api/school_service.dart';
 import 'package:excellencecoachinghub/models/school.dart';
+import 'package:excellencecoachinghub/presentation/screens/admin/school_detail_screen.dart';
 
 /// Super admin screen: create schools, assign a school admin, set the paid
 /// plan and the maximum number of students the school may admit.
@@ -522,22 +524,55 @@ class _AdminSchoolsScreenState extends State<AdminSchoolsScreen> {
                                         const SizedBox(height: 16),
                                         Row(
                                           children: [
-                                            _StatItem(
-                                              icon: Icons.person,
-                                              label: 'Admin',
-                                              value: school.adminFullName ?? '—',
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  _StatItem(
+                                                    icon: Icons.person,
+                                                    label: 'School Admin',
+                                                    value:
+                                                        school.adminFullName ??
+                                                            '—',
+                                                    subtitle:
+                                                        school.adminEmail,
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  _StatItem(
+                                                    icon: Icons.calendar_today,
+                                                    label: 'Created',
+                                                    value:
+                                                        _formatDate(
+                                                            school.createdAt),
+                                                  ),
+                                                ],
+                                              ),
                                             ),
-                                            const SizedBox(width: 16),
-                                            _StatItem(
-                                              icon: Icons.school,
-                                              label: 'Teachers',
-                                              value: '${school.teacherCount}',
-                                            ),
-                                            const SizedBox(width: 16),
-                                            _StatItem(
-                                              icon: Icons.people_outline,
-                                              label: 'Status',
-                                              value: school.isActive ? 'Active' : 'Inactive',
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  _StatItem(
+                                                    icon: Icons.people,
+                                                    label: 'Teachers',
+                                                    value:
+                                                        '${school.teacherCount}',
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  _StatItem(
+                                                    icon: Icons.people_outline,
+                                                    label: 'Students',
+                                                    value:
+                                                        '${school.studentCount} / ${school.studentLimit}',
+                                                    subtitle:
+                                                        school.isFull
+                                                            ? 'Limit reached'
+                                                            : '${school.remainingSlots} slots left',
+                                                  ),
+                                                ],
+                                              ),
                                             ),
                                           ],
                                         ),
@@ -569,6 +604,17 @@ class _AdminSchoolsScreenState extends State<AdminSchoolsScreen> {
                                             ),
                                             IconButton(
                                               icon: const Icon(
+                                                Icons.info_outline,
+                                                color: Colors.blue,
+                                              ),
+                                              tooltip: 'View school details',
+                                              onPressed: () =>
+                                                  GoRouter.of(context).push(
+                                                    '/school-detail/${school.id}',
+                                                  ),
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(
                                                 Icons.delete_outline,
                                                 color: Colors.red,
                                               ),
@@ -596,11 +642,13 @@ class _StatItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
+  final String? subtitle;
 
   const _StatItem({
     required this.icon,
     required this.label,
     required this.value,
+    this.subtitle,
   });
 
   @override
@@ -623,7 +671,19 @@ class _StatItem extends StatelessWidget {
           value,
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
+        if (subtitle != null && subtitle!.isNotEmpty) ...[
+          const SizedBox(height: 2),
+          Text(
+            subtitle!,
+            style: const TextStyle(fontSize: 11, color: Colors.grey),
+          ),
+        ],
       ],
     );
   }
+}
+
+String _formatDate(DateTime? date) {
+  if (date == null) return '—';
+  return '${date.day}/${date.month}/${date.year}';
 }

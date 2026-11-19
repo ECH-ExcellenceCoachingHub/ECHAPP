@@ -59,6 +59,7 @@ import 'package:excellencecoachinghub/presentation/screens/admin/admin_content_m
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_management_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_books_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_schools_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/admin/school_detail_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_teachers_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_live_sessions_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/school_admin/school_admin_dashboard_screen.dart';
@@ -468,6 +469,16 @@ class AppRouter {
               screenName: 'Schools',
               child: AdminSchoolsScreen(),
             ),
+          ),
+          GoRoute(
+            path: '/school-detail/:schoolId',
+            builder: (context, state) {
+              final schoolId = state.pathParameters['schoolId'] ?? '';
+              return AdminLayoutWrapper(
+                screenName: 'School Detail',
+                child: SchoolDetailScreen(schoolId: schoolId),
+              );
+            },
           ),
           GoRoute(
             path: '/admin/students/:studentId',
