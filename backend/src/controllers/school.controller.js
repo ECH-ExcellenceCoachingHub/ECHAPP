@@ -194,6 +194,72 @@ const updateSchoolPlan = async (req, res) => {
   }
 };
 
+/** PATCH /api/admin/schools/:id/details — update name & description */
+const updateSchoolDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, description } = req.body;
+
+    if (!name || name.trim().length === 0) {
+      return sendError(res, 'School name is required', 400);
+    }
+
+    const school = await School.findById(id);
+    if (!school) return sendError(res, 'School not found', 404);
+
+    school.name = name.trim();
+    if (description !== undefined) school.description = description.trim() || null;
+    await school.save();
+
+    sendSuccess(res, {
+      school: {
+        id: school._id,
+        name: school.name,
+        description: school.description,
+        plan: school.plan,
+        studentLimit: school.studentLimit,
+      },
+    }, 'School details updated successfully');
+  } catch (error) {
+    sendError(res, 'Failed to update school details', 500, error.message);
+  }
+};
+
+/** PATCH /api/admin/schools/:id/admin — change school admin */
+const changeSchoolAdmin = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { adminId } = req.body;
+
+    if (!adminId) {
+      return sendError(res, 'Admin user ID is required', 400);
+    }
+
+    const school = await School.findById(id);
+    if (!school) return sendError(res, 'School not found', 404);
+
+    const newAdmin = await User.findOne({ _id: adminId, role: 'school_admin', schoolId: id });
+    if (!newAdmin) return sendError(res, 'School admin not found in this school', 404);
+
+    school.admin = newAdmin._id;
+    await school.save();
+
+    sendSuccess(res, {
+      school: {
+        id: school._id,
+        name: school.name,
+        admin: {
+          id: newAdmin._id,
+          fullName: newAdmin.fullName,
+          email: newAdmin.email,
+        },
+      },
+    }, 'School admin changed successfully');
+  } catch (error) {
+    sendError(res, 'Failed to change school admin', 500, error.message);
+  }
+};
+
 /** GET /api/admin/schools/me — the school of the logged-in school admin / instructor */
 const getMySchool = async (req, res) => {
   try {
@@ -479,15 +545,54 @@ const getStudents = async (req, res) => {
   }
 };
 
+/** GET /api/admin/schools/:id/members — list all staff (school_admins + instructors) of the school */
+const getSchoolMembers = async (req, res) => {
+  try {
+    const { id: schoolId } = req.params;
+    const { page = 1, limit = 20, search } = req.query;
+
+    if (!assertSchoolAccess(req.user, schoolId)) {
+      return sendError(res, 'Access denied. You can only view members of your own school.', 403);
+    }
+
+    const filter = { schoolId, role: { $in: ['school_admin', 'instructor'] } };
+    if (search) {
+      filter.$or = [
+        { fullName: { $regex: escapeRegex(search), $options: 'i' } },
+        { email: { $regex: escapeRegex(search), $options: 'i' } },
+      ];
+    }
+
+    const members = await User.find(filter)
+      .select('-password')
+      .limit(parseInt(limit, 10))
+      .skip((parseInt(page, 10) - 1) * parseInt(limit, 10))
+      .sort({ role: 1, fullName: 1 });
+    const total = await User.countDocuments(filter);
+
+    sendSuccess(res, {
+      members: members.map(m => ({ ...m.toObject(), id: m._id })),
+      totalPages: Math.ceil(total / parseInt(limit, 10)),
+      currentPage: parseInt(page, 10),
+      total,
+    }, 'School members retrieved successfully');
+  } catch (error) {
+    sendError(res, 'Failed to retrieve school members', 500, error.message);
+  }
+};
+
 module.exports = {
   createSchool,
   getSchools,
   getSchool,
   getMySchool,
   updateSchoolPlan,
+  updateSchoolDetails,
+  changeSchoolAdmin,
   deleteSchool,
   addTeacher,
   getTeachers,
   addStudent,
   getStudents,
+  getSchoolMembers,
 };

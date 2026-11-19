@@ -117,6 +117,42 @@ class SchoolService {
     }
   }
 
+  /// Super admin: update a school's name and description
+  Future<School> updateSchoolDetails(String schoolId, {required String name, String? description}) async {
+    try {
+      final response = await _apiClient.patch(
+        ApiConfig.schoolDetails(schoolId),
+        body: {'name': name, 'description': description},
+      );
+      response.validateStatus();
+
+      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = jsonBody['data'] as Map<String, dynamic>;
+      return School.fromJson(data['school'] as Map<String, dynamic>);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Failed to update school details: $e');
+    }
+  }
+
+  /// Super admin: change the school admin user
+  Future<School> changeSchoolAdmin(String schoolId, String adminId) async {
+    try {
+      final response = await _apiClient.patch(
+        ApiConfig.schoolAdmin(schoolId),
+        body: {'adminId': adminId},
+      );
+      response.validateStatus();
+
+      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = jsonBody['data'] as Map<String, dynamic>;
+      return School.fromJson(data['school'] as Map<String, dynamic>);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Failed to change school admin: $e');
+    }
+  }
+
   /// Super admin: delete a school (only when it has no members)
   Future<void> deleteSchool(String schoolId) async {
     try {
@@ -225,6 +261,41 @@ class SchoolService {
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException('Failed to fetch students: $e');
+    }
+  }
+
+  /// List all staff members (school_admins + instructors) of a school
+  Future<MemberListResponse> getSchoolMembers({
+    required String schoolId,
+    int page = 1,
+    int limit = 20,
+    String? search,
+  }) async {
+    try {
+      final queryParams = {
+        'page': page.toString(),
+        'limit': limit.toString(),
+        if (search != null && search.isNotEmpty) 'search': search,
+      };
+      final response = await _apiClient.get(ApiConfig.schoolMembers(schoolId), queryParams: queryParams);
+      response.validateStatus();
+
+      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = jsonBody['data'] as Map<String, dynamic>;
+
+      final members = (data['members'] as List)
+          .map((item) => UserMin.fromJson(item as Map<String, dynamic>))
+          .toList();
+
+      return MemberListResponse(
+        members: members,
+        totalPages: _toInt(data['totalPages']),
+        currentPage: _toInt(data['currentPage']),
+        total: _toInt(data['total']),
+      );
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Failed to fetch school members: $e');
     }
   }
 
