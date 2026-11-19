@@ -29,7 +29,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['student', 'admin', 'instructor'],
+    enum: ['student', 'admin', 'instructor', 'school_admin'],
     default: 'student'
   },
   phone: {
@@ -37,6 +37,17 @@ const userSchema = new mongoose.Schema({
     trim: true,
     unique: true,
     sparse: true  // Allows multiple null values but enforces uniqueness for non-null values
+  },
+  // School this user belongs to. Null = private (self-registered) student.
+  schoolId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'School',
+    index: true
+  },
+  // True for students who registered themselves (not added under a school).
+  isPrivateStudent: {
+    type: Boolean,
+    default: false
   },
   googleId: {
     type: String,

@@ -57,8 +57,11 @@ import 'package:excellencecoachinghub/presentation/screens/admin/admin_user_mgmt
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_content_moderation_settings_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_management_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_books_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/admin/admin_schools_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_teachers_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_live_sessions_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/school_admin/school_admin_dashboard_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/teacher/teacher_add_students_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/teacher/teacher_dashboard_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/teacher/teacher_student_detail_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/teacher/onboarding/teacher_onboarding_screen.dart';
@@ -459,6 +462,13 @@ class AppRouter {
             ),
           ),
           GoRoute(
+            path: '/admin/schools',
+            builder: (context, state) => const AdminLayoutWrapper(
+              screenName: 'Schools',
+              child: AdminSchoolsScreen(),
+            ),
+          ),
+          GoRoute(
             path: '/admin/students/:studentId',
             builder: (context, state) {
               final studentId = state.pathParameters['studentId'] ?? '';
@@ -584,6 +594,14 @@ class AppRouter {
               child: AdminLiveSessionsScreen(),
             ),
           ),
+          // School admin dashboard (role: school_admin)
+          GoRoute(
+            path: '/school-admin/dashboard',
+            builder: (context, state) => const SchoolAdminLayoutWrapper(
+              screenName: 'School Admin Dashboard',
+              child: SchoolAdminDashboardScreen(),
+            ),
+          ),
 
           // Teacher Routes - Outside MainLayout for full-screen experience
           // Every teacher screen is behind the access gate: a self-registered
@@ -598,6 +616,10 @@ class AppRouter {
           GoRoute(
             path: '/teacher/courses',
             builder: (context, state) => const TeacherDashboardScreen(),
+          ),
+          GoRoute(
+            path: '/teacher/add-students',
+            builder: (context, state) => const TeacherAddStudentsScreen(),
           ),
           // Teaching tools (engine on eexams.net) + exam creation (saved on eexams)
           GoRoute(

@@ -1244,6 +1244,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
         }
       } else {
         debugPrint('AuthProvider: No Firebase user found');
+        // Desktop fallback: Firebase Auth does not persist the signed-in user
+        // on Windows desktop across app restarts, so getCurrentUser() is null
+        // here. Restore the session from the stored backend JWT tokens (the
+        // same token source ApiClient uses on desktop), mirroring mobile.
+        await _restoreSessionFromStoredTokens();
       }
     } catch (e) {
       debugPrint('AuthProvider: Error checking auth status: $e');
@@ -1265,6 +1270,105 @@ class AuthNotifier extends StateNotifier<AuthState> {
       debugPrint('AuthProvider: Error fetching user profile: $e');
       // Do not force logout on profile fetch failure.
       return null;
+    }
+  }
+
+  /// Restore the user session on desktop (Windows) where Firebase Auth does not
+  /// persist the signed-in user across app restarts. Falls back to the stored
+  /// backend JWT tokens, mirroring the token source ApiClient uses on desktop.
+  Future<void> _restoreSessionFromStoredTokens() async {
+    try {
+      final storedToken = await _storageManager.getAccessToken();
+      final storedRefreshToken = await _storageManager.getRefreshToken();
+      final storedUserRole = await _storageManager.getUserRole();
+      final storedUserId = await _storageManager.getUserId();
+
+      if (storedToken == null || storedToken.isEmpty ||
+          storedUserRole == null || storedUserRole.isEmpty) {
+        debugPrint('AuthProvider: No stored backend session found');
+        return;
+      }
+
+      debugPrint('AuthProvider: Stored backend session found, restoring user');
+
+      // Try to fetch a fresh profile from the backend.
+      User? freshUser;
+      try {
+        freshUser = await _fetchUserProfileFromBackend(storedToken);
+      } catch (e) {
+        // Network/offline — fall back to cached storage data below.
+        debugPrint('AuthProvider: Backend profile fetch failed, using cached data: $e');
+      }
+
+      if (freshUser != null) {
+        await _storageManager.saveHasCompletedOnboarding(freshUser.hasCompletedOnboarding);
+        state = state.copyWith(
+          user: freshUser,
+          isEmailLoading: false,
+          isGoogleLoading: false,
+        );
+        debugPrint('AuthProvider: Desktop session restored from backend: ${freshUser.email}');
+      } else {
+        // Profile fetch returned null (likely 401/403 — token expired). Try to
+        // refresh using the refresh token via the backend endpoint directly
+        // (no Firebase required, works on desktop).
+        if (storedRefreshToken != null && storedRefreshToken.isNotEmpty) {
+          try {
+            final refreshed = await _authRepository.refreshToken(storedRefreshToken);
+            await _storageManager.saveAccessToken(refreshed.token);
+            await _storageManager.saveRefreshToken(refreshed.refreshToken);
+            final retryUser = await _fetchUserProfileFromBackend(refreshed.token);
+            if (retryUser != null) {
+              await _storageManager.saveHasCompletedOnboarding(retryUser.hasCompletedOnboarding);
+              state = state.copyWith(
+                user: retryUser,
+                isEmailLoading: false,
+                isGoogleLoading: false,
+              );
+              debugPrint('AuthProvider: Desktop session restored after token refresh: ${retryUser.email}');
+              return;
+            }
+          } catch (e) {
+            debugPrint('AuthProvider: Token refresh failed on desktop: $e');
+          }
+        }
+
+        // Still nothing usable — fall back to cached storage data so an offline
+        // returning user isn't forced to sign in again.
+        final storedPhone = await _storageManager.getUserPhone();
+        final storedUserName = await _storageManager.getUserName();
+        final storedUserAvatar = await _storageManager.getUserAvatar();
+        final storedUserInterests = await _storageManager.getUserInterests();
+        final storedUserShortTermGoal = await _storageManager.getUserShortTermGoal();
+        final storedUserMidTermGoal = await _storageManager.getUserMidTermGoal();
+        final storedUserLongTermGoal = await _storageManager.getUserLongTermGoal();
+        final hasCompletedOnboarding = await _storageManager.hasCompletedOnboarding();
+
+        final cachedUser = User(
+          id: storedUserId ?? '',
+          fullName: storedUserName ?? 'User',
+          email: '', // email not cached for privacy
+          profilePicture: storedUserAvatar,
+          phone: storedPhone,
+          role: storedUserRole,
+          hasCompletedOnboarding: hasCompletedOnboarding,
+          interests: storedUserInterests,
+          shortTermGoal: storedUserShortTermGoal,
+          midTermGoal: storedUserMidTermGoal,
+          longTermGoal: storedUserLongTermGoal,
+          createdAt: DateTime.now(),
+        );
+        state = state.copyWith(
+          user: cachedUser,
+          isEmailLoading: false,
+          isGoogleLoading: false,
+        );
+        debugPrint('AuthProvider: Desktop session restored from cached storage');
+      }
+
+      FCMTokenService.initializeAndSyncToken();
+    } catch (e) {
+      debugPrint('AuthProvider: Error restoring desktop session: $e');
     }
   }
 

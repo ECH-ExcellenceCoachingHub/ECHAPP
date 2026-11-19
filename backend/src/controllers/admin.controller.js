@@ -350,7 +350,7 @@ const updateUserRole = async (req, res) => {
     const { id } = req.params; // Can be firebaseUid or mongoId
     const { role } = req.body;
     
-    if (!['admin', 'student', 'instructor'].includes(role)) {
+    if (!['admin', 'student', 'instructor', 'school_admin'].includes(role)) {
       return sendError(res, 'Invalid role', 400);
     }
     
@@ -1522,7 +1522,7 @@ const updateStudent = async (req, res) => {
     }
 
     // Validate role if provided
-    if (role !== undefined && !['student', 'admin', 'instructor'].includes(role)) {
+    if (role !== undefined && !['student', 'admin', 'instructor', 'school_admin'].includes(role)) {
       return sendError(res, 'Invalid role', 400);
     }
 

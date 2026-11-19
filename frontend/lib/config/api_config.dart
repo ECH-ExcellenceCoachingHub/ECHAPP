@@ -42,6 +42,13 @@ class ApiConfig {
   
   // Admin endpoints
   static String get admin => '$baseUrl/admin';
+
+  // School management endpoints
+  static String get schools => '$baseUrl/admin/schools';
+  static String school(String id) => '$baseUrl/admin/schools/$id';
+  static String schoolPlan(String id) => '$baseUrl/admin/schools/$id/plan';
+  static String schoolTeachers(String id) => '$baseUrl/admin/schools/$id/teachers';
+  static String schoolStudents(String id) => '$baseUrl/admin/schools/$id/students';
   
   // Section endpoints
   static String get sections => '$baseUrl/sections';

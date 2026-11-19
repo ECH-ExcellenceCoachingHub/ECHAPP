@@ -19,6 +19,10 @@ class User {
   final String? teacherStatus;
   /// New Google / phone accounts that still have to pick Student or Teacher.
   final bool needsRoleSelection;
+  /// School this user belongs to. Null = private (self-registered) student.
+  final String? schoolId;
+  /// True for students who registered themselves (not added under a school).
+  final bool isPrivateStudent;
 
   User({
     required this.id,
@@ -38,6 +42,8 @@ class User {
     this.hasCompletedOnboarding = false,
     this.teacherStatus,
     this.needsRoleSelection = false,
+    this.schoolId,
+    this.isPrivateStudent = false,
   });
 
   /// Alias for fullName to maintain compatibility with legacy code
@@ -75,6 +81,8 @@ class User {
       hasCompletedOnboarding: json['hasCompletedOnboarding'] == true,
       teacherStatus: _getStringValue(json['teacherStatus']),
       needsRoleSelection: json['needsRoleSelection'] == true,
+      schoolId: _getStringValue(json['schoolId']),
+      isPrivateStudent: json['isPrivateStudent'] == true,
     );
   }
 
@@ -98,6 +106,8 @@ class User {
       'hasCompletedOnboarding': hasCompletedOnboarding,
       'teacherStatus': teacherStatus,
       'needsRoleSelection': needsRoleSelection,
+      'schoolId': schoolId,
+      'isPrivateStudent': isPrivateStudent,
     };
   }
 
