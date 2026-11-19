@@ -13,6 +13,7 @@ const {
   getTeachers,
   addStudent,
   getStudents,
+  getSchoolMembers,
 } = require('../controllers/school.controller');
 const { protect } = require('../middleware/auth.middleware');
 const { authorize } = require('../middleware/role.middleware');
