@@ -319,7 +319,7 @@ class _AdminSchoolsScreenState extends State<AdminSchoolsScreen> {
                         backgroundColor: Colors.green,
                       ),
                     );
-                    _loadSchools(searchQuery: _searchController.text);
+                    _loadSchools(search: _searchController.text);
                   }
                 } catch (e) {
                   if (mounted) {
@@ -371,7 +371,7 @@ class _AdminSchoolsScreenState extends State<AdminSchoolsScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        _loadSchools(searchQuery: _searchController.text);
+        _loadSchools(search: _searchController.text);
       }
     } catch (e) {
       if (mounted) {

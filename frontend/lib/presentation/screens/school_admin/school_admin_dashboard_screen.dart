@@ -165,9 +165,9 @@ class _SchoolAdminDashboardScreenState
                 ),
                 if (!isTeacher && _school != null && _school!.isFull) ...[
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'Student limit reached: ${_school!.studentCount}/${_school!.studentLimit}. Upgrade the plan to add more students.',
-                    style: TextStyle(fontSize: 12, color: Colors.red),
+                    style: const TextStyle(fontSize: 12, color: Colors.red),
                   ),
                 ],
               ],

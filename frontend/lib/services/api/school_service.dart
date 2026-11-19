@@ -1,8 +1,8 @@
 import 'dart:convert';
 
-import './infrastructure/api_client.dart';
-import '../config/api_config.dart';
-import '../models/school.dart';
+import '../infrastructure/api_client.dart';
+import '../../config/api_config.dart';
+import '../../models/school.dart';
 
 /// Service for school management: super admin creates schools and plans,
 /// school admins manage their teachers and students, teachers add students.

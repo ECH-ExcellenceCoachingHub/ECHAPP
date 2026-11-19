@@ -133,9 +133,9 @@ class _TeacherAddStudentsScreenState extends State<TeacherAddStudentsScreen> {
                 ),
                 if (_school != null && _school!.isFull) ...[
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'Student limit reached: ${_school!.studentCount}/${_school!.studentLimit}. Ask the school admin to upgrade the plan.',
-                    style: TextStyle(fontSize: 12, color: Colors.red),
+                    style: const TextStyle(fontSize: 12, color: Colors.red),
                   ),
                 ],
               ],
@@ -354,7 +354,6 @@ class _TeacherAddStudentsScreenState extends State<TeacherAddStudentsScreen> {
                         ),
                       ],
                     ),
-      ),
-    );
+     );
   }
 }

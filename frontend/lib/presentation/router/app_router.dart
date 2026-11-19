@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart' as legacy_provider;
 import 'package:excellencecoachinghub/presentation/providers/exam_provider.dart';
 import 'package:excellencecoachinghub/widgets/admin_layout_wrapper.dart';
+import 'package:excellencecoachinghub/widgets/school_admin_layout_wrapper.dart';
 import 'package:excellencecoachinghub/presentation/screens/splash/splash_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/labs/lab_hub_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/labs/lab_player_screen.dart';
@@ -597,9 +598,9 @@ class AppRouter {
           // School admin dashboard (role: school_admin)
           GoRoute(
             path: '/school-admin/dashboard',
-            builder: (context, state) => const SchoolAdminLayoutWrapper(
+            builder: (context, state) => SchoolAdminLayoutWrapper(
               screenName: 'School Admin Dashboard',
-              child: SchoolAdminDashboardScreen(),
+              child: const SchoolAdminDashboardScreen(),
             ),
           ),
 
