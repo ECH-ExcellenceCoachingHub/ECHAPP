@@ -16,7 +16,7 @@ const schoolSchema = new mongoose.Schema({
   admin: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false
   },
   // Subscription plan purchased by the school
   plan: {
