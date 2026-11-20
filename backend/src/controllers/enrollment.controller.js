@@ -4,6 +4,7 @@ const Section = require('../models/Section');
 const Lesson = require('../models/Lesson');
 const Payment = require('../models/Payment');
 const User = require('../models/User');
+const School = require('../models/School');
 const Certificate = require('../models/Certificate');
 const mongoose = require('mongoose');
 const emailService = require('../services/email.service');
@@ -60,6 +61,8 @@ const calculateAccessExpirationDate = (course, from = new Date()) => {
 // re-enroll without paying again while their original access period lasts.
 const hasValidPaidAccess = async (enrollment, course) => {
   if (!course.price || course.price <= 0) return true;
+  // School students with an active paid subscription get free access to all courses.
+  if (await hasActiveSchoolSubscription(enrollment.userId)) return true;
   if (isEnrollmentExpired(enrollment)) return false;
   if (enrollment.paymentId) return true;
   const payment = await Payment.findOne({
@@ -68,6 +71,25 @@ const hasValidPaidAccess = async (enrollment, course) => {
     status: { $in: ['completed', 'approved'] }
   }).select('_id').lean();
   return !!payment;
+};
+
+// Whether the learner belongs to a school with an active paid subscription.
+// Students of such schools get free access to all courses without per-course payment.
+const hasActiveSchoolSubscription = async (userId) => {
+  try {
+    const user = await User.findById(userId).select('schoolId role').lean();
+    if (!user || !user.schoolId) return false;
+    const school = await School.findById(user.schoolId).select('plan isActive').lean();
+    return Boolean(
+      school &&
+      school.isActive === true &&
+      school.plan &&
+      school.plan !== 'free'
+    );
+  } catch (error) {
+    console.error('hasActiveSchoolSubscription check failed:', error.message);
+    return false;
+  }
 };
 
 // Reactivate an enrollment the learner previously left. All earlier progress
@@ -293,19 +315,32 @@ const enrollInCourse = async (req, res) => {
     }
 
     // Check if course is free or payment exists for paid courses
+    // School students with an active paid subscription get free access to all courses.
     if (course.price > 0) {
-      const payment = await Payment.findOne({ 
-        userId, 
-        courseId, 
-        status: 'completed' 
-      });
-      
-      if (!payment) {
-        return sendError(res, 'Payment required for this course', 400);
+      const hasSchoolAccess = await hasActiveSchoolSubscription(userId);
+      if (!hasSchoolAccess) {
+        const payment = await Payment.findOne({ 
+          userId, 
+          courseId, 
+          status: 'completed' 
+        });
+        
+        if (!payment) {
+          return sendError(res, 'Payment required for this course', 400);
+        }
       }
     }
 
+    // School students with an active paid subscription get unlimited access
+    // (no per-course access expiration).
     const accessExpirationDate = calculateAccessExpirationDate(course);
+    let finalAccessExpirationDate = accessExpirationDate;
+    if (course.price > 0) {
+      const hasSchoolAccess = await hasActiveSchoolSubscription(userId);
+      if (hasSchoolAccess) {
+        finalAccessExpirationDate = null;
+      }
+    }
 
     // Create enrollment
     const enrollment = await Enrollment.create({
@@ -313,7 +348,7 @@ const enrollInCourse = async (req, res) => {
       courseId,
       enrollmentDate: new Date(),
       completionStatus: 'enrolled',
-      accessExpirationDate
+      accessExpirationDate: finalAccessExpirationDate
     });
 
     // Update course enrollment count
