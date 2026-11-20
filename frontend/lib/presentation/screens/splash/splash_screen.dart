@@ -159,7 +159,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
       // Staff go straight to their own area (the teacher dashboard's access
       // gate then shows a new teacher the step they are on).
-      if (user.role == 'admin' || user.role == 'instructor' || user.needsRoleSelection) {
+      if (user.role == 'admin' || user.role == 'school_admin' ||
+          user.role == 'instructor' || user.needsRoleSelection) {
         await continueAfterAuth(context, ref);
         return;
       }

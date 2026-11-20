@@ -640,6 +640,9 @@ class _ToolGroups extends StatelessWidget {
           _Tool(Icons.video_call, 'Live classes', 'Schedule and start', const Color(0xFFEA580C), () => context.push('/teacher/sessions')),
           _Tool(Icons.groups_rounded, 'Community', 'Discuss with your students', const Color(0xFF7C4DFF), onCommunity),
         ]),
+      ('Students', Icons.people, [
+        _Tool(Icons.person_add, 'Add Students', 'Add students from your school', Colors.green, () => context.push('/teacher/add-students')),
+      ]),
       ('Results', Icons.insights, [
         _Tool(Icons.add_task, 'Create & assign', 'Exams, homework, quizzes on eexams', const Color(0xFF0CBD73), () => openEexams(context, redirect: '/teacher?section=createExam')),
         _Tool(Icons.bar_chart, 'Results', "Your students' marks on eexams", const Color(0xFF0D406C), () => openEexams(context, redirect: '/teacher?section=results')),

@@ -540,17 +540,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         debugPrint(
             'DashboardScreen: Checking user role - ${authState.user?.role}');
 
+        // School admins are restricted to their own layout; never allow them
+        // into the student dashboard, even if they navigate there directly.
+        if (authState.user?.role == 'school_admin') {
+          debugPrint(
+              'DashboardScreen: School admin blocked from student dashboard, redirecting to school admin dashboard');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) context.go('/school-admin/dashboard');
+          });
+          return;
+        }
+
         if (authState.user?.role == 'admin') {
           debugPrint(
               'DashboardScreen: Admin detected, redirecting to admin dashboard');
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) context.go('/admin');
-          });
-        } else if (authState.user?.role == 'school_admin') {
-          debugPrint(
-              'DashboardScreen: School admin detected, redirecting to school admin dashboard');
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) context.go('/school-admin/dashboard');
           });
         } else if (authState.user?.role == 'instructor') {
           debugPrint(

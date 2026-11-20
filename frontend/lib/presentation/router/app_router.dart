@@ -26,6 +26,7 @@ import 'package:excellencecoachinghub/presentation/screens/dashboard/dashboard_s
 import 'package:excellencecoachinghub/presentation/screens/courses/courses_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/courses/course_detail_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/profile/profile_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/school_admin/school_admin_profile_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/settings/settings_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/certificates/certificates_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/certificates/certificate_verification_screen.dart';
@@ -963,6 +964,10 @@ class AppRouter {
               GoRoute(
                 path: '/profile',
                 builder: (context, state) => const ProfileScreen(),
+              ),
+              GoRoute(
+                path: '/school-admin/profile',
+                builder: (context, state) => const SchoolAdminProfileScreen(),
               ),
               GoRoute(
                 path: '/settings',

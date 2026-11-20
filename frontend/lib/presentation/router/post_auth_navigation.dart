@@ -40,6 +40,10 @@ Future<void> continueAfterAuth(BuildContext context, WidgetRef ref) async {
     context.go('/admin');
     return;
   }
+  if (user.role == 'school_admin') {
+    context.go('/school-admin/dashboard');
+    return;
+  }
   // New Google / phone accounts choose Student or Teacher first.
   if (user.needsRoleSelection) {
     context.go('/role-selection');
