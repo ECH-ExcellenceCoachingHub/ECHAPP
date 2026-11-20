@@ -1045,7 +1045,8 @@ class _AdminsTab extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        Expanded(
+        SizedBox(
+          height: MediaQuery.of(context).size.height * 0.42,
           child: admins.isEmpty
               ? const Center(child: Text('No school admins found'))
               : ListView.builder(

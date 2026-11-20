@@ -607,6 +607,24 @@ const firebaseLogin = async (req, res) => {
         if (needsSave) {
           await user.save();
         }
+
+        // Sync role from Firebase custom claims (source of truth for admin-set roles).
+        // Ensures a school admin whose MongoDB record is stale still logs in with the
+        // correct role instead of falling back to the default 'student'.
+        try {
+          const firebaseRole = firebaseUser.customClaims?.role;
+          if (firebaseRole && user.role !== firebaseRole) {
+            user.role = firebaseRole;
+            needsSave = true;
+            console.log(`Synced role for ${user.email}: ${user.role} -> ${firebaseRole}`);
+          }
+        } catch (firebaseError) {
+          console.log('Could not sync role from Firebase custom claims:', firebaseError.message);
+        }
+
+        if (needsSave) {
+          await user.save();
+        }
       } catch (firebaseError) {
         console.log('Could not update user info from Firebase Auth');
       }
