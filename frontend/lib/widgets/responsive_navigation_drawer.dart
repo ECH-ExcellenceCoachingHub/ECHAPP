@@ -222,20 +222,6 @@ class ResponsiveNavigationDrawer extends ConsumerWidget {
           subtitle: l10n?.dashJoinParticipate ?? 'Join & participate',
           route: '/upcoming-sessions',
         );
-        final career = _NavItem(
-          icon: Icons.groups_rounded,
-          color: _kPurple,
-          title: l10n?.drawerCareerGuidance ?? 'Career Guidance',
-          subtitle: l10n?.drawerGetSupport ?? 'Get support',
-          comingSoon: true,
-        );
-        final jobs = _NavItem(
-          icon: Icons.work_rounded,
-          color: _kOrange,
-          title: l10n?.drawerJobs ?? 'Jobs',
-          subtitle: l10n?.drawerFindOpportunities ?? 'Find opportunities',
-          comingSoon: true,
-        );
         final progress = _NavItem(
           icon: Icons.bar_chart_rounded,
           color: _kLime,
@@ -275,8 +261,18 @@ class ResponsiveNavigationDrawer extends ConsumerWidget {
         if (!desktop) {
           return _Menu([
             _NavSection(null, [home]),
-            _NavSection(l10n?.sidebarSectionLearning ?? 'Learning',
-                [myCourses, labs, liveSessions, career, jobs]),
+            _NavSection(l10n?.sidebarSectionLearning ?? 'Learning', [
+              myCourses,
+              _NavItem(
+                icon: Icons.local_library_rounded,
+                color: _kOrange,
+                title: l10n?.library ?? 'Library',
+                subtitle: l10n?.drawerBooksResources ?? 'Books & resources',
+                route: '/library',
+              ),
+              labs,
+              liveSessions,
+            ]),
             _NavSection(
                 l10n?.drawerSectionProfileProgress ?? 'Profile & Progress',
                 [progress, certificates]),
@@ -322,8 +318,6 @@ class ResponsiveNavigationDrawer extends ConsumerWidget {
               route: '/downloads',
               pageKey: 'downloads',
             ),
-            career,
-            jobs,
           ]),
           _NavSection(
               l10n?.drawerSectionProfileProgress ?? 'Profile & Progress', [

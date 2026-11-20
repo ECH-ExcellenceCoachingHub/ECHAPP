@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:excellencecoachinghub/config/app_theme.dart';
 import 'package:excellencecoachinghub/data/services/gutenberg_service.dart';
+import 'package:excellencecoachinghub/presentation/providers/download_provider.dart';
 import 'package:excellencecoachinghub/services/download_service.dart';
 import 'package:excellencecoachinghub/models/download.dart';
 import 'package:excellencecoachinghub/utils/book_download.dart';
@@ -12,6 +15,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:excellencecoachinghub/utils/screen_wakelock.dart';
 import 'package:excellencecoachinghub/utils/media_proxy.dart';
 import 'package:excellencecoachinghub/presentation/widgets/document_viewer/paged_pdf_viewer.dart';
+import 'package:excellencecoachinghub/utils/pdf_blob_cache.dart' as pdf_cache;
 
 class BookReaderScreen extends ConsumerStatefulWidget {
   final dynamic book;
@@ -51,6 +55,13 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
   // Reading Progress
   final double _readingProgress = 0.0;
 
+  // Local-first book loading
+  String? _localFilePath;
+  String? _blobUrl; // Web-only: cached PDF as blob URL for instant re-load
+  bool _isPreloading = false;
+  double _downloadProgress = 0.0;
+  String? _preloadError;
+
   // Reading a page takes minutes without a single tap, which is exactly when
   // the screen would dim, so it stays awake for as long as the book is open
   final ScreenWakelock _wakelock = ScreenWakelock();
@@ -79,6 +90,112 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
         }
       }
     }
+
+    // Preload a local copy of the book so it opens instantly on re-open.
+    _preloadLocalBook();
+  }
+
+  Future<void> _preloadLocalBook() async {
+    final target = resolveBookDownload(widget.book);
+    if (target == null) return;
+
+    if (kIsWeb) {
+      // On web, cache the PDF as a blob URL for instant re-load within a session.
+      setState(() {
+        _isPreloading = true;
+        _downloadProgress = 0.0;
+        _preloadError = null;
+      });
+      try {
+        final blobUrl = await pdf_cache.cachePdfAsBlob(target.url);
+        if (!mounted) return;
+        if (blobUrl != null) {
+          setState(() {
+            _blobUrl = blobUrl;
+            _isPreloading = false;
+          });
+        } else {
+          setState(() {
+            _isPreloading = false;
+          });
+        }
+      } catch (e) {
+        if (!mounted) return;
+        setState(() {
+          _isPreloading = false;
+          _preloadError = e.toString();
+        });
+      }
+      return;
+    }
+
+    final downloadService = ref.read(downloadServiceProvider);
+    final download = downloadService.getDownloadById(target.downloadId);
+
+    // If already downloaded and file exists, use it directly.
+    if (download != null &&
+        download.status == DownloadStatus.completed &&
+        download.localPath.isNotEmpty) {
+      final file = File(download.localPath);
+      if (await file.exists()) {
+        if (mounted) {
+          setState(() {
+            _localFilePath = download.localPath;
+          });
+        }
+        return;
+      }
+    }
+
+    // Otherwise start a background download so the next open is instant.
+    setState(() {
+      _isPreloading = true;
+      _downloadProgress = 0.0;
+      _preloadError = null;
+    });
+
+    try {
+      await downloadService.downloadNotesOrMaterial(
+        url: target.url,
+        title: target.title,
+        lessonId: target.lessonId,
+        type: DownloadType.material,
+        lessonTitle: target.author,
+        sectionTitle: 'Library',
+        fileExtension: target.fileExtension,
+        thumbnailUrl: target.coverUrl,
+        onProgress: (progress) {
+          if (mounted) {
+            setState(() {
+              _downloadProgress = progress.clamp(0.0, 1.0);
+            });
+          }
+        },
+        onSuccess: () {
+          if (!mounted) return;
+          final saved = downloadService.getDownloadById(target.downloadId);
+          if (saved != null && saved.localPath.isNotEmpty) {
+            setState(() {
+              _localFilePath = saved.localPath;
+              _isPreloading = false;
+            });
+          }
+        },
+        onError: (error) {
+          if (!mounted) return;
+          setState(() {
+            _isPreloading = false;
+            _preloadError = error;
+          });
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isPreloading = false;
+        _preloadError = e.toString();
+      });
+    }
   }
 
   @override
@@ -93,6 +210,7 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
     _pageController.dispose();
     _searchController.dispose();
     _flutterTts.stop();
+    pdf_cache.revokeBlobUrl(_blobUrl);
     super.dispose();
   }
 
@@ -205,7 +323,7 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
           if (_isPlaying || _isPaused && !_isFullScreen) _buildTTSControls(context),
         ],
       ),
-      floatingActionButton: _isFullScreen ? null : _buildFloatingActions(context),
+      floatingActionButton: null,
     );
   }
 
@@ -243,6 +361,12 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
             }
           },
           tooltip: _isPlaying ? 'Stop Reading' : 'Voice Reader',
+        ),
+        IconButton(
+          icon: const Icon(Icons.format_list_bulleted),
+          color: AppTheme.getTextColor(context),
+          onPressed: _showFormatSelection,
+          tooltip: 'Format',
         ),
         IconButton(
           icon: Icon(
@@ -343,7 +467,12 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
 
   Widget _buildContent(BuildContext context) {
     final isAdminBook = widget.book is! Book;
-    
+
+    // Show preload progress while downloading in the background.
+    if (_isPreloading && _localFilePath == null) {
+      return _buildPreloadWidget(context);
+    }
+
     // Handle admin-uploaded books
     if (isAdminBook) {
       final pdfUrl = widget.book['pdfUrl'];
@@ -353,12 +482,8 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
         return _buildNoContentWidget(context);
       }
     }
-    
-    // Handle Gutenberg books
-    if (isAdminBook) {
-      return _buildNoContentWidget(context);
-    }
 
+    // Handle Gutenberg books
     final book = widget.book as Book;
     if (book.formats == null || book.formats!.isEmpty) {
       return _buildNoContentWidget(context);
@@ -369,153 +494,205 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
       return _buildNoContentWidget(context);
     }
 
-    // For HTML and text formats, we'll show a web view
+    // For HTML and text formats, render inline in a WebView.
     if (_selectedFormat.startsWith('text/') || _selectedFormat.contains('html')) {
       return _buildWebView(context, formatUrl);
     }
-    
-    // For PDF, we'll show a download prompt
+
+    // For PDF, load from local file if available (instant), otherwise network.
     if (_selectedFormat.contains('pdf')) {
-      return _buildPDFViewer(context, formatUrl);
+      return _buildPDFViewer(context, formatUrl, localFilePath: _localFilePath);
     }
 
     // For other formats, show download option
     return _buildDownloadWidget(context);
   }
 
+  Widget _buildPreloadWidget(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            value: _downloadProgress > 0 ? _downloadProgress : null,
+            color: const Color(0xFF10B981),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Preparing book for fast reading…',
+            style: TextStyle(
+              fontSize: 14,
+              color: AppTheme.getSecondaryTextColor(context),
+            ),
+          ),
+          if (_preloadError != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              'Preload failed: $_preloadError',
+              style: TextStyle(
+                fontSize: 12,
+                color: const Color(0xFFEF4444),
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildNoContentWidget(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 600;
+        final iconSize = isWide ? 80.0 : 64.0;
+        final titleSize = isWide ? 20.0 : 18.0;
+        final bodySize = isWide ? 15.0 : 14.0;
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.book_outlined,
+                color: AppTheme.getSecondaryTextColor(context),
+                size: iconSize,
+              ),
+              SizedBox(height: isWide ? 20 : 16),
+              Text(
+                'No readable content available',
+                style: TextStyle(
+                  fontSize: titleSize,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.getTextColor(context),
+                ),
+              ),
+              SizedBox(height: isWide ? 10 : 8),
+              Text(
+                'This book may not be available in a readable format',
+                style: TextStyle(
+                  fontSize: bodySize,
+                  color: AppTheme.getSecondaryTextColor(context),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              SizedBox(height: isWide ? 30 : 24),
+              ElevatedButton(
+                onPressed: _showFormatSelection,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Try Another Format'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWebView(BuildContext context, String url) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 600;
+        final padding = isWide ? 24.0 : 16.0;
+        return Container(
+          margin: EdgeInsets.all(padding),
+          decoration: BoxDecoration(
+            color: _isDarkMode ? const Color(0xFF374151) : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _isDarkMode ? const Color(0xFF4B5563) : const Color(0xFFE5E7EB),
+            ),
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: EdgeInsets.all(padding),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: const Color(0xFF10B981),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Reading ${_getFormatDisplayName(_selectedFormat)} format',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: AppTheme.getSecondaryTextColor(context),
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: _showFormatSelection,
+                      child: Text(
+                        'Change',
+                        style: TextStyle(
+                          color: const Color(0xFF10B981),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.vertical(
+                      bottom: Radius.circular(12),
+                    ),
+                  ),
+                  child: _buildWebFallback(context, url),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildWebFallback(BuildContext context, String url) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.book_outlined,
+            Icons.web_rounded,
             color: AppTheme.getSecondaryTextColor(context),
-            size: 64,
+            size: 48,
           ),
           const SizedBox(height: 16),
           Text(
-            'No readable content available',
+            'Web Content Viewer',
             style: TextStyle(
-              fontSize: 18,
+              fontSize: 16,
               fontWeight: FontWeight.w600,
               color: AppTheme.getTextColor(context),
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'This book may not be available in a readable format',
+            'This book is available in web format',
             style: TextStyle(
               fontSize: 14,
               color: AppTheme.getSecondaryTextColor(context),
             ),
-            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: _showFormatSelection,
+          ElevatedButton.icon(
+            onPressed: () => _launchUrl(url),
+            icon: const Icon(Icons.open_in_browser),
+            label: const Text('Open in Browser'),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF10B981),
               foregroundColor: Colors.white,
-            ),
-            child: const Text('Try Another Format'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildWebView(BuildContext context, String url) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _isDarkMode ? const Color(0xFF374151) : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: _isDarkMode ? const Color(0xFF4B5563) : const Color(0xFFE5E7EB),
-        ),
-      ),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.info_outline,
-                  color: const Color(0xFF10B981),
-                  size: 20,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Reading ${_getFormatDisplayName(_selectedFormat)} format',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppTheme.getSecondaryTextColor(context),
-                    ),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _showFormatSelection,
-                  child: Text(
-                    'Change',
-                    style: TextStyle(
-                      color: const Color(0xFF10B981),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(12),
-                ),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.web_rounded,
-                      color: AppTheme.getSecondaryTextColor(context),
-                      size: 48,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Web Content Viewer',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.getTextColor(context),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'This book is available in web format',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: AppTheme.getSecondaryTextColor(context),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton.icon(
-                      onPressed: () => _launchUrl(url),
-                      icon: const Icon(Icons.open_in_browser),
-                      label: const Text('Open in Browser'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF10B981),
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
             ),
           ),
         ],
@@ -530,9 +707,11 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
     return 'Book';
   }
 
-  Widget _buildPDFViewer(BuildContext context, String url) {
+  Widget _buildPDFViewer(BuildContext context, String url,
+      {String? localFilePath, double? horizontalPadding}) {
+    final padding = horizontalPadding ?? 16.0;
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(padding),
       child: Container(
         decoration: BoxDecoration(
           color: _isDarkMode ? const Color(0xFF374151) : Colors.white,
@@ -542,86 +721,87 @@ class _BookReaderScreenState extends ConsumerState<BookReaderScreen> {
           ),
         ),
         clipBehavior: Clip.antiAlias,
-        child: PagedPdfViewer.network(
-          mediaProxyUrl(url),
-          key: ValueKey(url),
-          title: _bookTitle,
-          isDark: _isDarkMode,
-          accentColor: const Color(0xFF10B981),
-        ),
+        child: kIsWeb
+            ? (_blobUrl != null
+                ? PagedPdfViewer.network(
+                    _blobUrl!,
+                    key: ValueKey(_blobUrl),
+                    title: _bookTitle,
+                    isDark: _isDarkMode,
+                    accentColor: const Color(0xFF10B981),
+                  )
+                : PagedPdfViewer.network(
+                    mediaProxyUrl(url),
+                    key: ValueKey(url),
+                    title: _bookTitle,
+                    isDark: _isDarkMode,
+                    accentColor: const Color(0xFF10B981),
+                  ))
+            : (localFilePath != null
+                ? PagedPdfViewer.file(
+                    File(localFilePath),
+                    title: _bookTitle,
+                    isDark: _isDarkMode,
+                    accentColor: const Color(0xFF10B981),
+                  )
+                : PagedPdfViewer.network(
+                    mediaProxyUrl(url),
+                    key: ValueKey(url),
+                    title: _bookTitle,
+                    isDark: _isDarkMode,
+                    accentColor: const Color(0xFF10B981),
+                  )),
       ),
     );
   }
 
   Widget _buildDownloadWidget(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.download_rounded,
-            color: const Color(0xFF10B981),
-            size: 64,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 600;
+        final iconSize = isWide ? 80.0 : 64.0;
+        final titleSize = isWide ? 20.0 : 18.0;
+        final bodySize = isWide ? 15.0 : 14.0;
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.download_rounded,
+                color: const Color(0xFF10B981),
+                size: iconSize,
+              ),
+              SizedBox(height: isWide ? 20 : 16),
+              Text(
+                'Download Available',
+                style: TextStyle(
+                  fontSize: titleSize,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.getTextColor(context),
+                ),
+              ),
+              SizedBox(height: isWide ? 10 : 8),
+              Text(
+                'This book is available for download',
+                style: TextStyle(
+                  fontSize: bodySize,
+                  color: AppTheme.getSecondaryTextColor(context),
+                ),
+              ),
+              SizedBox(height: isWide ? 30 : 24),
+              ElevatedButton.icon(
+                onPressed: _handleDownloadFromMenu,
+                icon: const Icon(Icons.download),
+                label: const Text('Download Book'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Download Available',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: AppTheme.getTextColor(context),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'This book is available for download',
-            style: TextStyle(
-              fontSize: 14,
-              color: AppTheme.getSecondaryTextColor(context),
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _handleDownloadFromMenu,
-            icon: const Icon(Icons.download),
-            label: const Text('Download Book'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF10B981),
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFloatingActions(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        FloatingActionButton.extended(
-          heroTag: 'format_fab',
-          onPressed: _showFormatSelection,
-          icon: const Icon(Icons.format_list_bulleted),
-          label: const Text('Format'),
-          backgroundColor: const Color(0xFF10B981),
-          foregroundColor: Colors.white,
-        ),
-        const SizedBox(width: 12),
-        FloatingActionButton(
-          heroTag: 'theme_fab',
-          onPressed: () {
-            setState(() {
-              _isDarkMode = !_isDarkMode;
-            });
-          },
-          backgroundColor: _isDarkMode ? const Color(0xFF374151) : Colors.white,
-          child: Icon(
-            _isDarkMode ? Icons.light_mode : Icons.dark_mode,
-            color: _isDarkMode ? Colors.white : Colors.black,
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 

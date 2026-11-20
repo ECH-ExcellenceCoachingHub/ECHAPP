@@ -25,7 +25,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   List<Book> _filteredBooks = [];
   List<dynamic> _adminBooks = [];
   List<dynamic> _filteredAdminBooks = [];
-  bool _isLoadingAdminBooks = false;
+  bool _isLoadingAdminBooks = true;
   bool _isLoadingGutenberg = false;
   bool _isLoadingMore = false;
   bool _hasMore = true;
@@ -1196,54 +1196,41 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   }
 
   Future<void> _loadAdminBooksFirst() async {
+    // Show existing cached books immediately while we refresh in the background.
     setState(() {
-      _isLoadingAdminBooks = true;
       _errorMessage = null;
       _currentPage = 1;
-      _allBooks.clear();
-      _filteredBooks.clear();
-      _adminBooks.clear();
-      _filteredAdminBooks.clear();
-      _hasMore = true;
+      _isLoadingAdminBooks = true;
     });
-    
+
+    // Load admin books FIRST for instant display.
+    List<dynamic> adminBooks = [];
     try {
-      // Load admin books FIRST for instant display
-      List<dynamic> adminBooks = [];
-      try {
-        adminBooks = await _bookService.fetchBooks(page: 1, limit: 50);
-      } catch (e) {
-        print('Error fetching admin books: $e');
-      }
-      
-      if (mounted) {
-        setState(() {
-          _adminBooks = adminBooks;
-          _filteredAdminBooks = adminBooks;
-          _isLoadingAdminBooks = false;
-        });
-      }
-      
-      // Load Gutenberg books in background after admin books are shown
-      _loadGutenbergBooks();
-    } catch (error) {
-      if (mounted) {
-        setState(() {
-          _isLoadingAdminBooks = false;
-          _errorMessage = error.toString();
-        });
-      }
+      adminBooks = await _bookService.fetchBooks(page: 1, limit: 50);
+    } catch (e) {
+      print('Error fetching admin books: $e');
     }
+
+    if (mounted) {
+      setState(() {
+        _adminBooks = adminBooks;
+        _filteredAdminBooks = adminBooks;
+        _isLoadingAdminBooks = false;
+      });
+    }
+
+    // Load Gutenberg books in background after admin books are shown.
+    _loadGutenbergBooks();
   }
-  
+
   Future<void> _loadGutenbergBooks() async {
     setState(() {
       _isLoadingGutenberg = true;
     });
-    
+
     try {
       final gutenbergBooks = await _gutenbergService.fetchAcademicBooks(page: 1, limit: _pageSize);
-      
+
       if (mounted) {
         setState(() {
           _allBooks = gutenbergBooks;
