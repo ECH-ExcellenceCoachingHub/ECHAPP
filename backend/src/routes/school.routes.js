@@ -11,6 +11,7 @@ const {
   deleteSchool,
   addTeacher,
   getTeachers,
+  addSchoolAdmin,
   addStudent,
   getStudents,
   getSchoolMembers,
@@ -32,6 +33,7 @@ router.delete('/schools/:id', protect, authorize('admin'), deleteSchool);
 router.post('/schools/:id/teachers', protect, authorize('admin', 'school_admin'), addTeacher);
 router.get('/schools/:id/teachers', protect, authorize('admin', 'school_admin', 'instructor'), getTeachers);
 router.post('/schools/:id/students', protect, authorize('admin', 'school_admin', 'instructor'), addStudent);
+router.post('/schools/:id/admins', protect, authorize('admin', 'school_admin'), addSchoolAdmin);
 router.get('/schools/:id/students', protect, authorize('admin', 'school_admin', 'instructor'), getStudents);
 router.get('/schools/:id/members', protect, authorize('admin', 'school_admin', 'instructor'), getSchoolMembers);
 

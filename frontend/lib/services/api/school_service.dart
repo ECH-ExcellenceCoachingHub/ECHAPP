@@ -229,6 +229,21 @@ class SchoolService {
     }
   }
 
+  /// School admin: add a school admin to the school
+  Future<UserMin> addSchoolAdmin(String schoolId, MemberCreateRequest request) async {
+    try {
+      final response = await _apiClient.post(ApiConfig.schoolAdmins(schoolId), body: request.toJson());
+      response.validateStatus();
+
+      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = jsonBody['data'] as Map<String, dynamic>;
+      return UserMin.fromJson(data);
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Failed to add school admin: $e');
+    }
+  }
+
   /// List students of a school
   Future<MemberListResponse> getStudents({
     required String schoolId,

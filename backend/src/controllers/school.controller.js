@@ -509,6 +509,78 @@ const addStudent = async (req, res) => {
   }
 };
 
+/** POST /api/admin/schools/:id/admins — add a school admin to the school */
+const addSchoolAdmin = async (req, res) => {
+  try {
+    const { id: schoolId } = req.params;
+    const { fullName, email, phone, password } = req.body;
+
+    if (!assertSchoolAccess(req.user, schoolId)) {
+      return sendError(res, 'Access denied. You can only add admins to your own school.', 403);
+    }
+
+    if (!fullName || (!email && !phone)) {
+      return sendError(res, 'Full name and at least one contact method (email or phone) required', 400);
+    }
+
+    const school = await School.findById(schoolId);
+    if (!school) return sendError(res, 'School not found', 404);
+    if (!school.isActive) return sendError(res, 'This school is deactivated', 403);
+
+    const existingQuery = [];
+    if (email) existingQuery.push({ email });
+    if (phone) existingQuery.push({ phone });
+    const existingUser = await User.findOne({ $or: existingQuery });
+    if (existingUser) return sendError(res, 'A user with this email or phone already exists', 409);
+
+    let firebaseUid = null;
+    if (email && password) {
+      try {
+        const e164Phone = phone && phone.startsWith('+') ? phone : undefined;
+        const firebaseUser = await admin.auth().createUser({
+          email,
+          password,
+          displayName: fullName,
+          phoneNumber: e164Phone,
+        });
+        await admin.auth().setCustomUserClaims(firebaseUser.uid, { role: 'school_admin' });
+        firebaseUid = firebaseUser.uid;
+      } catch (firebaseError) {
+        console.error('Firebase school admin creation error:', firebaseError.message);
+      }
+    }
+
+    const userData = {
+      fullName,
+      email: email || undefined,
+      phone: phone || undefined,
+      password: password || undefined,
+      role: 'school_admin',
+      schoolId: school._id,
+      isVerified: true,
+      isActive: true,
+    };
+    if (firebaseUid) userData.firebaseUid = firebaseUid;
+
+    const schoolAdmin = await User.create(userData);
+
+    sendSuccess(res, {
+      id: schoolAdmin._id,
+      firebaseUid: schoolAdmin.firebaseUid,
+      fullName: schoolAdmin.fullName,
+      email: schoolAdmin.email,
+      phone: schoolAdmin.phone,
+      role: schoolAdmin.role,
+      schoolId: schoolAdmin.schoolId,
+    }, 'School admin added successfully', 201);
+  } catch (error) {
+    if (error.code === 11000) {
+      return sendError(res, 'A user with this email or phone already exists', 409);
+    }
+    sendError(res, 'Failed to add school admin', 500, error.message);
+  }
+};
+
 /** GET /api/admin/schools/:id/students — list students of the school */
 const getStudents = async (req, res) => {
   try {
@@ -592,6 +664,7 @@ module.exports = {
   deleteSchool,
   addTeacher,
   getTeachers,
+  addSchoolAdmin,
   addStudent,
   getStudents,
   getSchoolMembers,

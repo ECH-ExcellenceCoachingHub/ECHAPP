@@ -332,6 +332,132 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen> {
     }
   }
 
+  final _adminNameController = TextEditingController();
+  final _adminEmailController = TextEditingController();
+  final _adminPhoneController = TextEditingController();
+  final _adminPasswordController = TextEditingController();
+
+  void _showAddAdminDialog() {
+    _adminNameController.clear();
+    _adminEmailController.clear();
+    _adminPhoneController.clear();
+    _adminPasswordController.clear();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Add School Admin'),
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width < 600
+                ? MediaQuery.of(context).size.width * 0.9
+                : 450,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: _adminNameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Full name *',
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _adminEmailController,
+                    decoration: const InputDecoration(
+                      labelText: 'Email *',
+                      prefixIcon: Icon(Icons.email),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _adminPhoneController,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone',
+                      prefixIcon: Icon(Icons.phone),
+                    ),
+                    keyboardType: TextInputType.phone,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _adminPasswordController,
+                    decoration: const InputDecoration(
+                      labelText: 'Password *',
+                      prefixIcon: Icon(Icons.lock),
+                    ),
+                    obscureText: true,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
+              onPressed: () async {
+                if (_adminNameController.text.trim().isEmpty ||
+                    _adminEmailController.text.trim().isEmpty ||
+                    _adminPasswordController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please fill all required fields'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+                Navigator.pop(context);
+                try {
+                  await _addSchoolAdmin(
+                    MemberCreateRequest(
+                      fullName: _adminNameController.text.trim(),
+                      email: _adminEmailController.text.trim(),
+                      phone: _adminPhoneController.text.trim().isEmpty
+                          ? null
+                          : _adminPhoneController.text.trim(),
+                      password: _adminPasswordController.text.trim(),
+                    ),
+                  );
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('School admin added successfully'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    _load();
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addSchoolAdmin(MemberCreateRequest request) async {
+    await _schoolService.addSchoolAdmin(widget.schoolId, request);
+    if (mounted) _loadMembers();
+  }
+
   @override
   Widget build(BuildContext context) {
     return AdminLayoutWrapper(
@@ -402,6 +528,7 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen> {
                   ButtonSegment(value: 1, label: Text('Teachers'), icon: Icon(Icons.person)),
                   ButtonSegment(value: 2, label: Text('Students'), icon: Icon(Icons.people)),
                   ButtonSegment(value: 3, label: Text('Members'), icon: Icon(Icons.group)),
+                  ButtonSegment(value: 4, label: Text('Admins'), icon: Icon(Icons.admin_panel_settings)),
                 ],
                 selected: {_tabIndex},
                 onSelectionChanged: (s) => setState(() => _tabIndex = s.first),
@@ -442,7 +569,8 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen> {
                                 });
                               },
                             )
-                          : _MembersTab(
+                          : _tabIndex == 3
+                          ? _MembersTab(
                               title: 'All Members',
                               members: _members,
                               searchController: _searchController,
@@ -453,6 +581,11 @@ class _SchoolDetailScreenState extends State<SchoolDetailScreen> {
                                   _loadMembers();
                                 });
                               },
+                            )
+                          : _AdminsTab(
+                              schoolId: _school!.id,
+                              admins: _members.where((m) => m.role == 'school_admin').toList(),
+                              onAddAdmin: _showAddAdminDialog,
                             ),
             ),
           ],
@@ -859,6 +992,94 @@ class _MembersTab extends StatelessWidget {
                               : m.role == 'instructor'
                                   ? Colors.blue.withOpacity(0.1)
                                   : Colors.green.withOpacity(0.1),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AdminsTab extends StatelessWidget {
+  final String schoolId;
+  final List<UserMin> admins;
+  final VoidCallback onAddAdmin;
+
+  const _AdminsTab({
+    required this.schoolId,
+    required this.admins,
+    required this.onAddAdmin,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Search admins...',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppTheme.primaryGreen,
+                ),
+                onPressed: onAddAdmin,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Add Admin'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: admins.isEmpty
+              ? const Center(child: Text('No school admins found'))
+              : ListView.builder(
+                  itemCount: admins.length,
+                  itemBuilder: (context, index) {
+                    final m = admins[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 6),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor:
+                              AppTheme.primaryGreen.withOpacity(0.1),
+                          child: Text(
+                            m.fullName.isNotEmpty
+                                ? m.fullName[0].toUpperCase()
+                                : '?',
+                          ),
+                        ),
+                        title: Text(m.fullName),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(m.email),
+                            if (m.phone != null && m.phone!.isNotEmpty)
+                              Text(m.phone!),
+                          ],
+                        ),
+                        trailing: const Chip(
+                          label: Text(
+                            'School Admin',
+                            style: TextStyle(fontSize: 11),
+                          ),
+                          backgroundColor: Colors.purple,
                         ),
                       ),
                     );
