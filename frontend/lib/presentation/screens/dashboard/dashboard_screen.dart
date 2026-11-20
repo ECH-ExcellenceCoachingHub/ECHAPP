@@ -546,6 +546,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) context.go('/admin');
           });
+        } else if (authState.user?.role == 'school_admin') {
+          debugPrint(
+              'DashboardScreen: School admin detected, redirecting to school admin dashboard');
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) context.go('/school-admin/dashboard');
+          });
         } else if (authState.user?.role == 'instructor') {
           debugPrint(
               'DashboardScreen: Instructor detected, redirecting to teacher dashboard');
