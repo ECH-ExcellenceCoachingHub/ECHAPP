@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0f14">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>ECH Labs</title>
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #0b0f14; touch-action: none; -webkit-user-select: none; user-select: none; }
+    #unity-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; background: #0b0f14; outline: none; }
+    #loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+              background: radial-gradient(circle at 50% 35%, #0f2d44 0%, #0b0f14 70%); color: #f1f5f9; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; transition: opacity .4s; }
+    #loader .brand { background: #10b981; color: #032219; font-weight: 800; letter-spacing: 3px; font-size: 13px; padding: 7px 14px; border-radius: 10px; }
+    #loader h1 { margin: 0; font-size: clamp(20px, 4vw, 30px); font-weight: 800; text-align: center; padding: 0 24px; }
+    #loader p { margin: 0; color: #94a3b8; font-size: 14px; text-align: center; padding: 0 24px; }
+    #bar { width: min(360px, 70vw); height: 8px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; }
+    #fill { width: 0; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #10b981, #3b82f6); transition: width .2s; }
+    #error { display: none; color: #fca5a5; max-width: 520px; text-align: center; padding: 0 24px; }
+    #rotate { display: none; position: fixed; inset: 0; z-index: 10; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 24px;
+              background: rgba(11,15,20,.94); color: #f1f5f9; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; text-align: center; }
+    #rotate .phone { width: 46px; height: 78px; border: 4px solid #10b981; border-radius: 10px; animation: turn 2s ease-in-out infinite; }
+    @keyframes turn { 0%, 30% { transform: rotate(0); } 60%, 100% { transform: rotate(-90deg); } }
+    #rotate button { background: transparent; color: #94a3b8; border: 1px solid #334155; border-radius: 10px; padding: 10px 18px; font-size: 14px; }
+    @media (orientation: portrait) and (max-width: 900px) { body:not(.portrait-ok) #rotate { display: flex; } }
+  </style>
+</head>
+<body>
+  <canvas id="unity-canvas" tabindex="-1"></canvas>
+  <div id="rotate">
+    <div class="phone"></div>
+    <h2 style="margin:0">Turn your phone sideways</h2>
+    <p style="margin:0;color:#94a3b8">The lab works best in landscape.</p>
+    <button onclick="document.body.classList.add('portrait-ok')">Continue anyway</button>
+  </div>
+  <div id="loader">
+    <div class="brand">ECH LABS</div>
+    <h1>Preparing your laboratory…</h1>
+    <div id="bar"><div id="fill"></div></div>
+    <p id="tip">Tip: tap equipment to see what you can do with it.</p>
+    <p id="error"></p>
+  </div>
+  <script>
+    var canvas = document.getElementById('unity-canvas');
+    var fill = document.getElementById('fill');
+    var loader = document.getElementById('loader');
+    var tips = ['Tip: tap equipment to see what you can do with it.', 'Tip: stuck? Press "Hint" — Dr. ECH will help.', 'Tip: safety first — put on your PPE before you start.', 'Tip: read scales at eye level to avoid parallax error.'];
+    var t = 0; setInterval(function () { var el = document.getElementById('tip'); if (el) el.textContent = tips[++t % tips.length]; }, 3500);
+    function fit() {
+      var dpr = Math.min(window.devicePixelRatio || 1, /Mobi|Android/i.test(navigator.userAgent) ? 1.5 : 2);
+      canvas.width = Math.round(window.innerWidth * dpr);
+      canvas.height = Math.round(window.innerHeight * dpr);
+    }
+    window.addEventListener('resize', fit); fit();
+    var config = {
+      dataUrl: "Build/WebGL.data.unityweb",
+      frameworkUrl: "Build/WebGL.framework.js.unityweb",
+      codeUrl: "Build/WebGL.wasm.unityweb",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "Excellence Coaching Hub",
+      productName: "ECH Labs",
+      productVersion: "1.0.0",
+      matchWebGLToCanvasSize: false,
+      devicePixelRatio: 1
+    };
+    var script = document.createElement('script');
+    script.src = "Build/WebGL.loader.js";
+    script.onload = function () {
+      createUnityInstance(canvas, config, function (p) { fill.style.width = Math.round(p * 100) + '%'; })
+        .then(function () { loader.style.opacity = 0; setTimeout(function () { loader.remove(); }, 450); })
+        .catch(function (e) { var el = document.getElementById('error'); el.style.display = 'block'; el.textContent = 'The lab could not start on this device: ' + e; });
+    };
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>

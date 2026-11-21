@@ -46,29 +46,23 @@ Future<void> main() async {
   await runZonedGuarded(() async {
     try {
       debugPrint('Main: Starting app initialization...');
-      
-      // Initialize Firebase first (must be ready before plugins that rely on it)
-      // Added a timeout and detailed logging to debug the "see nothing" issue
+
+      // Initialize Firebase first (must be ready before the auth provider runs).
+      // Added a timeout and detailed logging to debug the "see nothing" issue.
       await FirebaseAuthService.initializeFirebase();
       debugPrint('Main: Firebase initialized successfully');
 
-      // Must be ready before the router resolves its first route: the offline
-      // guard redirects online-only screens to Downloads based on this state.
-      await ConnectivityService.instance.initialize();
-
-      // Initialize push notifications only on supported platforms (not Windows)
-      if (defaultTargetPlatform != TargetPlatform.windows) {
-        await PushNotificationService.initialize();
-      }
-
-      // Start non-critical initialization in background
-      _initializeBackgroundServices();
-      
+      // Run the app immediately so the splash screen paints as soon as Firebase
+      // is ready. Remaining services initialize in the background and do not
+      // block first paint.
       runApp(
         const ProviderScope(
           child: ExcellenceCoachingHubApp(),
         ),
       );
+
+      // Initialize remaining services in the background (non-blocking).
+      _initializeBackgroundServices();
     } catch (e, stack) {
       // Handle startup errors gracefully
       debugPrint('FATAL ERROR during app startup: $e');
@@ -119,18 +113,27 @@ void _showErrorApp(String error) {
   );
 }
 
-// Background initialization that doesn't block app startup
+// Background initialization that does not block app startup
 Future<void> _initializeBackgroundServices() async {
   try {
+    // Must be ready before the router resolves its first route: the offline
+    // guard redirects online-only screens to Downloads based on this state.
+    await ConnectivityService.instance.initialize();
+
+    // Initialize push notifications only on supported platforms (not Windows)
+    if (defaultTargetPlatform != TargetPlatform.windows) {
+      await PushNotificationService.initialize();
+    }
+
     // Initialize FCM token sync only on supported platforms
     if (defaultTargetPlatform != TargetPlatform.windows) {
       await FCMTokenService.initializeAndSyncToken();
     }
-    
+
     // Initialize download service (non-blocking)
     final downloadService = DownloadService();
     await downloadService.init();
-    
+
     debugPrint('Background services initialized successfully');
   } catch (e) {
     debugPrint('Error initializing background services: $e');
