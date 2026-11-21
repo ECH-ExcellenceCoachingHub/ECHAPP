@@ -47,14 +47,15 @@ Future<void> main() async {
     try {
       debugPrint('Main: Starting app initialization...');
 
-      // Initialize Firebase first (must be ready before the auth provider runs).
-      // Added a timeout and detailed logging to debug the "see nothing" issue.
-      await FirebaseAuthService.initializeFirebase();
-      debugPrint('Main: Firebase initialized successfully');
+      // Initialize Firebase in the background — do not block first paint.
+      // The splash screen shows immediately; Firebase-dependent auth restoration
+      // awaits this future inside the auth provider.
+      FirebaseAuthService.initializeFirebase().catchError((e, st) {
+        debugPrint('Main: Firebase background init failed: $e');
+      });
 
-      // Run the app immediately so the splash screen paints as soon as Firebase
-      // is ready. Remaining services initialize in the background and do not
-      // block first paint.
+      // Run the app immediately so the splash screen paints without waiting
+      // on Firebase or any other service.
       runApp(
         const ProviderScope(
           child: ExcellenceCoachingHubApp(),

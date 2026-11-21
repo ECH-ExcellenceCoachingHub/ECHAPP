@@ -6,7 +6,41 @@ import 'package:excellencecoachinghub/services/google_sign_in_desktop_service.da
 import 'package:google_sign_in/google_sign_in.dart';
 
 class FirebaseAuthService {
-  static firebase_auth.FirebaseAuth get _auth => firebase_auth.FirebaseAuth.instance;
+  static firebase_auth.FirebaseAuth? _auth;
+
+  static bool get _isInitialized => _auth != null;
+
+  static firebase_auth.FirebaseAuth _requireAuth() {
+    final auth = _auth;
+    if (auth == null) {
+      throw Exception('Firebase not initialized');
+    }
+    return auth;
+  }
+
+  static Future<void>? _initFuture;
+  static bool _initComplete = false;
+
+  static Future<void> ensureInitialized() async {
+    if (_initComplete) return;
+    _initFuture ??= _initFirebase();
+    await _initFuture;
+    _initComplete = true;
+  }
+
+  static Future<void> _initFirebase() async {
+    try {
+      debugPrint('FirebaseAuthService: Initializing Firebase...');
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      ).timeout(const Duration(seconds: 15));
+      _auth = firebase_auth.FirebaseAuth.instance;
+      debugPrint('FirebaseAuthService: Firebase initialization complete');
+    } catch (e) {
+      debugPrint('FirebaseAuthService: Firebase initialization error: $e');
+      // Do not rethrow — app must start even if Firebase is unreachable.
+    }
+  }
 
   static GoogleSignIn? _googleSignIn;
 
@@ -27,18 +61,9 @@ class FirebaseAuthService {
     return _googleSignIn!;
   }
 
-  // Initialize Firebase
+  // Initialize Firebase (public entry point used by main.dart).
   static Future<void> initializeFirebase() async {
-    try {
-      debugPrint('FirebaseAuthService: Initializing Firebase with timeout...');
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      ).timeout(const Duration(seconds: 15));
-      debugPrint('FirebaseAuthService: Firebase initialization complete');
-    } catch (e) {
-      debugPrint('FirebaseAuthService: Firebase initialization error: $e');
-      rethrow;
-    }
+    await ensureInitialized();
   }
 
   // Email/Password Registration
@@ -63,7 +88,7 @@ class FirebaseAuthService {
         throw Exception('Please enter a valid email address.');
       }
       
-      final userCredential = await _auth.createUserWithEmailAndPassword(
+      final userCredential = await _requireAuth().createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -107,7 +132,7 @@ class FirebaseAuthService {
         throw Exception('Please enter a valid email address.');
       }
       
-      return await _auth.signInWithEmailAndPassword(
+      return await _requireAuth().signInWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -131,7 +156,7 @@ class FirebaseAuthService {
         throw Exception('Please enter a valid email address');
       }
       
-      await _auth.sendPasswordResetEmail(email: email);
+      await _requireAuth().sendPasswordResetEmail(email: email);
       debugPrint('Password reset email sent successfully to: $email');
       
       // Additional debugging - check if email was actually sent
@@ -171,7 +196,7 @@ class FirebaseAuthService {
     required String newPassword,
   }) async {
     try {
-      final user = _auth.currentUser;
+      final user = _requireAuth().currentUser;
       if (user == null || user.email == null) {
         throw Exception('No user signed in.');
       }
@@ -198,7 +223,7 @@ class FirebaseAuthService {
   // Sign Out
   static Future<void> signOut() async {
     try {
-      await _auth.signOut();
+      await _requireAuth().signOut();
       if (_googleSignIn != null) {
         await _googleSignIn!.signOut();
       } else {
@@ -213,18 +238,34 @@ class FirebaseAuthService {
 
   // Get Current User
   static firebase_auth.User? getCurrentUser() {
-    return _auth.currentUser;
+    try {
+      final auth = _auth;
+      if (auth == null) return null;
+      return auth.currentUser;
+    } catch (e) {
+      debugPrint('Get Current User Error: $e');
+      return null;
+    }
   }
 
   // Check if User is Signed In
   static bool isSignedIn() {
-    return _auth.currentUser != null;
+    try {
+      final auth = _auth;
+      if (auth == null) return false;
+      return auth.currentUser != null;
+    } catch (e) {
+      debugPrint('Is Signed In Error: $e');
+      return false;
+    }
   }
 
   // Refresh User Data
   static Future<void> reloadUser() async {
     try {
-      await _auth.currentUser?.reload();
+      final auth = _auth;
+      if (auth == null) return;
+      await auth.currentUser?.reload();
     } catch (e) {
       debugPrint('Reload User Error: $e');
     }
@@ -233,12 +274,12 @@ class FirebaseAuthService {
   // Get user's custom claims (including role)
   static Future<Map<String, dynamic>?> getUserCustomClaims() async {
     try {
-      final user = _auth.currentUser;
-      if (user != null) {
-        final idTokenResult = await user.getIdTokenResult();
-        return idTokenResult.claims;
-      }
-      return null;
+      final auth = _auth;
+      if (auth == null) return null;
+      final user = auth.currentUser;
+      if (user == null) return null;
+      final idTokenResult = await user.getIdTokenResult();
+      return idTokenResult.claims;
     } catch (e) {
       debugPrint('Error getting custom claims: $e');
       return null;
@@ -261,7 +302,7 @@ class FirebaseAuthService {
     required String currentPassword,
   }) async {
     try {
-      final user = _auth.currentUser;
+      final user = _requireAuth().currentUser;
       if (user == null || user.email == null) {
         throw Exception('No user signed in.');
       }
@@ -322,7 +363,7 @@ class FirebaseAuthService {
 
       debugPrint('Signing in with Firebase credential...');
       // Sign in with credential - this will create account if it doesn't exist
-      final userCredential = await _auth.signInWithCredential(credential);
+      final userCredential = await _requireAuth().signInWithCredential(credential);
       
       debugPrint('Firebase sign-in successful');
       
@@ -393,7 +434,7 @@ class FirebaseAuthService {
     try {
       debugPrint('FirebaseAuthService: Sending OTP to $phoneNumber');
       
-      await _auth.verifyPhoneNumber(
+      await _requireAuth().verifyPhoneNumber(
         phoneNumber: phoneNumber,
         verificationCompleted: (firebase_auth.PhoneAuthCredential credential) {
           debugPrint('FirebaseAuthService: Auto-verification completed');
@@ -431,7 +472,7 @@ class FirebaseAuthService {
   ) async {
     try {
       debugPrint('FirebaseAuthService: Verifying OTP and signing in');
-      final userCredential = await _auth.signInWithCredential(credential);
+      final userCredential = await _requireAuth().signInWithCredential(credential);
       debugPrint('FirebaseAuthService: Phone sign-in successful');
       return userCredential;
     } on firebase_auth.FirebaseAuthException catch (e) {
@@ -450,7 +491,7 @@ class FirebaseAuthService {
   ) async {
     try {
       debugPrint('FirebaseAuthService: Linking phone credential to existing account');
-      final user = _auth.currentUser;
+      final user = _requireAuth().currentUser;
       if (user == null) {
         throw Exception('No user signed in. Please sign in first.');
       }

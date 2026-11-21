@@ -1145,6 +1145,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
     // IMPORTANT: drive splash navigation using isLoading.
     state = state.copyWith(isLoading: true, error: null);
     try {
+      // Wait for Firebase to finish initializing (started in main.dart).
+      // This never throws — if Firebase is unreachable, auth simply
+      // proceeds as unsigned-in.
+      await FirebaseAuthService.ensureInitialized();
+
       final firebaseUser = FirebaseAuthService.getCurrentUser();
 
       if (firebaseUser != null) {
