@@ -3,6 +3,8 @@ const { verifyToken } = require('../utils/jwt.utils');
 const { sendUnauthorized } = require('../utils/response.utils');
 const admin = require('../config/firebase');
 const { canLinkByEmail, sendVerificationIfNeeded, notVerifiedMessage } = require('../utils/firebaseAccountLink');
+const { sessionProblem } = require('../services/school/session.service');
+const { clientIp } = require('../utils/clientIp');
 
 // Never log tokens or the Authorization header: anyone who can read the
 // server logs could reuse them to act as the user.
@@ -55,6 +57,11 @@ const protect = async (req, res, next) => {
         return sendUnauthorized(res, 'User account is deactivated');
       }
 
+      const sessionIssue = await sessionProblem(req.user, decodedToken.sid, clientIp(req));
+      if (sessionIssue) {
+        return res.status(401).json(sessionIssue);
+      }
+
       return next();
     } catch (firebaseError) {
       // Not a Firebase ID token (or expired) — try the legacy ECH JWT.
@@ -68,6 +75,11 @@ const protect = async (req, res, next) => {
 
         if (!user.isActive) {
           return sendUnauthorized(res, 'User account is deactivated');
+        }
+
+        const sessionIssue = await sessionProblem(user, decoded.sid, clientIp(req));
+        if (sessionIssue) {
+          return res.status(401).json(sessionIssue);
         }
 
         req.user = user;

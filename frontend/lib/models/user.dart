@@ -23,6 +23,10 @@ class User {
   final String? schoolId;
   /// True for students who registered themselves (not added under a school).
   final bool isPrivateStudent;
+  /// Current class of a school student.
+  final String? classroomId;
+  /// Sign-in code of a school student (used with a PIN).
+  final String? studentCode;
 
   User({
     required this.id,
@@ -44,7 +48,15 @@ class User {
     this.needsRoleSelection = false,
     this.schoolId,
     this.isPrivateStudent = false,
+    this.classroomId,
+    this.studentCode,
   });
+
+  /// A student registered by a school (has a class, signs in with code + PIN).
+  bool get isSchoolStudent => role == 'student' && schoolId != null && schoolId!.isNotEmpty;
+
+  /// A teacher who belongs to a school.
+  bool get isSchoolTeacher => role == 'instructor' && schoolId != null && schoolId!.isNotEmpty;
 
   /// Alias for fullName to maintain compatibility with legacy code
   String get name => fullName;
@@ -83,6 +95,8 @@ class User {
       needsRoleSelection: json['needsRoleSelection'] == true,
       schoolId: _getStringValue(json['schoolId']),
       isPrivateStudent: json['isPrivateStudent'] == true,
+      classroomId: _getStringValue(json['classroomId']),
+      studentCode: _getStringValue(json['studentCode']),
     );
   }
 
@@ -108,6 +122,8 @@ class User {
       'needsRoleSelection': needsRoleSelection,
       'schoolId': schoolId,
       'isPrivateStudent': isPrivateStudent,
+      'classroomId': classroomId,
+      'studentCode': studentCode,
     };
   }
 

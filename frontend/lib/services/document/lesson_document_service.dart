@@ -101,7 +101,7 @@ class LessonDocumentService {
       if (user != null) {
         try {
           final token = await user.getIdToken();
-          print('Got token: ${token?.substring(0, 20)}...');
+          print('Got auth token');
           if (token != null) {
             request.headers['Authorization'] = 'Bearer $token';
           } else {

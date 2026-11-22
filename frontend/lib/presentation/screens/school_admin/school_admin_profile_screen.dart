@@ -12,7 +12,6 @@ import 'package:excellencecoachinghub/config/app_theme.dart';
 import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
 import 'package:excellencecoachinghub/services/api/school_service.dart';
-import 'package:excellencecoachinghub/models/school.dart';
 
 /// Dedicated profile screen for school admins.
 /// Separate from the student profile so school admins manage their own
@@ -35,7 +34,7 @@ class _SchoolAdminProfileScreenState
   final _picker = ImagePicker();
   final _schoolService = SchoolService();
 
-  School? _school;
+  Map<String, dynamic>? _school;
   bool _isLoadingSchool = true;
 
   @override
@@ -65,7 +64,7 @@ class _SchoolAdminProfileScreenState
 
   Future<void> _loadSchool() async {
     try {
-      final school = await _schoolService.getMySchool();
+      final school = await _schoolService.getSchool('me');
       if (!mounted) return;
       setState(() {
         _school = school;
@@ -568,38 +567,38 @@ class _SchoolAdminProfileScreenState
             const SizedBox(height: 16),
             _InfoRow(
               label: 'School Name',
-              value: school.name,
+              value: '${school['name']}',
               icon: Icons.school,
             ),
             const Divider(height: 24),
             _InfoRow(
               label: 'Plan',
-              value: school.planLabel,
+              value: switch ((school['subscription'] as Map?)?['status']) { 'active' => 'Term paid', 'grace' => 'Grace period', 'trial' => 'Trial', 'expired' => 'Expired', _ => '—' },
               icon: Icons.payment,
             ),
             const Divider(height: 24),
             _InfoRow(
               label: 'Student Limit',
-              value: '${school.studentLimit}',
+              value: '${(school['subscription'] as Map?)?['studentLimit'] ?? 0}',
               icon: Icons.people_outline,
             ),
             const Divider(height: 24),
             _InfoRow(
               label: 'Current Students',
-              value: '${school.studentCount}',
+              value: '${school['studentCount'] ?? 0}',
               icon: Icons.person_outline,
             ),
             const Divider(height: 24),
             _InfoRow(
               label: 'Teachers',
-              value: '${school.teacherCount}',
+              value: '${school['teacherCount'] ?? 0}',
               icon: Icons.person,
             ),
             const Divider(height: 24),
             _InfoRow(
               label: 'Status',
-              value: school.isActive ? 'Active' : 'Inactive',
-              icon: school.isActive ? Icons.check_circle : Icons.error,
+              value: school['isActive'] != false ? 'Active' : 'Inactive',
+              icon: school['isActive'] != false ? Icons.check_circle : Icons.error,
             ),
           ],
         ),

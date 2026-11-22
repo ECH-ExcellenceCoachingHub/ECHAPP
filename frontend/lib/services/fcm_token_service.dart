@@ -87,7 +87,7 @@ class FCMTokenService {
       final token = await PushNotificationService.getFCMToken();
       
       if (token != null) {
-        print('Current FCM Token: $token');
+        print('FCM token available: ${token != null}');
         await updateFCMToken(token);
         await _subscribeToTopics();
       }

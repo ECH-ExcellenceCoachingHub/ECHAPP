@@ -29,7 +29,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['student', 'admin', 'instructor', 'school_admin'],
+    enum: ['student', 'admin', 'instructor', 'school_admin', 'parent'],
     default: 'student'
   },
   phone: {
@@ -49,6 +49,57 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  // ── School members ────────────────────────────────────────────────────
+  // Students of a school sign in with studentCode + PIN (no email needed).
+  studentCode: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    unique: true,
+    sparse: true
+  },
+  pinHash: {
+    type: String,
+    select: false
+  },
+  pinFailedCount: { type: Number, default: 0, select: false },
+  pinLockedUntil: { type: Date, default: null, select: false },
+  // Current class of a school student.
+  classroomId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Classroom',
+    default: null,
+    index: true
+  },
+  gender: { type: String, enum: ['male', 'female', 'other', null], default: null },
+  dateOfBirth: { type: Date, default: null },
+  // Parents / guardians of a student. userId is set when the guardian has a parent account.
+  guardians: [{
+    _id: false,
+    name: { type: String, trim: true, maxlength: 100 },
+    phone: { type: String, trim: true, maxlength: 30 },
+    relationship: { type: String, trim: true, maxlength: 40 },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+  }],
+  // Home address (teachers, students, parents).
+  address: {
+    province: { type: String, trim: true, maxlength: 80 },
+    district: { type: String, trim: true, maxlength: 80 },
+    sector: { type: String, trim: true, maxlength: 80 },
+    cell: { type: String, trim: true, maxlength: 80 },
+    village: { type: String, trim: true, maxlength: 80 },
+    street: { type: String, trim: true, maxlength: 200 }
+  },
+  // Why a school student left (year-end promotion / removal).
+  leftReason: { type: String, enum: ['graduated', 'left', 'transferred', null], default: null },
+  leftAt: { type: Date, default: null },
+  // Who created this account (school admin / class teacher / super admin).
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  // One active session at a time (school students): a new sign-in ends the old one.
+  singleSession: { type: Boolean, default: false },
+  activeSessionId: { type: String, default: null, select: false },
+  // School-only sign-ins end at the end of the school day.
+  activeSessionExpiresAt: { type: Date, default: null, select: false },
   googleId: {
     type: String,
     unique: true,
@@ -166,6 +217,14 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
+// School members and parents never see the private-learner onboarding
+// (interests, goals, phone): the school already gave ECH what it needs.
+userSchema.pre('save', function() {
+  if (!this.hasCompletedOnboarding && (this.schoolId || this.role === 'parent')) {
+    this.hasCompletedOnboarding = true;
+  }
+});
+
 // Hash password before saving
 userSchema.pre('save', async function() {
   // Only hash password if it exists and is being modified
@@ -176,6 +235,8 @@ userSchema.pre('save', async function() {
 });
 
 // Compare password method
+userSchema.index({ 'guardians.userId': 1 });
+
 userSchema.methods.comparePassword = async function(enteredPassword) {
   // If no password exists (Firebase users), return false
   if (!this.password) {

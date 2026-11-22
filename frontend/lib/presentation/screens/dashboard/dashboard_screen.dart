@@ -542,11 +542,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
         // School admins are restricted to their own layout; never allow them
         // into the student dashboard, even if they navigate there directly.
-        if (authState.user?.role == 'school_admin') {
-          debugPrint(
-              'DashboardScreen: School admin blocked from student dashboard, redirecting to school admin dashboard');
+        if (authState.user?.role == 'school_admin' || authState.user?.role == 'parent') {
+          final target = authState.user?.role == 'parent' ? '/parent' : '/school-admin/dashboard';
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) context.go('/school-admin/dashboard');
+            if (mounted) context.go(target);
           });
           return;
         }

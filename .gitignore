@@ -20,3 +20,8 @@ frontend/.env.*.local
 
 # Unity Android build output (regenerated on every Unity build; files exceed GitHub limits)
 frontend/android/unityLibrary/build/
+
+# Local logs and one-off debug scripts (keep them out of git)
+*.log
+/scratch/
+/bfg.jar

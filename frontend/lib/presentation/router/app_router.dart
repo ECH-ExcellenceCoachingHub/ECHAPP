@@ -64,7 +64,16 @@ import 'package:excellencecoachinghub/presentation/screens/admin/school_detail_s
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_teachers_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_live_sessions_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/school_admin/school_admin_dashboard_screen.dart';
-import 'package:excellencecoachinghub/presentation/screens/teacher/teacher_add_students_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/auth/school_sign_in_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/school/class_code_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/school/class_detail_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/school/group_screens.dart';
+import 'package:excellencecoachinghub/presentation/screens/school/parent_screens.dart';
+import 'package:excellencecoachinghub/presentation/screens/school/student_school_screens.dart';
+import 'package:excellencecoachinghub/presentation/screens/school_admin/promotion_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/school_admin/teacher_activity_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/teacher/school/class_subject_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/teacher/school/teacher_classes_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/teacher/teacher_dashboard_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/teacher/teacher_student_detail_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/teacher/onboarding/teacher_onboarding_screen.dart';
@@ -209,6 +218,10 @@ class AppRouter {
           GoRoute(
             path: '/login',
             builder: (context, state) => const LoginScreen(),
+          ),
+          GoRoute(
+            path: '/school-sign-in',
+            builder: (context, state) => const SchoolSignInScreen(),
           ),
           GoRoute(
             path: '/register',
@@ -612,8 +625,62 @@ class AppRouter {
             path: '/school-admin/dashboard',
             builder: (context, state) => SchoolAdminLayoutWrapper(
               screenName: 'School Admin Dashboard',
-              child: const SchoolAdminDashboardScreen(),
+              child: SchoolAdminDashboardScreen(initialSection: state.uri.queryParameters['section'] ?? 'overview'),
             ),
+          ),
+          GoRoute(
+            path: '/school-admin/teachers/:userId',
+            builder: (context, state) => SchoolAdminLayoutWrapper(
+              screenName: 'Teacher activity',
+              child: TeacherActivityScreen(
+                schoolId: state.uri.queryParameters['school'] ?? 'me',
+                teacherId: state.pathParameters['userId'] ?? '',
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/school-admin/promotion',
+            builder: (context, state) => SchoolAdminLayoutWrapper(
+              screenName: 'Year-end promotion',
+              child: PromotionScreen(schoolId: state.uri.queryParameters['school'] ?? 'me'),
+            ),
+          ),
+          // One class (school admin, class teacher, subject teachers)
+          GoRoute(
+            path: '/school/class/:classId',
+            builder: (context, state) => ClassDetailScreen(classId: state.pathParameters['classId'] ?? ''),
+          ),
+          // Sign-in code to show in class (?classId=) or in the lab (school-wide)
+          GoRoute(
+            path: '/school/code',
+            builder: (context, state) => ClassCodeScreen(classId: state.uri.queryParameters['classId'], schoolId: state.uri.queryParameters['schoolId']),
+          ),
+          // Class groups (school community)
+          GoRoute(
+            path: '/school/groups',
+            builder: (context, state) => const GroupsScreen(),
+          ),
+          GoRoute(
+            path: '/school/groups/:id',
+            builder: (context, state) => GroupChatScreen(groupId: state.pathParameters['id'] ?? ''),
+          ),
+          // School students
+          GoRoute(
+            path: '/school/home',
+            builder: (context, state) => const StudentSchoolHomeScreen(),
+          ),
+          GoRoute(
+            path: '/school/homework/:id',
+            builder: (context, state) => StudentHomeworkScreen(assessmentId: state.pathParameters['id'] ?? ''),
+          ),
+          // Parents
+          GoRoute(
+            path: '/parent',
+            builder: (context, state) => const ParentHomeScreen(),
+          ),
+          GoRoute(
+            path: '/parent/child/:id',
+            builder: (context, state) => ParentChildScreen(childId: state.pathParameters['id'] ?? ''),
           ),
 
           // Teacher Routes - Outside MainLayout for full-screen experience
@@ -630,9 +697,18 @@ class AppRouter {
             path: '/teacher/courses',
             builder: (context, state) => const TeacherDashboardScreen(),
           ),
+          // Students belong to classes: teachers reach them through "My classes".
           GoRoute(
             path: '/teacher/add-students',
-            builder: (context, state) => const TeacherAddStudentsScreen(),
+            redirect: (context, state) => '/teacher/my-classes',
+          ),
+          GoRoute(
+            path: '/teacher/my-classes',
+            builder: (context, state) => const MyClassesScreen(),
+          ),
+          GoRoute(
+            path: '/teacher/class-subject/:id',
+            builder: (context, state) => ClassSubjectScreen(classSubjectId: state.pathParameters['id'] ?? ''),
           ),
           // Teaching tools (engine on eexams.net) + exam creation (saved on eexams)
           GoRoute(

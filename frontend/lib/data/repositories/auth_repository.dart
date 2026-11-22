@@ -50,6 +50,53 @@ class AuthRepository {
     }
   }
 
+  /// School students (student code) and parents (phone) sign in with a PIN.
+  /// [accessCode] is the class/school code of "School only" schools;
+  /// young pupils send [studentId] + [accessCode] instead of a PIN.
+  /// Returns the auth response and a Firebase custom token (may be null).
+  Future<(AuthResponse, String?)> pinLogin(String identifier, String pin, {String? deviceId, String? accessCode, String? studentId}) async {
+    final json = await _postPublic('/auth/pin-login', {
+      'identifier': identifier,
+      'pin': pin,
+      if (deviceId != null) 'deviceId': deviceId,
+      if (accessCode != null && accessCode.isNotEmpty) 'accessCode': accessCode,
+      if (studentId != null) 'studentId': studentId,
+    });
+    final data = json['data'] as Map<String, dynamic>;
+    return (AuthResponse.fromJson(data), data['firebaseCustomToken'] as String?);
+  }
+
+  /// What a class code opens: the class list (young pupils) or "use code + PIN".
+  Future<Map<String, dynamic>> classCodeInfo(String code) async {
+    final json = await _postPublic('/auth/class-code', {'code': code});
+    return Map<String, dynamic>.from(json['data'] as Map);
+  }
+
+  Future<Map<String, dynamic>> _postPublic(String path, Map<String, dynamic> body) async {
+    final http.Response response;
+    try {
+      response = await _client.post(
+        Uri.parse('${ApiConfig.baseUrl}$path'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
+      ).timeout(const Duration(seconds: 30));
+    } on TimeoutException {
+      throw PinLoginException('The server took too long to answer. Please try again.');
+    } on SocketException {
+      throw PinLoginException('Network connection error. Please check your internet connection and try again.');
+    }
+    Map<String, dynamic> json;
+    try {
+      json = jsonDecode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      throw PinLoginException('The server is waking up. Please try again in a moment.');
+    }
+    if (response.statusCode != 200 || json['success'] != true) {
+      throw PinLoginException((json['message'] as String?) ?? 'Sign-in failed', code: json['code'] as String?);
+    }
+    return json;
+  }
+
   Future<AuthResponse> login(String emailOrPhone, String password, {String? deviceId}) async {
     try {
       final body = {
@@ -553,3 +600,12 @@ class AuthRepository {
 
 // Provider for AuthRepository
 final authRepositoryProvider = Provider<AuthRepository>((ref) => AuthRepository());
+
+/// Sign-in error with the server's reason code (e.g. ACCESS_CODE_REQUIRED).
+class PinLoginException implements Exception {
+  PinLoginException(this.message, {this.code});
+  final String message;
+  final String? code;
+  @override
+  String toString() => message;
+}

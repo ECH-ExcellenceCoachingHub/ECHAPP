@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:excellencecoachinghub/widgets/forms/password_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:excellencecoachinghub/config/app_theme.dart';
@@ -812,19 +813,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              TextField(
+              PasswordField(
                 controller: passwordController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  hintText: dialogL10n.currentPassword,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Colors.red, width: 2),
-                  ),
-                ),
+                label: dialogL10n.currentPassword,
               ),
             ],
           );

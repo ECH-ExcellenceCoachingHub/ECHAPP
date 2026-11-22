@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:excellencecoachinghub/widgets/forms/password_field.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:excellencecoachinghub/config/app_theme.dart';
@@ -352,24 +353,17 @@ class _AdminStudentsScreenState extends ConsumerState<AdminStudentsScreen> {
                 style: TextStyle(fontSize: 14),
               ),
               const SizedBox(height: 20),
-              TextField(
+              PasswordField(
                 controller: newPasswordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'New Password',
-                  hintText: 'Enter new password',
-                  border: OutlineInputBorder(),
-                ),
+                label: 'New Password',
+                hint: 'Enter new password',
+                showGenerate: true,
               ),
               const SizedBox(height: 15),
-              TextField(
+              PasswordField(
                 controller: confirmPasswordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Confirm Password',
-                  hintText: 'Confirm new password',
-                  border: OutlineInputBorder(),
-                ),
+                label: 'Confirm Password',
+                hint: 'Confirm new password',
               ),
             ],
           ),

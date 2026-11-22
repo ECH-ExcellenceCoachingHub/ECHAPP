@@ -4,6 +4,9 @@ const dotenv = require('dotenv');
 // Load environment variables as early as possible
 dotenv.config();
 
+// Error tracking + log level (must load before the app code).
+const { Sentry, sentryEnabled } = require('./src/instrument');
+
 const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
@@ -47,6 +50,20 @@ app.use(express.json({
   },
 }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Rate limits (see src/middleware/rateLimit.middleware.js). Sign-in routes get
+// strict per-account limits; the rest of the API a generous per-caller one.
+const limits = require('./src/middleware/rateLimit.middleware');
+const authLimited = [limits.authPerIp, limits.authPerAccount];
+for (const p of ['/api/auth/login', '/api/auth/register', '/api/auth/forgot-password', '/api/auth/reset-password',
+  '/api/auth/verify-reset-token', '/api/auth/pin-login', '/api/auth/class-code', '/api/auth/google', '/api/auth/firebase-login']) {
+  app.post(p, ...authLimited);
+}
+app.use('/api/upload', limits.heavyPerCaller);
+app.use('/api/ai', limits.heavyPerCaller);
+// Media and video streaming make many small requests per page: not limited here.
+const skipMedia = (mw) => (req, res, next) => (/^\/(media|videos)/.test(req.path) ? next() : mw(req, res, next));
+app.use('/api', skipMedia(limits.apiPerIp), skipMedia(limits.apiPerCaller));
 
 // Express 5 leaves `req.body` undefined when a request carries no body, where
 // Express 4 gave you `{}`. Any handler reading `req.body.something` on a GET
@@ -102,7 +119,7 @@ app.use('/api/enrollments', enrollmentRoutes);
 app.use('/api/quizzes', quizRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/admin', schoolRoutes);
+app.use('/api', schoolRoutes); // Schools, classes, teaching, student & parent portals
 app.use('/api/admin/bbb', bbbAdminRoutes);
 app.use('/api/admin/backups', backupRoutes);
 app.use('/api/admin/video-cleanup', videoCleanupRoutes);
@@ -136,6 +153,9 @@ app.use('/api/admin', teacherAccessRoutes.admin); // Teacher approvals + guide s
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
+
+// Report unhandled errors to Sentry (when SENTRY_DSN is set).
+if (sentryEnabled) Sentry.setupExpressErrorHandler(app);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

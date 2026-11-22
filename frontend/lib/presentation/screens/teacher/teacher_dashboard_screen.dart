@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:excellencecoachinghub/presentation/screens/teacher/school/teacher_classes_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -215,6 +216,11 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
                           _SessionStrip(sessions: _startNow, urgent: true),
                           const SizedBox(height: 20),
                         ],
+                        // School teachers: their classes, lessons to mark and homework to grade.
+                        if (user?.isSchoolTeacher == true) ...[
+                          const MyClassesPanel(),
+                          const SizedBox(height: 16),
+                        ],
                         if (_stats != null) _StatsRow(stats: _stats!.overview, courses: _courses, showStudents: _hasStaffCourses),
                         const SizedBox(height: 16),
                         const _AssessmentsCard(),
@@ -233,6 +239,7 @@ class _TeacherDashboardScreenState extends ConsumerState<TeacherDashboardScreen>
                         _ToolGroups(
                           hasStaffCourses: _hasStaffCourses,
                           onCommunity: _openCommunity,
+                          schoolTeacher: user?.isSchoolTeacher == true,
                         ),
                         if (_hasStaffCourses) ...[
                           const SizedBox(height: 28),
@@ -620,7 +627,8 @@ class _Tool {
 class _ToolGroups extends StatelessWidget {
   final bool hasStaffCourses;
   final VoidCallback onCommunity;
-  const _ToolGroups({required this.hasStaffCourses, required this.onCommunity});
+  final bool schoolTeacher;
+  const _ToolGroups({required this.hasStaffCourses, required this.onCommunity, this.schoolTeacher = false});
 
   @override
   Widget build(BuildContext context) {
@@ -640,9 +648,12 @@ class _ToolGroups extends StatelessWidget {
           _Tool(Icons.video_call, 'Live classes', 'Schedule and start', const Color(0xFFEA580C), () => context.push('/teacher/sessions')),
           _Tool(Icons.groups_rounded, 'Community', 'Discuss with your students', const Color(0xFF7C4DFF), onCommunity),
         ]),
-      ('Students', Icons.people, [
-        _Tool(Icons.person_add, 'Add Students', 'Add students from your school', Colors.green, () => context.push('/teacher/add-students')),
-      ]),
+      if (schoolTeacher)
+        ('My school', Icons.apartment, [
+          _Tool(Icons.class_outlined, 'My classes', 'Lessons taught, class lists', const Color(0xFF0D9488), () => context.push('/teacher/my-classes')),
+          _Tool(Icons.assignment_turned_in_outlined, 'Homework', 'Give and mark homework', const Color(0xFF2563EB), () => context.push('/teacher/my-classes')),
+          _Tool(Icons.forum_outlined, 'Class groups', 'Discuss with your students', const Color(0xFF7C4DFF), () => context.push('/school/groups')),
+        ]),
       ('Results', Icons.insights, [
         _Tool(Icons.add_task, 'Create & assign', 'Exams, homework, quizzes on eexams', const Color(0xFF0CBD73), () => openEexams(context, redirect: '/teacher?section=createExam')),
         _Tool(Icons.bar_chart, 'Results', "Your students' marks on eexams", const Color(0xFF0D406C), () => openEexams(context, redirect: '/teacher?section=results')),

@@ -642,6 +642,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
       case 'achievement':
         context.push('/profile');
         break;
+      case 'homework':
+      case 'school':
+        // School notifications carry the in-app page to open (e.g. a homework).
+        final route = notification.data?['route'];
+        if (route is String && route.startsWith('/')) {
+          context.push(route);
+        }
+        break;
       default:
         break;
     }

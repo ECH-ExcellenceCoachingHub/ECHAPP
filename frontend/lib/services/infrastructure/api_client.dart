@@ -12,6 +12,26 @@ import '../connectivity_service.dart';
 /// Centralized HTTP client with interceptors and error handling
 class ApiClient {
   static const int _timeoutSeconds = 60;
+
+  /// Fires when the server says this session was replaced by a sign-in on
+  /// another device (school students have one active session at a time).
+  static final StreamController<String> _sessionReplaced = StreamController<String>.broadcast();
+  static Stream<String> get sessionReplaced => _sessionReplaced.stream;
+
+  /// Server answers that end a school student's session (another device,
+  /// end of the school day, or not on the school's internet).
+  static bool _endsSession(String body) =>
+      body.contains('SESSION_REPLACED') || body.contains('SESSION_EXPIRED') || body.contains('SCHOOL_NETWORK_REQUIRED');
+
+  static void _checkSessionReplaced(http.Response r) {
+    if (r.statusCode == 401 && _endsSession(r.body)) {
+      String message = 'You were signed out because your account was used on another device.';
+      try {
+        message = (jsonDecode(r.body) as Map<String, dynamic>)['message'] as String? ?? message;
+      } catch (_) {}
+      _sessionReplaced.add(message);
+    }
+  }
   final http.Client _httpClient;
   
   ApiClient({http.Client? httpClient}) 
@@ -84,9 +104,7 @@ class ApiClient {
         ? Uri.parse(url)
         : Uri.parse(url).replace(queryParameters: stringQueryParams);
     final authHeaders = authenticate ? await _getAuthHeaders() : {'Content-Type': 'application/json'};
-    print('ApiClient: Auth headers received: $authHeaders');
     final mergedHeaders = {...authHeaders, ...?headers};
-    print('ApiClient: Final headers being sent: $mergedHeaders');
     
     return _makeRequest(() => _httpClient.get(uri, headers: mergedHeaders));
   }
@@ -233,6 +251,12 @@ class ApiClient {
         // Any response at all proves the backend is reachable, whatever the
         // status code. Clears an offline state set by an earlier failure.
         ConnectivityService.instance.reportServerReachable();
+
+        // A replaced session cannot be fixed by refreshing tokens: sign out.
+        if (response.statusCode == 401 && _endsSession(response.body)) {
+          _checkSessionReplaced(response);
+          return response;
+        }
 
         // Log request for debugging
         print('API Request: ${response.request?.method} ${response.request?.url}');

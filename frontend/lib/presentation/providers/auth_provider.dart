@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:math' as math;
+import 'dart:async';
 import 'dart:io';
+import 'package:excellencecoachinghub/services/infrastructure/api_client.dart';
 import 'package:excellencecoachinghub/models/user.dart';
 import 'package:excellencecoachinghub/config/storage_manager.dart';
 import 'package:excellencecoachinghub/services/firebase_auth_service.dart';
@@ -69,7 +71,77 @@ class AuthNotifier extends StateNotifier<AuthState> {
   AuthNotifier() : super(AuthState()) {
     // Check auth status on initialization
     checkAuthStatus();
+    // School students have one active session: when another device signs in,
+    // the server refuses this one and we sign out with an explanation.
+    _sessionSub = ApiClient.sessionReplaced.listen((message) async {
+      if (state.user == null) return;
+      await logout(callServer: false);
+      state = state.copyWith(error: message);
+    });
   }
+
+  StreamSubscription<String>? _sessionSub;
+
+  @override
+  void dispose() {
+    _sessionSub?.cancel();
+    super.dispose();
+  }
+
+  /// Remembers the school of a school account (used when restoring offline).
+  Future<void> _saveSchoolIds(User u) async {
+    try {
+      await _storageManager.saveItem('user_school_id', u.schoolId ?? '');
+    } catch (_) {}
+  }
+
+  /// Reason code of the last failed PIN sign-in (e.g. ACCESS_CODE_REQUIRED).
+  String? lastPinErrorCode;
+
+  /// School students (student code) and parents (phone number) sign in with a PIN.
+  /// [accessCode]: class code for "School only" schools. Young pupils pass
+  /// [studentId] (picked from the class list) and the class code, no PIN.
+  Future<void> loginWithPin(String identifier, String pin, {String? accessCode, String? studentId}) async {
+    state = state.copyWith(isLoading: true, isEmailLoading: true, error: null);
+    lastPinErrorCode = null;
+    try {
+      String? deviceId;
+      try {
+        deviceId = await DeviceIdUtils.getAppDeviceId();
+      } catch (_) {}
+      final (authResponse, customToken) = await _authRepository.pinLogin(identifier.trim(), pin.trim(), deviceId: deviceId, accessCode: accessCode?.trim(), studentId: studentId);
+
+      // Sign in to Firebase too, so every screen that uses a Firebase ID token works.
+      // On platforms where this fails (e.g. Windows) the stored ECH token is used instead.
+      if (customToken != null) {
+        try {
+          await FirebaseAuthService.ensureInitialized();
+          await firebase_auth.FirebaseAuth.instance.signInWithCustomToken(customToken);
+        } catch (e) {
+          debugPrint('AuthProvider: Firebase custom-token sign-in failed, using ECH token: $e');
+          try { await FirebaseAuthService.signOut(); } catch (_) {}
+        }
+      }
+
+      await _storageManager.saveAccessToken(authResponse.token);
+      await _storageManager.saveRefreshToken(authResponse.refreshToken);
+      await _storageManager.saveUserRole(authResponse.user.role);
+        await _saveSchoolIds(authResponse.user);
+      await _storageManager.saveUserId(authResponse.user.id);
+      await _storageManager.saveUserPhone(authResponse.user.phone);
+      await _storageManager.saveUserName(authResponse.user.fullName);
+      await _storageManager.saveHasCompletedOnboarding(true);
+
+      state = state.copyWith(isLoading: false, isEmailLoading: false, user: authResponse.user, error: null);
+      FCMTokenService.initializeAndSyncToken();
+    } catch (e) {
+      if (e is PinLoginException) lastPinErrorCode = e.code;
+      state = state.copyWith(isLoading: false, isEmailLoading: false, error: e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  /// What a class code opens (young pupils get their class list).
+  Future<Map<String, dynamic>> classCodeInfo(String code) => _authRepository.classCodeInfo(code.trim());
 
   Future<void> login(String emailOrPhone, String password, {bool isEmailOrPhone = false}) async {
     debugPrint('AuthProvider: Starting email/password login');
@@ -151,6 +223,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await _storageManager.saveAccessToken(authResponse.token);
         await _storageManager.saveRefreshToken(authResponse.refreshToken);
         await _storageManager.saveUserRole(authResponse.user.role);
+        await _saveSchoolIds(authResponse.user);
         await _storageManager.saveUserId(authResponse.user.id);
         await _storageManager.saveUserPhone(authResponse.user.phone);
         await _storageManager.saveUserName(authResponse.user.fullName);
@@ -271,6 +344,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _storageManager.saveAccessToken(authResponse.token);
       await _storageManager.saveRefreshToken(authResponse.refreshToken);
       await _storageManager.saveUserRole(authResponse.user.role);
+        await _saveSchoolIds(authResponse.user);
       await _storageManager.saveUserId(authResponse.user.id);
       await _storageManager.saveUserPhone(authResponse.user.phone);
       await _storageManager.saveUserName(authResponse.user.fullName);
@@ -322,6 +396,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _storageManager.saveAccessToken(authResponse.token);
       await _storageManager.saveRefreshToken(authResponse.refreshToken);
       await _storageManager.saveUserRole(authResponse.user.role);
+        await _saveSchoolIds(authResponse.user);
       await _storageManager.saveUserId(authResponse.user.id);
       await _storageManager.saveUserPhone(authResponse.user.phone);
       await _storageManager.saveUserName(authResponse.user.fullName);
@@ -458,6 +533,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await _storageManager.saveAccessToken(authResponse.token);
         await _storageManager.saveRefreshToken(authResponse.refreshToken);
         await _storageManager.saveUserRole(authResponse.user.role);
+        await _saveSchoolIds(authResponse.user);
         await _storageManager.saveUserId(authResponse.user.id);
         await _storageManager.saveUserPhone(authResponse.user.phone);
         await _storageManager.saveUserName(authResponse.user.fullName);
@@ -607,6 +683,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await _storageManager.saveAccessToken(authResponse.token);
         await _storageManager.saveRefreshToken(authResponse.refreshToken);
         await _storageManager.saveUserRole(authResponse.user.role);
+        await _saveSchoolIds(authResponse.user);
         await _storageManager.saveUserId(authResponse.user.id);
         await _storageManager.saveUserPhone(authResponse.user.phone);
         await _storageManager.saveUserName(authResponse.user.fullName);
@@ -675,6 +752,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _storageManager.saveAccessToken(authResponse.token);
       await _storageManager.saveRefreshToken(authResponse.refreshToken);
       await _storageManager.saveUserRole(authResponse.user.role);
+        await _saveSchoolIds(authResponse.user);
       await _storageManager.saveUserId(authResponse.user.id);
       await _storageManager.saveUserPhone(authResponse.user.phone);
       await _storageManager.saveUserName(authResponse.user.fullName);
@@ -937,9 +1015,19 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  Future<void> logout() async {
+  Future<void> logout({bool callServer = true}) async {
     debugPrint('AuthProvider: Starting logout process');
+    final wasSingleSession = state.user?.isSchoolStudent == true;
     state = state.copyWith(isLoading: true, isEmailLoading: false, isGoogleLoading: false, error: null);
+
+    // School students: end the server session so this device's tokens stop working.
+    if (callServer && wasSingleSession) {
+      try {
+        await ApiClient().post('${ApiConfig.baseUrl}/auth/logout').timeout(const Duration(seconds: 8));
+      } catch (e) {
+        debugPrint('AuthProvider: server logout failed (continuing): $e');
+      }
+    }
     
     try {
       // Sign out from Firebase
@@ -1167,6 +1255,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         final storedUserMidTermGoal = await _storageManager.getUserMidTermGoal();
         final storedUserLongTermGoal = await _storageManager.getUserLongTermGoal();
         final hasCompletedOnboarding = await _storageManager.hasCompletedOnboarding();
+        final storedSchoolId = await _storageManager.getItem('user_school_id');
 
         // If we have a valid token and role, restore the session
         // Note: storedUserId is backend MongoDB ID, firebaseUser.uid is Firebase UID
@@ -1194,6 +1283,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
                 profilePicture: storedUserAvatar,
                 phone: storedPhone,
                 role: storedUserRole,
+                schoolId: storedSchoolId,
                 hasCompletedOnboarding: hasCompletedOnboarding,
                 interests: storedUserInterests,
                 shortTermGoal: storedUserShortTermGoal,
@@ -1220,6 +1310,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
               profilePicture: storedUserAvatar,
               phone: storedPhone,
               role: storedUserRole,
+              schoolId: storedSchoolId,
               hasCompletedOnboarding: hasCompletedOnboarding,
               interests: storedUserInterests,
               shortTermGoal: storedUserShortTermGoal,
@@ -1287,6 +1378,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final storedRefreshToken = await _storageManager.getRefreshToken();
       final storedUserRole = await _storageManager.getUserRole();
       final storedUserId = await _storageManager.getUserId();
+      final storedSchoolId = await _storageManager.getItem('user_school_id');
 
       if (storedToken == null || storedToken.isEmpty ||
           storedUserRole == null || storedUserRole.isEmpty) {
@@ -1356,6 +1448,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           profilePicture: storedUserAvatar,
           phone: storedPhone,
           role: storedUserRole,
+          schoolId: storedSchoolId,
           hasCompletedOnboarding: hasCompletedOnboarding,
           interests: storedUserInterests,
           shortTermGoal: storedUserShortTermGoal,

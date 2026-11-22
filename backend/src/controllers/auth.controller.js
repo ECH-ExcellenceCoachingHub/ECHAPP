@@ -28,6 +28,9 @@ function roleFields(role) {
 }
 
 // Register user
+const { sessionProblem, schoolFields, usesDeviceBinding } = require('../services/school/session.service');
+const { clientIp } = require('../utils/clientIp');
+
 const register = async (req, res) => {
   try {
     const { fullName, email, password, phone } = req.body;
@@ -82,6 +85,7 @@ const register = async (req, res) => {
           role: user.role,
           teacherStatus: user.teacherStatus || null,
           needsRoleSelection: !!user.needsRoleSelection,
+          ...schoolFields(user),
           phone: user.phone,
           avatar: user.avatar,
           createdAt: user.createdAt.getTime()
@@ -118,7 +122,7 @@ const login = async (req, res) => {
       }
       
       // Device binding logic - skip for admin, instructor, and school admin users
-      if (deviceId && user.role !== 'admin' && user.role !== 'instructor' && user.role !== 'school_admin') {
+      if (deviceId && usesDeviceBinding(user)) {
         if (!user.deviceId) {
           // First login - bind account to device
           user.deviceId = deviceId;
@@ -143,9 +147,10 @@ const login = async (req, res) => {
           role: user.role,
           teacherStatus: user.teacherStatus || null,
           needsRoleSelection: !!user.needsRoleSelection,
+          ...schoolFields(user),
           phone: user.phone,
           avatar: user.avatar,
-          hasCompletedOnboarding: user.hasCompletedOnboarding,
+          hasCompletedOnboarding: user.hasCompletedOnboarding || !!user.schoolId || user.role === 'parent',
           interests: user.interests,
           shortTermGoal: user.shortTermGoal,
           midTermGoal: user.midTermGoal,
@@ -182,9 +187,15 @@ const refreshToken = async (req, res) => {
       return sendUnauthorized(res, 'Invalid refresh token');
     }
 
-    // Generate new tokens
-    const newToken = generateToken({ id: user._id });
-    const newRefreshToken = generateRefreshToken({ id: user._id });
+    const sessionIssue = await sessionProblem(user, decoded.sid, clientIp(req));
+    if (sessionIssue) {
+      return res.status(401).json(sessionIssue);
+    }
+
+    // Generate new tokens (keeping the session id of single-session accounts)
+    const payload = decoded.sid ? { id: user._id, sid: decoded.sid } : { id: user._id };
+    const newToken = generateToken(payload);
+    const newRefreshToken = generateRefreshToken(payload);
 
     sendSuccess(res, {
       token: newToken,
@@ -210,8 +221,16 @@ const getProfile = async (req, res) => {
       role: user.role,
       teacherStatus: user.teacherStatus || null,
       needsRoleSelection: !!user.needsRoleSelection,
+      ...schoolFields(user),
       phone: user.phone,
       avatar: user.avatar,
+      // Without these, a restored session looked like a brand-new user and was
+      // sent back through onboarding (interests, phone).
+      hasCompletedOnboarding: user.hasCompletedOnboarding || !!user.schoolId || user.role === 'parent',
+      interests: user.interests,
+      shortTermGoal: user.shortTermGoal,
+      midTermGoal: user.midTermGoal,
+      longTermGoal: user.longTermGoal,
       createdAt: user.createdAt.getTime()
     }, 'Profile retrieved successfully');
   } catch (error) {
@@ -264,13 +283,14 @@ const updateProfile = async (req, res) => {
       role: user.role,
       teacherStatus: user.teacherStatus || null,
       needsRoleSelection: !!user.needsRoleSelection,
+          ...schoolFields(user),
       phone: user.phone,
       avatar: user.avatar,
       interests: user.interests,
       shortTermGoal: user.shortTermGoal,
       midTermGoal: user.midTermGoal,
       longTermGoal: user.longTermGoal,
-      hasCompletedOnboarding: user.hasCompletedOnboarding,
+      hasCompletedOnboarding: user.hasCompletedOnboarding || !!user.schoolId || user.role === 'parent',
       createdAt: user.createdAt.getTime()
     }, 'Profile updated successfully');
   } catch (error) {
@@ -280,7 +300,14 @@ const updateProfile = async (req, res) => {
 
 // Logout user
 const logout = async (req, res) => {
-  // In a real application, you might want to blacklist the token
+  // Single-session accounts: end the session so its tokens stop working.
+  try {
+    if (req.user?.singleSession) {
+      await User.updateOne({ _id: req.user._id }, { activeSessionId: null });
+    }
+  } catch (err) {
+    console.error('logout: could not end session:', err.message);
+  }
   sendSuccess(res, null, 'Logged out successfully');
 };
 
@@ -384,6 +411,7 @@ const googleSignIn = async (req, res) => {
         role: user.role,
         teacherStatus: user.teacherStatus || null,
         needsRoleSelection: !!user.needsRoleSelection,
+          ...schoolFields(user),
         avatar: user.avatar,
         provider: user.provider,
         createdAt: user.createdAt.getTime()
@@ -570,7 +598,7 @@ const firebaseLogin = async (req, res) => {
       console.log('Existing user logging in:', user.email);
       
       // Device binding logic - skip for admin, instructor, and school admin users
-      if (deviceId && user.role !== 'admin' && user.role !== 'instructor' && user.role !== 'school_admin') {
+      if (deviceId && usesDeviceBinding(user)) {
         if (!user.deviceId) {
           // First login - bind account to device
           user.deviceId = deviceId;
@@ -614,9 +642,9 @@ const firebaseLogin = async (req, res) => {
         try {
           const firebaseRole = firebaseUser.customClaims?.role;
           if (firebaseRole && user.role !== firebaseRole) {
+            console.log(`Synced role for ${user.email}: ${user.role} -> ${firebaseRole}`);
             user.role = firebaseRole;
             needsSave = true;
-            console.log(`Synced role for ${user.email}: ${user.role} -> ${firebaseRole}`);
           }
         } catch (firebaseError) {
           console.log('Could not sync role from Firebase custom claims:', firebaseError.message);
@@ -634,9 +662,16 @@ const firebaseLogin = async (req, res) => {
       await user.save();
     }
     
+    // Single-session accounts (school students) keep the session id of their PIN sign-in.
+    const sid = decodedToken.sid;
+    const sessionIssue = await sessionProblem(user, sid, clientIp(req));
+    if (sessionIssue) {
+      return res.status(401).json(sessionIssue);
+    }
+
     // Generate our own JWT token for subsequent requests
-    const token = generateToken({ id: user._id });
-    const refreshToken = generateRefreshToken({ id: user._id });
+    const token = generateToken(sid ? { id: user._id, sid } : { id: user._id });
+    const refreshToken = generateRefreshToken(sid ? { id: user._id, sid } : { id: user._id });
     
     sendSuccess(res, {
       user: {
@@ -647,10 +682,11 @@ const firebaseLogin = async (req, res) => {
         role: user.role,
         teacherStatus: user.teacherStatus || null,
         needsRoleSelection: !!user.needsRoleSelection,
+          ...schoolFields(user),
         phone: user.phone,
         avatar: user.avatar,
         provider: user.provider,
-        hasCompletedOnboarding: user.hasCompletedOnboarding,
+        hasCompletedOnboarding: user.hasCompletedOnboarding || !!user.schoolId || user.role === 'parent',
         interests: user.interests,
         shortTermGoal: user.shortTermGoal,
         midTermGoal: user.midTermGoal,
@@ -921,7 +957,7 @@ const chooseRole = async (req, res) => {
         teacherStatus: user.teacherStatus || null,
         needsRoleSelection: false,
         avatar: user.avatar,
-        hasCompletedOnboarding: user.hasCompletedOnboarding,
+        hasCompletedOnboarding: user.hasCompletedOnboarding || !!user.schoolId || user.role === 'parent',
         interests: user.interests,
         createdAt: user.createdAt.getTime()
       }

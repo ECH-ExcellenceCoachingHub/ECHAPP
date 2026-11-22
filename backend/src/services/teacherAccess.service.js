@@ -45,7 +45,8 @@ async function accessFor(user) {
     courseCount,
     // Admin-created teachers keep the old behaviour (tools even before an assignment).
     canUseTools: selfRegistered ? approved && courseCount > 0 : true,
-    canEditCourseContent: !selfRegistered,
+    canEditCourseContent: !selfRegistered && !isSchoolTeacher(user),
+    schoolTeacher: isSchoolTeacher(user),
     reviewReason: user.teacherReview?.reason || null,
   };
 }
@@ -73,9 +74,14 @@ async function requireTeacherAccess(req, res, next) {
   }
 }
 
-/** Self-registered teachers teach courses; they never create or edit course content. */
+/** Teachers of a school (created by the school admin) teach; ECH course content is not theirs to edit. */
+function isSchoolTeacher(user) {
+  return !!user && user.role === 'instructor' && !!user.schoolId;
+}
+
+/** Self-registered and school teachers teach courses; they never create or edit ECH course content. */
 function denySelfRegisteredTeacher(req, res, next) {
-  if (isSelfRegisteredTeacher(req.user)) {
+  if (isSelfRegisteredTeacher(req.user) || isSchoolTeacher(req.user)) {
     return res.status(403).json({ success: false, code: 'TEACHER_CANNOT_EDIT_COURSES', message: 'Course content is managed by ECH admins.' });
   }
   return next();
@@ -90,6 +96,7 @@ function levelsMatch(teacherLevels = [], guideLevels = []) {
 module.exports = {
   LEVEL_GROUPS,
   isSelfRegisteredTeacher,
+  isSchoolTeacher,
   accessFor,
   blockReason,
   requireTeacherAccess,

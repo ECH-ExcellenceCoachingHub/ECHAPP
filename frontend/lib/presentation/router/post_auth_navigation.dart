@@ -22,7 +22,16 @@ bool userHasInterests(User user) => user.interests?.isNotEmpty ?? false;
 
 /// The next onboarding screen [user] still has to see, or null when there is
 /// nothing left to collect.
+/// Accounts created by a school (students, teachers, school admins) and
+/// parents: the school already gave ECH their details, so they skip the
+/// private-learner onboarding and go straight to their dashboard.
+bool isSchoolAccount(User user) =>
+    (user.schoolId != null && user.schoolId!.isNotEmpty) ||
+    user.role == 'parent' ||
+    user.role == 'school_admin';
+
 String? nextOnboardingRoute(User user) {
+  if (isSchoolAccount(user)) return null;
   if (userNeedsName(user)) return '/name-collection';
   if (user.hasCompletedOnboarding) return null;
   if (!userHasInterests(user)) return '/interest-selection';
@@ -42,6 +51,15 @@ Future<void> continueAfterAuth(BuildContext context, WidgetRef ref) async {
   }
   if (user.role == 'school_admin') {
     context.go('/school-admin/dashboard');
+    return;
+  }
+  if (user.role == 'parent') {
+    context.go('/parent');
+    return;
+  }
+  // Students registered by a school skip the private-learner onboarding.
+  if (user.isSchoolStudent) {
+    context.go('/school/home');
     return;
   }
   // New Google / phone accounts choose Student or Teacher first.

@@ -2,7 +2,7 @@ const Payment = require('../models/Payment');
 const Enrollment = require('../models/Enrollment');
 const Course = require('../models/Course');
 const User = require('../models/User');
-const School = require('../models/School');
+const { hasSchoolCourseAccess } = require('../services/school/subscription.service');
 const { sendSuccess, sendError, sendNotFound, sendForbidden } = require('../utils/response.utils');
 const emailService = require('../services/email.service');
 const notificationController = require('./notification.controller');
@@ -136,12 +136,8 @@ const initiatePayment = async (req, res) => {
 
     // School students with an active paid subscription get free access to all courses
     // and should enroll directly instead of paying.
-    const user = await User.findById(userId).select('schoolId role').lean();
-    if (user && user.schoolId) {
-      const school = await School.findById(user.schoolId).select('plan isActive').lean();
-      if (school && school.isActive === true && school.plan && school.plan !== 'free') {
-        return sendError(res, 'Students of subscribed schools get free access to all courses. Please enroll directly from the course page.', 400);
-      }
+    if (await hasSchoolCourseAccess(userId)) {
+      return sendError(res, 'Your school\'s subscription already gives you free access to all courses. Please enroll directly from the course page.', 400);
     }
 
     // Check if course exists and is paid

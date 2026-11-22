@@ -427,6 +427,21 @@ class _MinimalAuthCard extends StatelessWidget {
               : const Color(0xFFDBEAFE),
         ),
 
+        SizedBox(height: isSmallMobile ? 8 : 10),
+
+        // School students (student code) and parents (phone) sign in with a PIN.
+        _ModernAuthButton(
+          icon: Icons.badge_outlined,
+          label: 'School code & PIN',
+          isLoading: false,
+          onPressed: isLoading ? null : () => context.push('/school-sign-in'),
+          isDark: isDark,
+          accentColor: const Color(0xFF0D9488),
+          iconBgColor: isDark
+              ? const Color(0xFF0D9488).withOpacity(0.2)
+              : const Color(0xFFCCFBF1),
+        ),
+
         SizedBox(height: sectionSpacing),
 
         // Simple privacy note - compact and overflow-safe

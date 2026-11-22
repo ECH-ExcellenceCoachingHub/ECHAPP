@@ -1,0 +1,56 @@
+# Runs on every push and pull request. Render deploys from main, so keep this
+# green before merging: backend tests + Flutter analyzer (errors only) + Flutter tests.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - name: Check every route module loads
+        run: node -e "for (const f of require('fs').readdirSync('src/routes').filter(f => f.endsWith('.js'))) require('./src/routes/' + f)"
+        env:
+          NODE_ENV: test
+      - name: Tests (in-memory MongoDB, no external services)
+        run: npm run test:ci
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-secret
+          JWT_REFRESH_SECRET: ci-refresh-secret
+
+  flutter:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.38.8
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - name: Analyze (fails on errors only)
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings lib
+      - run: flutter test

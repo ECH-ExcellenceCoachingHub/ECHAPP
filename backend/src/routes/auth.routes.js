@@ -1,4 +1,5 @@
 const express = require('express');
+const { pinLogin, classCodeInfo, changePin } = require('../controllers/pinAuth.controller');
 const router = express.Router();
 const { chooseRole, register, login, refreshToken, getProfile, updateProfile, logout, startSession, recordSessionHeartbeat, googleSignIn, firebaseLogin, forgotPassword, resetPassword, verifyResetToken, resetUserDevice, deleteAccount } = require('../controllers/auth.controller');
 const { protect } = require('../middleware/auth.middleware');
@@ -7,6 +8,9 @@ const { adminOnly } = require('../middleware/admin.middleware');
 // Public routes
 router.post('/register', register);
 router.post('/login', login);
+router.post('/pin-login', pinLogin);
+router.post('/class-code', classCodeInfo);
+router.post('/pin/change', protect, changePin);
 router.post('/refresh-token', refreshToken);
 router.post('/google', googleSignIn);
 router.post('/forgot-password', forgotPassword);

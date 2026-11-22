@@ -1,8 +1,0 @@
-﻿flutter : Error: No pubspec.yaml file found.
-At line:1 char:302
-+ ... ainText' } catch {} } }; flutter build windows --release 2>&1 | Tee-O ...
-+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (Error: No pubspec.yaml file found.:String) [], RemoteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
-This command should be run from the root of your Flutter project.

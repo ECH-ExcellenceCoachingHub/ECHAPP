@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:excellencecoachinghub/config/app_theme.dart';
-import 'package:excellencecoachinghub/services/api/school_service.dart';
-import 'package:excellencecoachinghub/models/school.dart';
-import 'package:excellencecoachinghub/presentation/screens/admin/school_detail_screen.dart';
 
-/// Super admin screen: create schools, assign a school admin, set the paid
-/// plan and the maximum number of students the school may admit.
+import '../../../config/app_theme.dart';
+import '../../../services/api/school_service.dart';
+import '../../../widgets/forms/password_field.dart';
+import '../../../widgets/school/school_ui.dart';
+
+/// Super admin: every school, its subscription and members.
 class AdminSchoolsScreen extends StatefulWidget {
   const AdminSchoolsScreen({super.key});
 
@@ -17,673 +17,366 @@ class AdminSchoolsScreen extends StatefulWidget {
 }
 
 class _AdminSchoolsScreenState extends State<AdminSchoolsScreen> {
-  final SchoolService _schoolService = SchoolService();
-  bool _isLoading = false;
-  String? _error;
-  List<School> _schools = [];
-  final TextEditingController _searchController = TextEditingController();
+  final _svc = SchoolService();
+  final _search = TextEditingController();
   Timer? _debounce;
-
-  static const _plans = [
-    ('free', 'Free'),
-    ('basic', 'Basic'),
-    ('premium', 'Premium'),
-  ];
+  List<Map<String, dynamic>> _schools = [];
+  int _total = 0;
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
-    _loadSchools();
+    _load();
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
-    _searchController.dispose();
-    _schoolService.dispose();
+    _search.dispose();
     super.dispose();
   }
 
-  Future<void> _loadSchools({String? search}) async {
+  Future<void> _load() async {
     setState(() {
-      _isLoading = true;
+      _loading = _schools.isEmpty;
       _error = null;
     });
     try {
-      final result = await _schoolService.getSchools(search: search);
-      if (!mounted) return;
+      final r = await _svc.listSchools(search: _search.text.trim());
       setState(() {
-        _schools = result.schools;
-        _isLoading = false;
+        _schools = SchoolService.list(r['schools']);
+        _total = (r['total'] as num?)?.toInt() ?? _schools.length;
+        _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
       setState(() {
         _error = e.toString();
-        _isLoading = false;
+        _loading = false;
       });
     }
   }
 
-  Color _planColor(String plan) {
-    switch (plan) {
-      case 'premium':
-        return Colors.purple;
-      case 'basic':
-        return AppTheme.accent;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  void _showCreateSchoolDialog() {
-    final nameC = TextEditingController();
-    final descC = TextEditingController();
-    final adminNameC = TextEditingController();
-    final adminEmailC = TextEditingController();
-    final adminPhoneC = TextEditingController();
-    final adminPassC = TextEditingController();
-    String plan = 'free';
-    int? studentLimit;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Create School'),
-          content: SizedBox(
-            width: MediaQuery.of(context).size.width < 600
-                ? MediaQuery.of(context).size.width * 0.9
-                : 460,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameC,
-                    decoration: const InputDecoration(
-                      labelText: 'School name *',
-                      prefixIcon: Icon(Icons.school),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: descC,
-                    decoration: const InputDecoration(
-                      labelText: 'Description',
-                      prefixIcon: Icon(Icons.description),
-                    ),
-                    maxLines: 2,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: adminNameC,
-                    decoration: const InputDecoration(
-                      labelText: 'School admin full name *',
-                      prefixIcon: Icon(Icons.person),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: adminEmailC,
-                    decoration: const InputDecoration(
-                      labelText: 'School admin email *',
-                      prefixIcon: Icon(Icons.email),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: adminPhoneC,
-                    decoration: const InputDecoration(
-                      labelText: 'School admin phone',
-                      prefixIcon: Icon(Icons.phone),
-                    ),
-                    keyboardType: TextInputType.phone,
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: adminPassC,
-                    decoration: const InputDecoration(
-                      labelText: 'School admin password',
-                      prefixIcon: Icon(Icons.lock),
-                      hintText: 'Leave blank to generate',
-                    ),
-                    obscureText: true,
-                  ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: plan,
-                    decoration: const InputDecoration(
-                      labelText: 'Plan',
-                      prefixIcon: Icon(Icons.payment),
-                    ),
-                    items: _plans
-                        .map(
-                          (e) => DropdownMenuItem(
-                            value: e.$1,
-                            child: Text('${e.$2}'),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (v) => setState(() => plan = v!),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    decoration: InputDecoration(
-                      labelText: 'Student limit (max students)',
-                      prefixIcon: const Icon(Icons.people),
-                      hintText: plan == 'free' ? '50 (free plan)' : 'e.g. 200',
-                    ),
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) => studentLimit = int.tryParse(v),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
-              onPressed: () async {
-                if (nameC.text.trim().isEmpty ||
-                    adminNameC.text.trim().isEmpty ||
-                    adminEmailC.text.trim().isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please fill all required fields'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-                Navigator.pop(context);
-                try {
-                  await _schoolService.createSchool(SchoolCreateRequest(
-                    name: nameC.text.trim(),
-                    description: descC.text.trim().isEmpty ? null : descC.text.trim(),
-                    adminFullName: adminNameC.text.trim(),
-                    adminEmail: adminEmailC.text.trim(),
-                    adminPhone: adminPhoneC.text.trim().isEmpty ? null : adminPhoneC.text.trim(),
-                    adminPassword: adminPassC.text.trim().isEmpty ? null : adminPassC.text.trim(),
-                    plan: plan,
-                    studentLimit: studentLimit,
-                  ));
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('School created successfully'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                    _loadSchools(search: _searchController.text);
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              },
-              child: const Text('Create School'),
-            ),
-          ],
-        ),
-      ),
+  Future<void> _create() async {
+    final created = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute(builder: (_) => const CreateSchoolScreen()),
     );
-  }
-
-  void _showEditPlanDialog(School school) {
-    String plan = school.plan;
-    final limitC = TextEditingController(text: school.studentLimit.toString());
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: Text('Update Plan - ${school.name}'),
-          content: SizedBox(
-            width: 400,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  value: plan,
-                  decoration: const InputDecoration(labelText: 'Plan'),
-                  items: _plans
-                      .map(
-                        (e) => DropdownMenuItem(
-                          value: e.$1,
-                          child: Text('${e.$2}'),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (v) => setState(() => plan = v!),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: limitC,
-                  decoration: const InputDecoration(
-                    labelText: 'Student limit',
-                    hintText: 'Maximum students allowed',
-                  ),
-                  keyboardType: TextInputType.number,
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Current students: ${school.studentCount}',
-                  style: const TextStyle(fontSize: 13, color: Colors.grey),
-                ),
-                if (school.studentCount > school.studentLimit)
-                  const Text(
-                    'Warning: school is over its limit.',
-                    style: TextStyle(fontSize: 13, color: Colors.red),
-                  ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              style: FilledButton.styleFrom(backgroundColor: AppTheme.primaryGreen),
-              onPressed: () async {
-                final limit = int.tryParse(limitC.text.trim());
-                if (limit == null || limit < 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Enter a valid student limit'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-                Navigator.pop(context);
-                try {
-                  await _schoolService.updateSchoolPlan(
-                    school.id,
-                    SchoolPlanUpdateRequest(plan: plan, studentLimit: limit),
-                  );
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('School plan updated'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                    _loadSchools(search: _searchController.text);
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error: $e'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                }
-              },
-              child: const Text('Update'),
-            ),
-          ],
-        ),
-      ),
+    if (created == null || !mounted) return;
+    final c = Map<String, dynamic>.from(created['credentials'] as Map? ?? {});
+    final school = Map<String, dynamic>.from(created['school'] as Map? ?? {});
+    await showCredentialsDialog(
+      context,
+      title: 'School created — admin sign-in',
+      rows: [
+        MapEntry('School', '${school['name']} (${school['code']})'),
+        if (c['email'] != null) MapEntry('Email', '${c['email']}'),
+        if (c['phone'] != null) MapEntry('Phone', '${c['phone']}'),
+        MapEntry('Password', '${c['password']}'),
+      ],
     );
+    _load();
   }
 
-  Future<void> _deleteSchool(School school) async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete School'),
-        content: Text(
-          'Permanently delete "${school.name}"? This cannot be undone and is only allowed when the school has no members.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirm != true) return;
-    try {
-      await _schoolService.deleteSchool(school.id);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('School deleted'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        _loadSchools(search: _searchController.text);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    }
-  }
+  Tone _subTone(String? s) => switch (s) {
+        'active' => Tone.good,
+        'grace' => Tone.warn,
+        'trial' => Tone.info,
+        _ => Tone.bad,
+      };
 
-  Widget _planChip(String plan) {
-    final color = _planColor(plan);
-    return Chip(
-      label: Text(
-        plan[0].toUpperCase() + plan.substring(1),
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-      backgroundColor: color.withOpacity(0.12),
-      color: WidgetStateProperty.resolveWith((states) => color.withOpacity(0.12)),
-      labelStyle: TextStyle(color: color),
-    );
-  }
+  String _subLabel(String? s) => switch (s) {
+        'active' => 'Paid',
+        'grace' => 'Grace period',
+        'trial' => 'Trial',
+        'expired' => 'Expired',
+        'inactive' => 'Deactivated',
+        _ => '—',
+      };
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppTheme.getBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('School Management'),
-        backgroundColor: AppTheme.primaryGreen,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => _loadSchools(search: _searchController.text),
-            tooltip: 'Refresh',
+        title: const Text('Schools'),
+        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.canPop() ? context.pop() : context.go('/admin')),
+        actions: [IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh))],
+      ),
+      floatingActionButton: FloatingActionButton.extended(onPressed: _create, icon: const Icon(Icons.add), label: const Text('New school')),
+      body: SchoolPage(
+        onRefresh: _load,
+        children: [
+          TextField(
+            controller: _search,
+            decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search by name, code or district'),
+            onChanged: (_) {
+              _debounce?.cancel();
+              _debounce = Timer(const Duration(milliseconds: 400), _load);
+            },
           ),
+          if (_loading)
+            const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
+          else if (_error != null)
+            ErrorRetry(message: _error!, onRetry: _load)
+          else if (_schools.isEmpty)
+            EmptyState(
+              icon: Icons.apartment_outlined,
+              title: 'No schools yet',
+              message: 'Create a school and its administrator to get started.',
+              action: FilledButton.icon(onPressed: _create, icon: const Icon(Icons.add), label: const Text('New school')),
+            )
+          else ...[
+            Text('$_total school${_total == 1 ? '' : 's'}', style: TextStyle(color: AppTheme.getSecondaryTextColor(context))),
+            for (final s in _schools) _schoolCard(s),
+          ],
+          const SizedBox(height: 60),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: AppTheme.primaryGreen,
-        onPressed: _showCreateSchoolDialog,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Add School', style: TextStyle(color: Colors.white)),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'School Management',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+    );
+  }
+
+  Widget _schoolCard(Map<String, dynamic> s) {
+    final sub = Map<String, dynamic>.from(s['subscription'] as Map? ?? {});
+    final admin = s['admin'] is Map ? s['admin'] as Map : null;
+    final muted = AppTheme.getSecondaryTextColor(context);
+    return Material(
+      color: AppTheme.getCardColor(context),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () async {
+          await context.push('/school-detail/${s['id']}');
+          _load();
+        },
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.6))),
+          child: Row(children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
+              child: Text((s['code'] ?? '?').toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppTheme.primaryDark)),
             ),
-            const SizedBox(height: 4),
-            const Text(
-              'Create schools, assign school admins, and set paid plans with student limits.',
-              style: TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search schools...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              onChanged: (value) {
-                _debounce?.cancel();
-                _debounce = Timer(const Duration(milliseconds: 400), () {
-                  _loadSchools(search: value);
-                });
-              },
-            ),
-            const SizedBox(height: 20),
+            const SizedBox(width: 12),
             Expanded(
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
-                      ? Center(child: Text(_error!))
-                      : _schools.isEmpty
-                          ? const Center(child: Text('No schools found'))
-                          : ListView.builder(
-                              itemCount: _schools.length,
-                              itemBuilder: (context, index) {
-                                final school = _schools[index];
-                                return Card(
-                                  margin: const EdgeInsets.only(bottom: 12),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  Text(
-                                                    school.name,
-                                                    style: const TextStyle(
-                                                      fontSize: 18,
-                                                      fontWeight: FontWeight.bold,
-                                                    ),
-                                                  ),
-                                                  const SizedBox(height: 6),
-                                                  if (school.description != null &&
-                                                        school.description!.isNotEmpty)
-                                                    Text(
-                                                      school.description!,
-                                                      style: const TextStyle(
-                                                        fontSize: 13,
-                                                        color: Colors.grey,
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                            ),
-                                            Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.end,
-                                              children: [
-                                                _planChip(school.plan),
-                                                const SizedBox(height: 8),
-                                                Text(
-                                                  '${school.studentCount}/${school.studentLimit}',
-                                                  style: const TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w700,
-                                                    color: AppTheme.primaryGreen,
-                                                  ),
-                                                ),
-                                                const Text(
-                                                  'students',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    color: Colors.grey,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  _StatItem(
-                                                    icon: Icons.person,
-                                                    label: 'School Admin',
-                                                    value:
-                                                        school.adminFullName ??
-                                                            '—',
-                                                    subtitle:
-                                                        school.adminEmail,
-                                                  ),
-                                                  const SizedBox(height: 12),
-                                                  _StatItem(
-                                                    icon: Icons.calendar_today,
-                                                    label: 'Created',
-                                                    value:
-                                                        _formatDate(
-                                                            school.createdAt),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                            Expanded(
-                                              child: Column(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.start,
-                                                children: [
-                                                  _StatItem(
-                                                    icon: Icons.people,
-                                                    label: 'Teachers',
-                                                    value:
-                                                        '${school.teacherCount}',
-                                                  ),
-                                                  const SizedBox(height: 12),
-                                                  _StatItem(
-                                                    icon: Icons.people_outline,
-                                                    label: 'Students',
-                                                    value:
-                                                        '${school.studentCount} / ${school.studentLimit}',
-                                                    subtitle:
-                                                        school.isFull
-                                                            ? 'Limit reached'
-                                                            : '${school.remainingSlots} slots left',
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.end,
-                                          children: [
-                                            if (school.studentCount >=
-                                                school.studentLimit)
-                                              Tooltip(
-                                                message: 'Student limit reached',
-                                                child: IconButton(
-                                                  icon: const Icon(
-                                                    Icons.error_outline,
-                                                    color: Colors.orange,
-                                                  ),
-                                                  onPressed: null,
-                                                ),
-                                              ),
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.edit,
-                                                color: AppTheme.primaryGreen,
-                                              ),
-                                              tooltip: 'Edit plan & limit',
-                                              onPressed: () =>
-                                                  _showEditPlanDialog(school),
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.info_outline,
-                                                color: Colors.blue,
-                                              ),
-                                              tooltip: 'View school details',
-                                              onPressed: () =>
-                                                  GoRouter.of(context).push(
-                                                    '/school-detail/${school.id}',
-                                                  ),
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(
-                                                Icons.delete_outline,
-                                                color: Colors.red,
-                                              ),
-                                              tooltip: 'Delete school',
-                                              onPressed: () =>
-                                                  _deleteSchool(school),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  Flexible(child: Text('${s['name']}', overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15, color: AppTheme.getTextColor(context)))),
+                  const SizedBox(width: 8),
+                  StatusPill(_subLabel(sub['status'] as String?), tone: _subTone(sub['status'] as String?)),
+                ]),
+                const SizedBox(height: 4),
+                Text(
+                  [addressLine(s['address']), if (admin != null) 'Admin: ${admin['fullName']}'].where((e) => e.isNotEmpty).join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 12.5, color: muted),
+                ),
+                const SizedBox(height: 6),
+                Wrap(spacing: 14, children: [
+                  _count(Icons.people_alt_outlined, '${s['studentCount'] ?? 0}/${sub['studentLimit'] ?? 0} students'),
+                  _count(Icons.co_present_outlined, '${s['teacherCount'] ?? 0} teachers'),
+                  _count(Icons.meeting_room_outlined, '${s['classCount'] ?? 0} classes'),
+                ]),
+              ]),
             ),
-          ],
+            const Icon(Icons.chevron_right),
+          ]),
         ),
       ),
     );
   }
+
+  Widget _count(IconData i, String t) => Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(i, size: 15, color: AppTheme.getSecondaryTextColor(context)),
+        const SizedBox(width: 4),
+        Text(t, style: TextStyle(fontSize: 12.5, color: AppTheme.getSecondaryTextColor(context))),
+      ]);
 }
 
-class _StatItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-  final String? subtitle;
+/// Full-page form: school details + address + first school admin + billing.
+class CreateSchoolScreen extends StatefulWidget {
+  const CreateSchoolScreen({super.key});
 
-  const _StatItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.subtitle,
-  });
+  @override
+  State<CreateSchoolScreen> createState() => _CreateSchoolScreenState();
+}
+
+class _CreateSchoolScreenState extends State<CreateSchoolScreen> {
+  final _form = GlobalKey<FormState>();
+  final _svc = SchoolService();
+  final _name = TextEditingController();
+  final _code = TextEditingController();
+  final _phone = TextEditingController();
+  final _email = TextEditingController();
+  final _head = TextEditingController();
+  final _price = TextEditingController(text: '0');
+  final _trial = TextEditingController(text: '30');
+  final _adminName = TextEditingController();
+  final _adminEmail = TextEditingController();
+  final _adminPhone = TextEditingController();
+  final _adminPassword = TextEditingController();
+  String _type = 'secondary';
+  String _ownership = 'private';
+  Map<String, String> _address = {};
+  Set<String> _levels = {};
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    for (final c in [_name, _code, _phone, _email, _head, _price, _trial, _adminName, _adminEmail, _adminPhone, _adminPassword]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    if (!_form.currentState!.validate()) return;
+    setState(() => _busy = true);
+    try {
+      final r = await _svc.createSchool({
+        'name': _name.text.trim(),
+        if (_code.text.trim().isNotEmpty) 'code': _code.text.trim(),
+        'type': _type,
+        'ownership': _ownership,
+        'phone': _phone.text.trim(),
+        'email': _email.text.trim(),
+        'headTeacherName': _head.text.trim(),
+        'address': _address,
+        'levels': _levels.toList(),
+        'pricePerStudentPerTerm': num.tryParse(_price.text.trim()) ?? 0,
+        'trialStudentLimit': int.tryParse(_trial.text.trim()) ?? 30,
+        'admin': {
+          'fullName': _adminName.text.trim(),
+          'email': _adminEmail.text.trim(),
+          'phone': _adminPhone.text.trim(),
+          if (_adminPassword.text.isNotEmpty) 'password': _adminPassword.text,
+        },
+      });
+      if (mounted) Navigator.pop(context, r);
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString(), error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  String? _required(String? v, String what) => (v == null || v.trim().isEmpty) ? 'Enter $what' : null;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 16, color: Colors.grey),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-        ),
-        if (subtitle != null && subtitle!.isNotEmpty) ...[
-          const SizedBox(height: 2),
-          Text(
-            subtitle!,
-            style: const TextStyle(fontSize: 11, color: Colors.grey),
+    return Scaffold(
+      backgroundColor: AppTheme.getBackgroundColor(context),
+      appBar: AppBar(title: const Text('New school')),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: FilledButton.icon(
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+            onPressed: _busy ? null : _save,
+            icon: _busy ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.check),
+            label: const Text('Create school'),
           ),
-        ],
-      ],
+        ),
+      ),
+      body: Form(
+        key: _form,
+        child: SchoolPage(maxWidth: 760, children: [
+          SectionCard(
+            title: 'School',
+            child: Column(children: [
+              TextFormField(controller: _name, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'School name *', prefixIcon: Icon(Icons.apartment_outlined)), validator: (v) => _required(v, 'the school name')),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _code,
+                textCapitalization: TextCapitalization.characters,
+                decoration: const InputDecoration(labelText: 'School code', helperText: 'Prefix of every student code (2–8 letters). Leave empty to use the initials.', prefixIcon: Icon(Icons.tag)),
+                validator: (v) => (v == null || v.isEmpty || RegExp(r'^[A-Za-z0-9]{2,8}$').hasMatch(v.trim())) ? null : '2–8 letters or digits',
+              ),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _type,
+                    decoration: const InputDecoration(labelText: 'Type'),
+                    items: const [
+                      DropdownMenuItem(value: 'nursery', child: Text('Nursery')),
+                      DropdownMenuItem(value: 'primary', child: Text('Primary')),
+                      DropdownMenuItem(value: 'secondary', child: Text('Secondary')),
+                      DropdownMenuItem(value: 'tvet', child: Text('TVET')),
+                      DropdownMenuItem(value: 'combined', child: Text('Nursery–Secondary')),
+                      DropdownMenuItem(value: 'university', child: Text('University')),
+                      DropdownMenuItem(value: 'other', child: Text('Other')),
+                    ],
+                    onChanged: (v) => setState(() => _type = v ?? 'secondary'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _ownership,
+                    decoration: const InputDecoration(labelText: 'Ownership'),
+                    items: const [
+                      DropdownMenuItem(value: 'public', child: Text('Public')),
+                      DropdownMenuItem(value: 'government_aided', child: Text('Government-aided')),
+                      DropdownMenuItem(value: 'private', child: Text('Private')),
+                      DropdownMenuItem(value: 'other', child: Text('Other')),
+                    ],
+                    onChanged: (v) => setState(() => _ownership = v ?? 'private'),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 12),
+              TextFormField(controller: _head, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Head teacher / director', prefixIcon: Icon(Icons.person_outline))),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(child: TextFormField(controller: _phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'School phone', prefixIcon: Icon(Icons.phone_outlined)))),
+                const SizedBox(width: 12),
+                Expanded(child: TextFormField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'School email', prefixIcon: Icon(Icons.alternate_email)))),
+              ]),
+            ]),
+          ),
+          SectionCard(title: 'Address', child: AddressFields(value: _address, onChanged: (v) => _address = v)),
+          SectionCard(
+            title: 'Levels taught',
+            subtitle: 'Used to suggest classes. You can change this later.',
+            child: ChipPicker(options: schoolLevels, selected: _levels, onChanged: (v) => setState(() => _levels = v)),
+          ),
+          SectionCard(
+            title: 'Billing',
+            subtitle: 'Schools pay per student per term. Record payments on the school page.',
+            child: Row(children: [
+              Expanded(child: TextFormField(controller: _price, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Price per student per term (RWF)'))),
+              const SizedBox(width: 12),
+              Expanded(child: TextFormField(controller: _trial, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Trial students (before payment)'))),
+            ]),
+          ),
+          SectionCard(
+            title: 'School administrator',
+            subtitle: 'The head teacher or director of studies who will manage the school in ECH.',
+            child: Column(children: [
+              TextFormField(controller: _adminName, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'Full name *', prefixIcon: Icon(Icons.person_outline)), validator: (v) => _required(v, 'the full name')),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _adminEmail,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(labelText: 'Email *', prefixIcon: Icon(Icons.alternate_email)),
+                validator: (v) => (v == null || !RegExp(r'^\S+@\S+\.\S+$').hasMatch(v.trim())) ? 'Enter a valid email' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(controller: _adminPhone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone', prefixIcon: Icon(Icons.phone_outlined))),
+              const SizedBox(height: 12),
+              PasswordField(
+                controller: _adminPassword,
+                showGenerate: true,
+                helper: 'Leave empty and ECH creates a strong password. It is shown once after saving.',
+                validator: (v) => (v != null && v.isNotEmpty && v.length < 8) ? 'At least 8 characters' : null,
+              ),
+            ]),
+          ),
+        ]),
+      ),
     );
   }
-}
-
-String _formatDate(DateTime? date) {
-  if (date == null) return '—';
-  return '${date.day}/${date.month}/${date.year}';
 }

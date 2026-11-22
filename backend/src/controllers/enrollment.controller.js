@@ -4,7 +4,7 @@ const Section = require('../models/Section');
 const Lesson = require('../models/Lesson');
 const Payment = require('../models/Payment');
 const User = require('../models/User');
-const School = require('../models/School');
+const { hasSchoolCourseAccess } = require('../services/school/subscription.service');
 const Certificate = require('../models/Certificate');
 const mongoose = require('mongoose');
 const emailService = require('../services/email.service');
@@ -73,24 +73,8 @@ const hasValidPaidAccess = async (enrollment, course) => {
   return !!payment;
 };
 
-// Whether the learner belongs to a school with an active paid subscription.
-// Students of such schools get free access to all courses without per-course payment.
-const hasActiveSchoolSubscription = async (userId) => {
-  try {
-    const user = await User.findById(userId).select('schoolId role').lean();
-    if (!user || !user.schoolId) return false;
-    const school = await School.findById(user.schoolId).select('plan isActive').lean();
-    return Boolean(
-      school &&
-      school.isActive === true &&
-      school.plan &&
-      school.plan !== 'free'
-    );
-  } catch (error) {
-    console.error('hasActiveSchoolSubscription check failed:', error.message);
-    return false;
-  }
-};
+// Students of a school whose per-term subscription is active (or in grace) get all courses free.
+const hasActiveSchoolSubscription = (userId) => hasSchoolCourseAccess(userId);
 
 // Reactivate an enrollment the learner previously left. All earlier progress
 // (completed lessons, sections, quiz results, certificates) is restored as-is.
@@ -334,13 +318,10 @@ const enrollInCourse = async (req, res) => {
     // School students with an active paid subscription get unlimited access
     // (no per-course access expiration).
     const accessExpirationDate = calculateAccessExpirationDate(course);
-    let finalAccessExpirationDate = accessExpirationDate;
-    if (course.price > 0) {
-      const hasSchoolAccess = await hasActiveSchoolSubscription(userId);
-      if (hasSchoolAccess) {
-        finalAccessExpirationDate = null;
-      }
-    }
+    // School access is checked on every visit (hasValidPaidAccess), so it needs no expiry date here.
+    const finalAccessExpirationDate = (course.price > 0 && await hasActiveSchoolSubscription(userId))
+      ? null
+      : accessExpirationDate;
 
     // Create enrollment
     const enrollment = await Enrollment.create({

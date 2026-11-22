@@ -19,6 +19,10 @@ import 'package:excellencecoachinghub/services/session_tracking_service.dart';
 import 'package:excellencecoachinghub/services/connectivity_service.dart';
 import 'package:excellencecoachinghub/presentation/screens/settings/settings_screen.dart';
 import 'package:media_kit/media_kit.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+
+/// Error tracking: off unless the build passes --dart-define=SENTRY_DSN=...
+const _sentryDsn = String.fromEnvironment('SENTRY_DSN');
 
 
 Future<void> main() async {
@@ -42,6 +46,26 @@ Future<void> main() async {
     ]);
   }
   
+  // Release builds never write logs: print/debugPrint output ends up in the
+  // phone's system log, where tokens or personal data must not appear.
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
+
+  if (_sentryDsn.isNotEmpty) {
+    await SentryFlutter.init((o) {
+      o.dsn = _sentryDsn;
+      o.environment = kReleaseMode ? 'production' : 'development';
+      o.sendDefaultPii = false; // no IPs, emails or user names
+      o.tracesSampleRate = 0.1;
+    });
+    final previous = FlutterError.onError;
+    FlutterError.onError = (details) {
+      Sentry.captureException(details.exception, stackTrace: details.stack);
+      previous?.call(details);
+    };
+  }
+
   // Use runZonedGuarded to catch any unhandled errors that might crash the app
   await runZonedGuarded(() async {
     try {
@@ -74,8 +98,13 @@ Future<void> main() async {
   }, (error, stack) {
     debugPrint('UNHANDLED ERROR: $error');
     debugPrint('Stack trace: $stack');
-    // If the app is already running, this won't do much, but it helps with startup crashes
-  });
+    if (_sentryDsn.isNotEmpty) Sentry.captureException(error, stackTrace: stack);
+  }, zoneSpecification: ZoneSpecification(
+    // Silence print() in release builds (see debugPrint above).
+    print: (self, parent, zone, line) {
+      if (!kReleaseMode) parent.print(zone, line);
+    },
+  ));
 }
 
 void _showErrorApp(String error) {

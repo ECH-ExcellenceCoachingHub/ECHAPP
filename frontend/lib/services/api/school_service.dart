@@ -1,400 +1,283 @@
 import 'dart:convert';
 
-import '../infrastructure/api_client.dart';
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+
 import '../../config/api_config.dart';
-import '../../models/school.dart';
+import '../infrastructure/api_client.dart';
 
-/// Service for school management: super admin creates schools and plans,
-/// school admins manage their teachers and students, teachers add students.
+/// Error from the school API. [code] carries machine-readable reasons such as
+/// `POSSIBLE_DUPLICATE`, `STUDENT_LIMIT_REACHED`, `CONTACT_IN_USE`; [body]
+/// keeps the full response (e.g. duplicate `candidates`).
+class SchoolApiError implements Exception {
+  final String message;
+  final int status;
+  final String? code;
+  final Map<String, dynamic> body;
+
+  SchoolApiError(this.message, this.status, {this.code, this.body = const {}});
+
+  List<Map<String, dynamic>> get candidates =>
+      ((body['candidates'] as List?) ?? const []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+
+  @override
+  String toString() => message;
+}
+
+/// Everything about schools: super admin, school admin (head teacher /
+/// director of studies), teachers, students and parents.
+///
+/// Responses are returned as plain maps (the `data` part of the API answer).
 class SchoolService {
-  final ApiClient _apiClient;
+  SchoolService({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
 
-  SchoolService({ApiClient? apiClient}) : _apiClient = apiClient ?? ApiClient();
+  final ApiClient _api;
+  static String get _base => ApiConfig.baseUrl;
 
-  static int _toInt(dynamic value) {
-    if (value == null) return 0;
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value) ?? 0;
-    return 0;
-  }
+  void dispose() {}
 
-  /// Super admin: list all schools with member counts
-  Future<SchoolListResponse> getSchools({
-    int page = 1,
-    int limit = 20,
-    String? search,
-  }) async {
+  // ── HTTP helpers ─────────────────────────────────────────────────────
+
+  Map<String, dynamic> _decode(http.Response r) {
+    Map<String, dynamic> json;
     try {
-      final queryParams = {
-        'page': page.toString(),
-        'limit': limit.toString(),
-        if (search != null && search.isNotEmpty) 'search': search,
-      };
-      final response = await _apiClient.get(ApiConfig.schools, queryParams: queryParams);
-      response.validateStatus();
-
-      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = jsonBody['data'] as Map<String, dynamic>;
-
-      final schools = (data['schools'] as List)
-          .map((item) => School.fromJson(item as Map<String, dynamic>))
-          .toList();
-
-      return SchoolListResponse(
-        schools: schools,
-        totalPages: _toInt(data['totalPages']),
-        currentPage: _toInt(data['currentPage']),
-        total: _toInt(data['total']),
+      json = jsonDecode(r.body) as Map<String, dynamic>;
+    } catch (_) {
+      throw SchoolApiError(
+        r.statusCode >= 500 ? 'The server is not answering right now. Please try again.' : 'Unexpected answer from the server.',
+        r.statusCode,
       );
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Failed to fetch schools: $e');
     }
-  }
-
-  /// Get a single school with stats (super admin or member of the school)
-  Future<School> getSchool(String schoolId) async {
-    try {
-      final response = await _apiClient.get(ApiConfig.school(schoolId));
-      response.validateStatus();
-
-      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = jsonBody['data'] as Map<String, dynamic>;
-      return School.fromJson(data['school'] as Map<String, dynamic>);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Failed to fetch school: $e');
+    if (r.statusCode >= 200 && r.statusCode < 300 && json['success'] != false) {
+      final data = json['data'];
+      return data is Map<String, dynamic> ? data : <String, dynamic>{'value': data};
     }
-  }
-
-  /// The school of the logged-in school admin / instructor
-  Future<School> getMySchool() async {
-    try {
-      final response = await _apiClient.get('${ApiConfig.schools}/me');
-      response.validateStatus();
-
-      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = jsonBody['data'] as Map<String, dynamic>;
-      return School.fromJson(data['school'] as Map<String, dynamic>);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Failed to fetch your school: $e');
-    }
-  }
-
-  /// Super admin: create a school and its school admin user
-  Future<SchoolCreatedResult> createSchool(SchoolCreateRequest request) async {
-    try {
-      final response = await _apiClient.post(ApiConfig.schools, body: request.toJson());
-      response.validateStatus();
-
-      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = jsonBody['data'] as Map<String, dynamic>;
-
-      return SchoolCreatedResult(
-        school: School.fromJson(data['school'] as Map<String, dynamic>),
-        schoolAdmin: UserMin.fromJson(data['schoolAdmin'] as Map<String, dynamic>),
-      );
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Failed to create school: $e');
-    }
-  }
-
-  /// Super admin: update a school's plan and student limit
-  Future<School> updateSchoolPlan(String schoolId, SchoolPlanUpdateRequest request) async {
-    try {
-      final response = await _apiClient.patch(ApiConfig.schoolPlan(schoolId), body: request.toJson());
-      response.validateStatus();
-
-      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = jsonBody['data'] as Map<String, dynamic>;
-      return School.fromJson(data['school'] as Map<String, dynamic>);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Failed to update school plan: $e');
-    }
-  }
-
-  /// Super admin: update a school's name and description
-  Future<School> updateSchoolDetails(String schoolId, {required String name, String? description}) async {
-    try {
-      final response = await _apiClient.patch(
-        ApiConfig.schoolDetails(schoolId),
-        body: {'name': name, 'description': description},
-      );
-      response.validateStatus();
-
-      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = jsonBody['data'] as Map<String, dynamic>;
-      return School.fromJson(data['school'] as Map<String, dynamic>);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Failed to update school details: $e');
-    }
-  }
-
-  /// Super admin: change the school admin user
-  Future<School> changeSchoolAdmin(String schoolId, String adminId) async {
-    try {
-      final response = await _apiClient.patch(
-        ApiConfig.schoolAdmin(schoolId),
-        body: {'adminId': adminId},
-      );
-      response.validateStatus();
-
-      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = jsonBody['data'] as Map<String, dynamic>;
-      return School.fromJson(data['school'] as Map<String, dynamic>);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Failed to change school admin: $e');
-    }
-  }
-
-  /// Super admin: delete a school (only when it has no members)
-  Future<void> deleteSchool(String schoolId) async {
-    try {
-      final response = await _apiClient.delete(ApiConfig.school(schoolId));
-      response.validateStatus();
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Failed to delete school: $e');
-    }
-  }
-
-  /// School admin: add a teacher to the school
-  Future<UserMin> addTeacher(String schoolId, MemberCreateRequest request) async {
-    try {
-      final response = await _apiClient.post(ApiConfig.schoolTeachers(schoolId), body: request.toJson());
-      response.validateStatus();
-
-      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = jsonBody['data'] as Map<String, dynamic>;
-      return UserMin.fromJson(data);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Failed to add teacher: $e');
-    }
-  }
-
-  /// List teachers of a school
-  Future<MemberListResponse> getTeachers({
-    required String schoolId,
-    int page = 1,
-    int limit = 20,
-    String? search,
-  }) async {
-    try {
-      final queryParams = {
-        'page': page.toString(),
-        'limit': limit.toString(),
-        if (search != null && search.isNotEmpty) 'search': search,
-      };
-      final response = await _apiClient.get(ApiConfig.schoolTeachers(schoolId), queryParams: queryParams);
-      response.validateStatus();
-
-      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = jsonBody['data'] as Map<String, dynamic>;
-
-      final members = (data['teachers'] as List)
-          .map((item) => UserMin.fromJson(item as Map<String, dynamic>))
-          .toList();
-
-      return MemberListResponse(
-        members: members,
-        totalPages: _toInt(data['totalPages']),
-        currentPage: _toInt(data['currentPage']),
-        total: _toInt(data['total']),
-      );
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Failed to fetch teachers: $e');
-    }
-  }
-
-  /// School admin or teacher: add a student to the school (respects student limit)
-  Future<UserMin> addStudent(String schoolId, MemberCreateRequest request) async {
-    try {
-      final response = await _apiClient.post(ApiConfig.schoolStudents(schoolId), body: request.toJson());
-      response.validateStatus();
-
-      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = jsonBody['data'] as Map<String, dynamic>;
-      return UserMin.fromJson(data);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Failed to add student: $e');
-    }
-  }
-
-  /// School admin: add a school admin to the school
-  Future<UserMin> addSchoolAdmin(String schoolId, MemberCreateRequest request) async {
-    try {
-      final response = await _apiClient.post(ApiConfig.schoolAdmins(schoolId), body: request.toJson());
-      response.validateStatus();
-
-      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = jsonBody['data'] as Map<String, dynamic>;
-      return UserMin.fromJson(data);
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Failed to add school admin: $e');
-    }
-  }
-
-  /// List students of a school
-  Future<MemberListResponse> getStudents({
-    required String schoolId,
-    int page = 1,
-    int limit = 20,
-    String? search,
-  }) async {
-    try {
-      final queryParams = {
-        'page': page.toString(),
-        'limit': limit.toString(),
-        if (search != null && search.isNotEmpty) 'search': search,
-      };
-      final response = await _apiClient.get(ApiConfig.schoolStudents(schoolId), queryParams: queryParams);
-      response.validateStatus();
-
-      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = jsonBody['data'] as Map<String, dynamic>;
-
-      final members = (data['students'] as List)
-          .map((item) => UserMin.fromJson(item as Map<String, dynamic>))
-          .toList();
-
-      return MemberListResponse(
-        members: members,
-        totalPages: _toInt(data['totalPages']),
-        currentPage: _toInt(data['currentPage']),
-        total: _toInt(data['total']),
-      );
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Failed to fetch students: $e');
-    }
-  }
-
-  /// List all staff members (school_admins + instructors) of a school
-  Future<MemberListResponse> getSchoolMembers({
-    required String schoolId,
-    int page = 1,
-    int limit = 20,
-    String? search,
-  }) async {
-    try {
-      final queryParams = {
-        'page': page.toString(),
-        'limit': limit.toString(),
-        if (search != null && search.isNotEmpty) 'search': search,
-      };
-      final response = await _apiClient.get(ApiConfig.schoolMembers(schoolId), queryParams: queryParams);
-      response.validateStatus();
-
-      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
-      final data = jsonBody['data'] as Map<String, dynamic>;
-
-      final members = (data['members'] as List)
-          .map((item) => UserMin.fromJson(item as Map<String, dynamic>))
-          .toList();
-
-      return MemberListResponse(
-        members: members,
-        totalPages: _toInt(data['totalPages']),
-        currentPage: _toInt(data['currentPage']),
-        total: _toInt(data['total']),
-      );
-    } catch (e) {
-      if (e is ApiException) rethrow;
-      throw ApiException('Failed to fetch school members: $e');
-    }
-  }
-
-  void dispose() {
-    _apiClient.dispose();
-  }
-}
-
-class SchoolListResponse {
-  final List<School> schools;
-  final int totalPages;
-  final int currentPage;
-  final int total;
-
-  SchoolListResponse({
-    required this.schools,
-    required this.totalPages,
-    required this.currentPage,
-    required this.total,
-  });
-}
-
-class SchoolCreatedResult {
-  final School school;
-  final UserMin schoolAdmin;
-
-  SchoolCreatedResult({required this.school, required this.schoolAdmin});
-}
-
-class MemberListResponse {
-  final List<UserMin> members;
-  final int totalPages;
-  final int currentPage;
-  final int total;
-
-  MemberListResponse({
-    required this.members,
-    required this.totalPages,
-    required this.currentPage,
-    required this.total,
-  });
-}
-
-/// Minimal user info returned by school member endpoints
-class UserMin {
-  final String id;
-  final String fullName;
-  final String email;
-  final String? phone;
-  final String role;
-  final String? schoolId;
-  final bool? isPrivateStudent;
-  final bool isActive;
-  final String? firebaseUid;
-
-  UserMin({
-    required this.id,
-    required this.fullName,
-    required this.email,
-    this.phone,
-    required this.role,
-    this.schoolId,
-    this.isPrivateStudent,
-    this.isActive = true,
-    this.firebaseUid,
-  });
-
-  factory UserMin.fromJson(Map<String, dynamic> json) {
-    return UserMin(
-      id: _str(json['id']) ?? _str(json['_id']) ?? '',
-      fullName: _str(json['fullName']) ?? 'Unknown User',
-      email: _str(json['email']) ?? '',
-      phone: _str(json['phone']),
-      role: _str(json['role']) ?? 'student',
-      schoolId: _str(json['schoolId']),
-      isPrivateStudent: json['isPrivateStudent'] == true,
-      isActive: json['isActive'] == true,
-      firebaseUid: _str(json['firebaseUid']),
+    throw SchoolApiError(
+      (json['message'] as String?) ?? 'Request failed',
+      r.statusCode,
+      code: json['code'] as String?,
+      body: json,
     );
   }
 
-  static String? _str(dynamic v) {
-    if (v == null) return null;
-    if (v is String) return v;
-    return v.toString();
+  Future<Map<String, dynamic>> _get(String path, [Map<String, dynamic>? query]) async {
+    final q = <String, dynamic>{};
+    query?.forEach((k, v) {
+      if (v != null && v.toString().isNotEmpty) q[k] = v.toString();
+    });
+    try {
+      return _decode(await _api.get('$_base$path', queryParams: q.isEmpty ? null : q));
+    } on ApiException catch (e) {
+      throw SchoolApiError(e.message, e.statusCode ?? 0);
+    }
+  }
+
+  Future<Map<String, dynamic>> _send(String method, String path, [Map<String, dynamic>? body]) async {
+    try {
+      final url = '$_base$path';
+      final http.Response r;
+      switch (method) {
+        case 'POST':
+          r = await _api.post(url, body: body ?? <String, dynamic>{});
+          break;
+        case 'PATCH':
+          r = await _api.patch(url, body: body ?? <String, dynamic>{});
+          break;
+        case 'DELETE':
+          r = await _api.delete(url);
+          break;
+        default:
+          throw ArgumentError(method);
+      }
+      return _decode(r);
+    } on ApiException catch (e) {
+      throw SchoolApiError(e.message, e.statusCode ?? 0);
+    }
+  }
+
+  static List<Map<String, dynamic>> list(dynamic v) =>
+      ((v as List?) ?? const []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+
+  // ── Super admin ──────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> listSchools({int page = 1, String? search}) =>
+      _get('/schools', {'page': page, 'limit': 30, 'search': search});
+
+  /// Returns { school, schoolAdmin, credentials }.
+  Future<Map<String, dynamic>> createSchool(Map<String, dynamic> body) => _send('POST', '/schools', body);
+
+  Future<Map<String, dynamic>> deactivateSchool(String schoolId) => _send('DELETE', '/schools/$schoolId');
+
+  Future<Map<String, dynamic>> setMainAdmin(String schoolId, String userId) =>
+      _send('PATCH', '/schools/$schoolId/main-admin', {'userId': userId});
+
+  // ── School (use 'me' for the caller's own school) ───────────────────
+
+  Future<Map<String, dynamic>> getSchool([String schoolId = 'me']) async =>
+      Map<String, dynamic>.from((await _get('/schools/$schoolId'))['school'] as Map);
+
+  Future<Map<String, dynamic>> updateSchool(String schoolId, Map<String, dynamic> body) async =>
+      Map<String, dynamic>.from((await _send('PATCH', '/schools/$schoolId', body))['school'] as Map);
+
+  Future<Map<String, dynamic>> overview([String schoolId = 'me']) => _get('/schools/$schoolId/overview');
+
+  // Terms & billing
+  Future<Map<String, dynamic>> terms([String schoolId = 'me']) => _get('/schools/$schoolId/terms');
+  Future<Map<String, dynamic>> createTerm(String schoolId, Map<String, dynamic> body) => _send('POST', '/schools/$schoolId/terms', body);
+  Future<Map<String, dynamic>> updateTerm(String schoolId, String termId, Map<String, dynamic> body) =>
+      _send('PATCH', '/schools/$schoolId/terms/$termId', body);
+  Future<Map<String, dynamic>> deleteTerm(String schoolId, String termId) => _send('DELETE', '/schools/$schoolId/terms/$termId');
+
+  // Classes
+  Future<List<Map<String, dynamic>>> classes([String schoolId = 'me', String? academicYear]) async =>
+      list((await _get('/schools/$schoolId/classes', {'academicYear': academicYear}))['classes']);
+  Future<Map<String, dynamic>> createClasses(String schoolId, Map<String, dynamic> body) => _send('POST', '/schools/$schoolId/classes', body);
+  Future<Map<String, dynamic>> classDetail(String classId) => _get('/school/classes/$classId');
+  Future<Map<String, dynamic>> updateClass(String classId, Map<String, dynamic> body) => _send('PATCH', '/school/classes/$classId', body);
+  Future<Map<String, dynamic>> deleteClass(String classId) => _send('DELETE', '/school/classes/$classId');
+  Future<Map<String, dynamic>> addSubjects(String classId, List<Map<String, dynamic>> subjects) =>
+      _send('POST', '/school/classes/$classId/subjects', {'subjects': subjects});
+  Future<Map<String, dynamic>> updateSubject(String id, Map<String, dynamic> body) => _send('PATCH', '/school/class-subjects/$id', body);
+  Future<Map<String, dynamic>> removeSubject(String id) => _send('DELETE', '/school/class-subjects/$id');
+
+  // Staff
+  Future<Map<String, dynamic>> staff(String schoolId, {String? role, String? search, String active = 'true'}) =>
+      _get('/schools/$schoolId/staff', {'role': role, 'search': search, 'active': active, 'limit': 200});
+  /// Returns { user, credentials }.
+  Future<Map<String, dynamic>> addTeacher(String schoolId, Map<String, dynamic> body) => _send('POST', '/schools/$schoolId/teachers', body);
+  Future<Map<String, dynamic>> addSchoolAdmin(String schoolId, Map<String, dynamic> body) => _send('POST', '/schools/$schoolId/admins', body);
+
+  // Students
+  Future<Map<String, dynamic>> students(String schoolId, {String? classId, String? search, bool unassigned = false, String active = 'true', int page = 1}) =>
+      _get('/schools/$schoolId/students', {'classId': classId, 'search': search, 'unassigned': unassigned ? 'true' : null, 'active': active, 'page': page, 'limit': 100});
+  Future<List<Map<String, dynamic>>> lookupStudents(String schoolId, String q) async =>
+      list((await _get('/schools/$schoolId/students/lookup', {'q': q}))['students']);
+  /// Returns { student, credentials: { studentCode, pin }, parents, warnings }.
+  /// Throws [SchoolApiError] with code POSSIBLE_DUPLICATE (see [SchoolApiError.candidates]).
+  Future<Map<String, dynamic>> addStudent(String schoolId, Map<String, dynamic> body) => _send('POST', '/schools/$schoolId/students', body);
+  Future<Map<String, dynamic>> importStudents(String schoolId, String classroomId, List<Map<String, dynamic>> rows) =>
+      _send('POST', '/schools/$schoolId/students/import', {'classroomId': classroomId, 'students': rows});
+  Future<Map<String, dynamic>> enrollStudent(String schoolId, String userId, String classroomId) =>
+      _send('POST', '/schools/$schoolId/students/$userId/enroll', {'classroomId': classroomId});
+
+  // Any member
+  Future<Map<String, dynamic>> member(String schoolId, String userId) => _get('/schools/$schoolId/members/$userId');
+  Future<Map<String, dynamic>> updateMember(String schoolId, String userId, Map<String, dynamic> body) =>
+      _send('PATCH', '/schools/$schoolId/members/$userId', body);
+  /// Returns { credentials } — a new PIN (students/parents) or password (staff).
+  Future<Map<String, dynamic>> resetCredentials(String schoolId, String userId) =>
+      _send('POST', '/schools/$schoolId/members/$userId/reset-credentials');
+
+  // Parents
+  Future<Map<String, dynamic>> parents([String schoolId = 'me', String? search]) => _get('/schools/$schoolId/parents', {'search': search, 'limit': 200});
+  Future<Map<String, dynamic>> resetParentPin(String schoolId, String parentId) => _send('POST', '/schools/$schoolId/parents/$parentId/reset-pin');
+
+  // Head teacher reports
+  Future<Map<String, dynamic>> progress([String schoolId = 'me', String? classId]) => _get('/schools/$schoolId/progress', {'classId': classId});
+  Future<Map<String, dynamic>> coverage(String schoolId, {String? status, String? classId, String? teacherId, int page = 1}) =>
+      _get('/schools/$schoolId/coverage', {'status': status, 'classId': classId, 'teacherId': teacherId, 'page': page});
+  Future<Map<String, dynamic>> reviewCoverage(String schoolId, String id, String status, {String? note}) =>
+      _send('PATCH', '/schools/$schoolId/coverage/$id', {'status': status, 'note': note});
+  Future<Map<String, dynamic>> teacherActivity(String schoolId, String userId, {int days = 30}) =>
+      _get('/schools/$schoolId/teachers/$userId/activity', {'days': days});
+  Future<Map<String, dynamic>> results(String schoolId, String classId) => _get('/schools/$schoolId/results', {'classId': classId});
+  Future<Map<String, dynamic>> signIns(String schoolId, {bool suspiciousOnly = false, String? userId, int page = 1}) =>
+      _get('/schools/$schoolId/sign-ins', {'suspicious': suspiciousOnly ? 'true' : null, 'userId': userId, 'page': page});
+
+  // ── "School only" sign-in codes ──────────────────────────────────────
+
+  /// Current class code ([classId]) or school-wide lab code (no classId),
+  /// with who signed in with it today.
+  Future<Map<String, dynamic>> accessCode({String? classId, String? schoolId}) =>
+      _get('/school/access-code', {'classId': classId, 'schoolId': schoolId});
+
+  /// The internet address the server sees for this device (to allow the school network).
+  Future<Map<String, dynamic>> myIp() => _get('/school/my-ip');
+
+  // ── Login cards and year-end promotion ───────────────────────────────
+
+  /// New PINs for a class (or chosen students) to print on login cards.
+  Future<Map<String, dynamic>> loginCards(String classId, {List<String>? studentIds}) =>
+      _send('POST', '/school/classes/$classId/login-cards', {if (studentIds != null) 'studentIds': studentIds});
+  Future<Map<String, dynamic>> promotionPreview(String schoolId, {String? fromYear, String? toYear}) =>
+      _get('/schools/$schoolId/promotion/preview', {'fromYear': fromYear, 'toYear': toYear});
+  Future<Map<String, dynamic>> runPromotion(String schoolId, Map<String, dynamic> body) => _send('POST', '/schools/$schoolId/promotion', body);
+
+  // ── Class groups (school community) ──────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> groups() async => list((await _get('/school/groups'))['groups']);
+  Future<Map<String, dynamic>> createGroup(Map<String, dynamic> body) async =>
+      Map<String, dynamic>.from((await _send('POST', '/school/groups', body))['group'] as Map);
+  Future<Map<String, dynamic>> group(String id) async => Map<String, dynamic>.from((await _get('/school/groups/$id'))['group'] as Map);
+  Future<Map<String, dynamic>> updateGroup(String id, Map<String, dynamic> body) async =>
+      Map<String, dynamic>.from((await _send('PATCH', '/school/groups/$id', body))['group'] as Map);
+  Future<void> closeGroup(String id) async => _send('DELETE', '/school/groups/$id');
+  /// { messages (oldest→newest), pinned, hasMore, canPost }. Use [after] to poll for new ones.
+  Future<Map<String, dynamic>> groupMessages(String id, {String? before, String? after}) =>
+      _get('/school/groups/$id/messages', {'before': before, 'after': after});
+  Future<Map<String, dynamic>> postGroupMessage(String id, {String? text, List<Map<String, dynamic>> attachments = const [], String? replyTo}) async =>
+      Map<String, dynamic>.from((await _send('POST', '/school/groups/$id/messages', {'text': text, 'attachments': attachments, 'replyTo': replyTo}))['message'] as Map);
+  Future<void> deleteGroupMessage(String id, String messageId) async => _send('DELETE', '/school/groups/$id/messages/$messageId');
+  Future<void> pinGroupMessage(String id, String messageId, bool pinned) async =>
+      _send('POST', '/school/groups/$id/messages/$messageId/pin', {'pinned': pinned});
+
+  // ── Teacher portal ───────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> myTeaching() => _get('/school/teaching/me');
+  Future<Map<String, dynamic>> syllabus(String classSubjectId) => _get('/school/teaching/class-subjects/$classSubjectId/syllabus');
+  Future<Map<String, dynamic>> markTaught(String classSubjectId, Map<String, dynamic> body) =>
+      _send('POST', '/school/teaching/class-subjects/$classSubjectId/coverage', body);
+  Future<Map<String, dynamic>> unmarkTaught(String coverageId) => _send('DELETE', '/school/teaching/coverage/$coverageId');
+  Future<Map<String, dynamic>> assessments(String classSubjectId) => _get('/school/teaching/class-subjects/$classSubjectId/assessments');
+  Future<Map<String, dynamic>> createAssessment(String classSubjectId, Map<String, dynamic> body) =>
+      _send('POST', '/school/teaching/class-subjects/$classSubjectId/assessments', body);
+  Future<Map<String, dynamic>> assessment(String id) => _get('/school/teaching/assessments/$id');
+  Future<Map<String, dynamic>> updateAssessment(String id, Map<String, dynamic> body) => _send('PATCH', '/school/teaching/assessments/$id', body);
+  Future<Map<String, dynamic>> deleteAssessment(String id) => _send('DELETE', '/school/teaching/assessments/$id');
+  Future<Map<String, dynamic>> grade(String assessmentId, String submissionId, num score, {String? feedback}) =>
+      _send('POST', '/school/teaching/assessments/$assessmentId/submissions/$submissionId/grade', {'score': score, 'feedback': feedback});
+
+  // ── Student portal ───────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> studentHome() => _get('/school/learning/home');
+  Future<Map<String, dynamic>> studentAssessment(String id) async =>
+      Map<String, dynamic>.from((await _get('/school/learning/assessments/$id'))['assessment'] as Map);
+  Future<Map<String, dynamic>> submitAssessment(String id, {String? text, List<Map<String, dynamic>> attachments = const []}) =>
+      _send('POST', '/school/learning/assessments/$id/submit', {'text': text, 'attachments': attachments});
+  Future<Map<String, dynamic>> checkLesson(String coverageId, bool taught) =>
+      _send('POST', '/school/learning/coverage/$coverageId/check', {'taught': taught});
+
+  // ── Parent portal ────────────────────────────────────────────────────
+
+  Future<List<Map<String, dynamic>>> children() async => list((await _get('/school/parent/children'))['children']);
+  Future<Map<String, dynamic>> child(String id) => _get('/school/parent/children/$id');
+
+  // ── Photos (homework, lesson evidence) ───────────────────────────────
+
+  /// Uploads an image and returns an attachment map {url, name, type}.
+  /// Works with Firebase and ECH tokens (PIN accounts on desktop too).
+  Future<Map<String, dynamic>> uploadImage(List<int> bytes, String filename, {String mime = 'image/jpeg'}) async {
+    final headers = await _api.authHeaders();
+    headers.remove('Content-Type');
+    final req = http.MultipartRequest('POST', Uri.parse('$_base/upload/image'))
+      ..headers.addAll(headers)
+      ..files.add(http.MultipartFile.fromBytes('image', bytes, filename: filename, contentType: MediaType.parse(mime)));
+    final streamed = await req.send().timeout(const Duration(minutes: 2));
+    final r = await http.Response.fromStream(streamed);
+    final data = _decode(r);
+    final url = (data['imageUrl'] ?? data['signedUrl']) as String?;
+    if (url == null) throw SchoolApiError('Upload failed', r.statusCode);
+    return {'url': url, 'name': filename, 'type': mime};
+  }
+
+  // ── ECH courses (syllabus link for a class subject) ──────────────────
+
+  Future<List<Map<String, dynamic>>> searchCourses(String? search) async =>
+      list((await _get('/courses', {'search': search, 'limit': 25}))['courses']);
+
+  // ── PIN account ──────────────────────────────────────────────────────
+
+  Future<void> changePin(String currentPin, String newPin) async {
+    await _send('POST', '/auth/pin/change', {'currentPin': currentPin, 'newPin': newPin});
   }
 }
