@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/semantics.dart';
 import 'package:excellencecoachinghub/config/app_theme.dart';
 import 'package:excellencecoachinghub/presentation/router/app_router.dart';
 import 'package:excellencecoachinghub/services/firebase_auth_service.dart';
@@ -77,6 +78,11 @@ Future<void> main() async {
       FirebaseAuthService.initializeFirebase().catchError((e, st) {
         debugPrint('Main: Firebase background init failed: $e');
       });
+
+      // Automated UI tests (web): expose the semantics tree to the browser.
+      if (const bool.fromEnvironment('ENABLE_SEMANTICS')) {
+        SemanticsBinding.instance.ensureSemantics();
+      }
 
       // Run the app immediately so the splash screen paints without waiting
       // on Firebase or any other service.

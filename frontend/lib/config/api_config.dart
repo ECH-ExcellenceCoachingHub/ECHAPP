@@ -1,7 +1,11 @@
 
 class ApiConfig {
   // Dynamic base URL that works across platforms
+  /// Override for local testing: --dart-define=API_BASE_URL=http://127.0.0.1:5055/api
+  static const String _overrideBaseUrl = String.fromEnvironment('API_BASE_URL');
+
   static String get baseUrl {
+    if (_overrideBaseUrl.isNotEmpty) return _overrideBaseUrl;
     return 'https://echappbackend.onrender.com/api';
   }
   

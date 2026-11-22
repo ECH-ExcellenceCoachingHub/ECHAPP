@@ -13,7 +13,8 @@ plugins {
 android {
     namespace = "com.excellencecoachinghub.app"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    // Same NDK as unityLibrary (r27c); avoids downloading a second NDK.
+    ndkVersion = "27.2.12479018"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
