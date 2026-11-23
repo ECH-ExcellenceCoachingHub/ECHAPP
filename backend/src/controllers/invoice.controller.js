@@ -15,6 +15,8 @@ const generateInvoice = async (req, res) => {
     const payment = await Payment.findById(paymentId)
       .populate('userId', 'fullName email phone')
       .populate('courseId', 'title description price')
+      .populate('schoolId', 'name')
+      .populate('termId', 'academicYear term')
       .populate('adminApproval.approvedBy', 'fullName email');
     
     if (!payment) {
@@ -116,7 +118,12 @@ function generatePDFInvoice(payment) {
       const rTop = tTop + 22;
       doc.rect(M, rTop, pageW, 26).fill(LIGHT);
       doc.fillColor(DARK).fontSize(10).font('Helvetica');
-      doc.text(payment.courseId?.title || 'Course', M + 8, rTop + 8, { width: 280, ellipsis: true });
+      const itemLabel = payment.purpose === 'school_term'
+        ? `${payment.schoolId?.name || 'School'} · ${payment.termId ? `${payment.termId.academicYear} Term ${payment.termId.term}` : 'Term'} · ${payment.seats || 0} students`
+        : payment.purpose === 'teacher_guide'
+          ? `Teacher's guide: ${payment.courseId?.title || 'Course'}`
+          : (payment.courseId?.title || 'Course');
+      doc.text(itemLabel, M + 8, rTop + 8, { width: 280, ellipsis: true });
       doc.text('1',     M + 300, rTop + 8, { width: 40,  align: 'center' });
       doc.text(amtStr,  M + 350, rTop + 8, { width: 90,  align: 'right'  });
       doc.text(amtStr,  M + 450, rTop + 8, { width: 60,  align: 'right'  });

@@ -21,7 +21,11 @@ class _AccessSectionState extends State<AccessSection> {
   late Set<String> _pinless = {...((_p['pinlessLevels'] as List?) ?? const ['N1', 'N2', 'N3', 'P1', 'P2', 'P3']).map((e) => '$e')};
   final _ipInput = TextEditingController();
   String? _myIp;
+  String? _suggested; // rule to save for this connection (IPv6: the /64 network)
+  bool _usable = true;
   bool? _onNetwork;
+  bool _detecting = false;
+  String? _detectError;
   bool _busy = false;
 
   String get _mode => (_p['mode'] as String?) ?? 'anywhere';
@@ -29,9 +33,37 @@ class _AccessSectionState extends State<AccessSection> {
   @override
   void initState() {
     super.initState();
-    widget.c.svc.myIp().then((r) {
-      if (mounted) setState(() { _myIp = r['ip'] as String?; _onNetwork = r['onSchoolNetwork'] as bool?; });
-    }).catchError((_) {});
+    _detect();
+  }
+
+  /// Asks the server which internet address this device is using right now.
+  Future<void> _detect() async {
+    setState(() { _detecting = true; _detectError = null; });
+    try {
+      final r = await widget.c.svc.myIp();
+      if (!mounted) return;
+      setState(() {
+        _myIp = r['ip'] as String?;
+        _suggested = (r['suggestedRule'] as String?) ?? _myIp;
+        _usable = r['usable'] != false;
+        _onNetwork = r['onSchoolNetwork'] as bool?;
+      });
+    } catch (e) {
+      if (mounted) setState(() => _detectError = e.toString());
+    } finally {
+      if (mounted) setState(() => _detecting = false);
+    }
+  }
+
+  bool get _thisConnectionSaved => _onNetwork == true || (_suggested != null && _ips.contains(_suggested));
+
+  /// Adds the detected connection and saves right away (admins forget "Save").
+  Future<void> _useThisConnection() async {
+    final rule = _suggested;
+    if (rule == null) return;
+    if (!_ips.contains(rule)) setState(() => _ips.add(rule));
+    await _save(message: 'This connection is now a school internet');
+    if (mounted) setState(() => _onNetwork = true);
   }
 
   @override
@@ -40,9 +72,21 @@ class _AccessSectionState extends State<AccessSection> {
     super.dispose();
   }
 
-  Future<void> _save() async {
+  Future<void> _save({String message = 'Sign-in rules saved'}) async {
     if (_mode == 'network' && _ips.isEmpty) {
-      return showSnack(context, 'Add the school\'s internet address first, otherwise no student can sign in.', error: true);
+      // Offer the connection we detected instead of asking for an address.
+      if (_suggested != null && _usable) {
+        final yes = await confirm(
+          context,
+          title: 'Are you at school now?',
+          message: 'You are connected through $_suggested. If this device is on the school Wi-Fi or lab network right now, we use it as the school internet.',
+          confirmLabel: 'Yes, use it',
+        );
+        if (!yes || !mounted) return;
+        setState(() => _ips.add(_suggested!));
+      } else {
+        return showSnack(context, 'Open this page on the school Wi-Fi and tap "Use this connection" first, otherwise no student can sign in.', error: true);
+      }
     }
     setState(() => _busy = true);
     try {
@@ -59,7 +103,7 @@ class _AccessSectionState extends State<AccessSection> {
       });
       _p = Map<String, dynamic>.from(s['studentAccess'] as Map? ?? _p);
       await widget.c.reloadSchool();
-      if (mounted) showSnack(context, 'Sign-in rules saved');
+      if (mounted) showSnack(context, message);
     } catch (e) {
       if (mounted) showSnack(context, e.toString(), error: true);
     } finally {
@@ -72,6 +116,79 @@ class _AccessSectionState extends State<AccessSection> {
     if (v.isEmpty || _ips.contains(v)) return;
     setState(() => _ips.add(v));
     _ipInput.clear();
+  }
+
+  Widget _detectCard() {
+    final muted = AppTheme.getSecondaryTextColor(context);
+    final saved = _thisConnectionSaved;
+    final tone = _detectError != null || !_usable ? Tone.warn : saved ? Tone.good : Tone.info;
+    final c = toneColor(context, tone);
+    Widget step(String n, String text) => Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: 20,
+              height: 20,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: AppTheme.primary.withValues(alpha: 0.12), shape: BoxShape.circle),
+              child: Text(n, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppTheme.primaryDark)),
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: T(text, style: TextStyle(fontSize: 13, color: muted))),
+          ]),
+        );
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: c.withValues(alpha: 0.3)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Icon(saved ? Icons.verified_rounded : Icons.wifi_find_rounded, color: c),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              T(
+                _detecting
+                    ? 'Detecting your connection…'
+                    : _detectError != null
+                        ? 'Could not detect your connection'
+                        : saved
+                            ? 'This connection is a school internet'
+                            : 'Your connection now',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              if (!_detecting && _suggested != null)
+                SelectableText(_suggested!, style: TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w600, color: AppTheme.getTextColor(context))),
+            ]),
+          ),
+          IconButton(tooltip: trSchool(context, 'Detect again'), onPressed: _detecting ? null : _detect, icon: _detecting ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.refresh)),
+        ]),
+        if (!_usable && !_detecting) ...[
+          const SizedBox(height: 6),
+          T('This is a local address, so it cannot identify the school. Open ECH from the internet (not a local test server).', style: TextStyle(fontSize: 12.5, color: c)),
+        ],
+        if (!saved && _usable && _suggested != null && !_detecting) ...[
+          const SizedBox(height: 10),
+          step('1', 'Connect this phone or computer to the school Wi-Fi or lab network (not mobile data).'),
+          step('2', 'Tap "Detect again" if you just changed network, then "Use this connection".'),
+          step('3', 'Repeat on each school network (lab, staff room Wi-Fi…).'),
+          const SizedBox(height: 10),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(46)),
+            onPressed: _busy ? null : _useThisConnection,
+            icon: const Icon(Icons.add_link),
+            label: const T('Use this connection as school internet'),
+          ),
+        ],
+        if (_detectError != null && !_detecting) ...[
+          const SizedBox(height: 8),
+          OutlinedButton.icon(onPressed: _detect, icon: const Icon(Icons.refresh), label: const T('Try again')),
+        ],
+      ]),
+    );
   }
 
   Widget _timeButton(String key, String fallback, String label, IconData icon) => OutlinedButton.icon(
@@ -164,46 +281,61 @@ class _AccessSectionState extends State<AccessSection> {
           ]),
         ),
       SectionCard(
+        icon: Icons.wifi_rounded,
         title: 'School internet',
         subtitle: _mode == 'network'
-            ? 'Required: only these addresses can use student accounts.'
+            ? 'Required: students can only sign in from these connections.'
             : _mode == 'code'
-                ? 'Optional: devices on these addresses sign in without a class code (e.g. the computer lab).'
+                ? 'Optional: devices on these connections sign in without a class code (e.g. the computer lab).'
                 : 'Used only when you choose an "at school only" mode.',
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          if (_myIp != null)
-            Container(
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(color: AppTheme.infoColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-              child: Row(children: [
-                const Icon(Icons.router_outlined, color: AppTheme.infoColor),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    'This device is on $_myIp${_onNetwork == true ? ' — already allowed.' : '. If you are at school on the school internet now, add it.'}',
-                  ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          _detectCard(),
+          const SizedBox(height: 14),
+          if (_ips.isEmpty)
+            T('No school internet saved yet.', style: TextStyle(color: muted))
+          else ...[
+            T('Saved school connections', style: const TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 4),
+            for (var i = 0; i < _ips.length; i++) ...[
+              if (i > 0) const RowDivider(),
+              EntityTile(
+                dense: true,
+                leading: Icon(Icons.router_outlined, color: _ips[i] == _suggested ? AppTheme.successColor : muted),
+                title: _ips[i],
+                subtitle: _ips[i] == _suggested ? 'The connection you are using now' : (_ips[i].contains(':') ? 'IPv6 network' : 'Internet address'),
+                trailing: IconButton(
+                  tooltip: trSchool(context, 'Remove'),
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => setState(() {
+                    _ips.removeAt(i);
+                    if (_onNetwork == true && !_ips.contains(_suggested)) _onNetwork = false;
+                  }),
                 ),
-                if (_onNetwork != true && !_ips.contains(_myIp)) TextButton(onPressed: () => _addIp(_myIp!), child: const T('Add')),
-              ]),
-            ),
-          Wrap(spacing: 8, runSpacing: 8, children: [
-            for (final ip in _ips) InputChip(label: Text(ip), onDeleted: () => setState(() => _ips.remove(ip))),
-          ]),
-          const SizedBox(height: 8),
-          Row(children: [
-            Expanded(
-              child: TextField(
-                controller: _ipInput,
-                decoration: const InputDecoration(labelText: 'Add address', hintText: 'e.g. 41.186.12.34 or 41.186.12.0/24', isDense: true),
-                onSubmitted: _addIp,
               ),
+            ],
+          ],
+          Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: T('Enter an address by hand', style: TextStyle(fontSize: 14, color: muted)),
+              children: [
+                Row(children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _ipInput,
+                      decoration: const InputDecoration(labelText: 'Address', hintText: 'e.g. 41.186.12.34 or 41.186.12.0/24', isDense: true),
+                      onSubmitted: _addIp,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton(onPressed: () => _addIp(_ipInput.text), child: const T('Add')),
+                ]),
+                const SizedBox(height: 8),
+              ],
             ),
-            const SizedBox(width: 8),
-            OutlinedButton(onPressed: () => _addIp(_ipInput.text), child: const T('Add')),
-          ]),
-          const SizedBox(height: 8),
-          T('Tip: open this page on a school computer and press "Add". If your internet provider changes the address often, use the class-code mode instead.', style: TextStyle(fontSize: 12, color: muted)),
+          ),
+          T('If your internet provider changes the address often, use the class-code mode instead.', style: TextStyle(fontSize: 12, color: muted)),
         ]),
       ),
       if (_mode == 'code')

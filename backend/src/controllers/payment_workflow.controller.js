@@ -415,61 +415,162 @@ const getPaymentById = async (req, res) => {
 };
 
 // Get all payments (admin only)
+const escapeRegex = (v) => String(v).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const ONLINE_STUCK_MS = 15 * 60 * 1000;
+
+/** Payments an admin has to act on. */
+function needsAttentionFilter() {
+  return { $or: [
+    { status: 'admin_review' },
+    // manual request waiting for approval
+    { status: 'pending', 'gateway.provider': { $exists: false } },
+    // online payment with no answer from iTechPay for a while
+    { status: 'pending', 'gateway.provider': 'itecpay', createdAt: { $lt: new Date(Date.now() - ONLINE_STUCK_MS) } },
+  ] };
+}
+
+/**
+ * Builds the admin list filter from the query string. Everything is filtered
+ * on the server so search and status work across all payments, not one page.
+ *   status, purpose (course|teacher_guide|school_term), channel (online|manual),
+ *   method, from, to (ISO dates), attention=1, search (user, course, school,
+ *   transaction id, iTechPay reference, phone), courseId, userId
+ */
+async function adminPaymentFilter(q) {
+  const and = [];
+  if (q.status) and.push({ status: { $in: String(q.status).split(',').map((x) => x.trim()).filter(Boolean) } });
+  if (q.courseId) and.push({ courseId: String(q.courseId) });
+  if (q.userId) and.push({ userId: String(q.userId) });
+  if (['teacher_guide', 'school_term'].includes(q.purpose)) and.push({ purpose: q.purpose });
+  else if (q.purpose === 'course') and.push({ purpose: { $nin: ['teacher_guide', 'school_term'] } });
+  if (q.channel === 'online') and.push({ 'gateway.provider': 'itecpay' });
+  else if (q.channel === 'manual') and.push({ 'gateway.provider': { $exists: false } });
+  if (q.method) and.push({ paymentMethod: String(q.method) });
+  const from = q.from ? new Date(q.from) : null;
+  const to = q.to ? new Date(q.to) : null;
+  if (from && !Number.isNaN(+from)) and.push({ createdAt: { $gte: from } });
+  if (to && !Number.isNaN(+to)) and.push({ createdAt: { $lte: to } });
+  if (q.attention === '1' || q.attention === 'true') and.push(needsAttentionFilter());
+
+  const search = String(q.search || '').trim().slice(0, 80);
+  if (search) {
+    const rx = new RegExp(escapeRegex(search), 'i');
+    const School = require('../models/School');
+    const [users, courses, schools] = await Promise.all([
+      User.find({ $or: [{ fullName: rx }, { email: rx }, { phone: rx }] }).select('_id').limit(300).lean(),
+      Course.find({ title: rx }).select('_id').limit(300).lean(),
+      School.find({ name: rx }).select('_id').limit(100).lean(),
+    ]);
+    and.push({ $or: [
+      { transactionId: rx },
+      { 'gateway.reference': rx },
+      { 'gateway.phone': rx },
+      { contactInfo: rx },
+      { userId: { $in: users.map(u => u._id) } },
+      { courseId: { $in: courses.map(c => c._id) } },
+      { schoolId: { $in: schools.map(x => x._id) } },
+    ] });
+  }
+  return and.length ? { $and: and } : {};
+}
+
+// Get all payments (admin only)
 const getAllPayments = async (req, res) => {
   try {
-    const { status, courseId, userId, page = 1, limit = 20 } = req.query;
-    
-    // Ensure limit doesn't exceed 100 for performance
-    const finalLimit = Math.min(parseInt(limit) || 20, 100);
-    
-    console.log('getAllPayments called with params:', { status, courseId, userId, page, limit, finalLimit });
-    console.log('User ID:', req.user?.id);
-    console.log('User role:', req.user?.role);
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const finalLimit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const filter = await adminPaymentFilter(req.query);
 
-    const filter = {};
-    if (status) filter.status = status;
-    if (courseId) filter.courseId = courseId;
-    if (userId) filter.userId = userId;
-    if (['teacher_guide', 'school_term'].includes(req.query.purpose)) filter.purpose = req.query.purpose;
-    else if (req.query.purpose === 'course') filter.purpose = { $nin: ['teacher_guide', 'school_term'] };
+    const [payments, total] = await Promise.all([
+      Payment.find(filter)
+        .populate('userId', 'fullName email phone')
+        .populate('courseId', 'title price')
+        .populate('schoolId', 'name')
+        .populate('termId', 'academicYear term')
+        .populate('adminApproval.approvedBy', 'fullName')
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * finalLimit)
+        .limit(finalLimit),
+      Payment.countDocuments(filter),
+    ]);
 
-    const payments = await Payment.find(filter)
-      .populate('userId', 'fullName email')
-      .populate('courseId', 'title price')
-      .populate('schoolId', 'name')
-      .populate('adminApproval.approvedBy', 'fullName')
-      .limit(finalLimit)
-      .skip((page - 1) * finalLimit)
-      .sort({ createdAt: -1 });
-
-    const total = await Payment.countDocuments(filter);
-    
-    const responseData = {
+    sendSuccess(res, {
       payments,
       totalPages: Math.ceil(total / finalLimit),
-      currentPage: Number(page),
+      currentPage: page,
       total
-    };
-    
-    console.log('getAllPayments response structure:', {
-      paymentsLength: payments.length,
-      paymentsType: typeof payments,
-      isArray: Array.isArray(payments),
-      paymentsSample: payments.length > 0 ? payments[0] : 'empty array',
-      totalPages: responseData.totalPages,
-      currentPage: responseData.currentPage,
-      total: responseData.total,
-      responseDataPaymentsType: typeof responseData.payments,
-      responseDataPaymentsIsArray: Array.isArray(responseData.payments)
-    });
-
-    console.log('Sending response data:', JSON.stringify(responseData, null, 2));
-
-    sendSuccess(res, responseData, 'Payments retrieved successfully');
-
+    }, 'Payments retrieved successfully');
   } catch (error) {
     console.error('Error in getAllPayments:', error);
     sendError(res, 'Failed to retrieve payments', 500, error.message);
+  }
+};
+
+/**
+ * GET /api/payments/admin/overview (admin) — revenue and workload at a glance:
+ * totals, this month vs last month, by service, by method, online vs manual,
+ * status counts, what needs attention and the last 30 days.
+ */
+const getPaymentOverview = async (req, res) => {
+  try {
+    const PAID = { status: { $in: ['completed', 'approved'] } };
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const since30 = new Date(now.getTime() - 29 * 864e5);
+    since30.setHours(0, 0, 0, 0);
+    const paidAt = { $ifNull: ['$paymentDate', '$createdAt'] };
+    const sum = { revenue: { $sum: '$amount' }, count: { $sum: 1 } };
+
+    const [facets] = await Payment.aggregate([
+      { $facet: {
+        status: [{ $group: { _id: '$status', count: { $sum: 1 } } }],
+        total: [{ $match: PAID }, { $group: { _id: null, ...sum } }],
+        thisMonth: [{ $match: PAID }, { $match: { $expr: { $gte: [paidAt, monthStart] } } }, { $group: { _id: null, ...sum } }],
+        lastMonth: [{ $match: PAID }, { $match: { $expr: { $and: [{ $gte: [paidAt, lastMonthStart] }, { $lt: [paidAt, monthStart] }] } } }, { $group: { _id: null, ...sum } }],
+        byPurpose: [{ $match: PAID }, { $group: { _id: { $ifNull: ['$purpose', 'course'] }, ...sum } }],
+        byMethod: [{ $match: PAID }, { $group: { _id: '$paymentMethod', ...sum } }],
+        byChannel: [{ $match: PAID }, { $group: { _id: { $cond: [{ $eq: ['$gateway.provider', 'itecpay'] }, 'online', 'manual'] }, ...sum } }],
+        daily: [
+          { $match: PAID },
+          { $match: { $expr: { $gte: [paidAt, since30] } } },
+          { $group: { _id: { $dateToString: { format: '%Y-%m-%d', date: paidAt, timezone: 'Africa/Kigali' } }, ...sum } },
+        ],
+        onlineNotPaid30: [
+          { $match: { 'gateway.provider': 'itecpay', status: { $in: ['failed', 'cancelled'] }, createdAt: { $gte: since30 } } },
+          { $count: 'n' },
+        ],
+        online30: [{ $match: { 'gateway.provider': 'itecpay', createdAt: { $gte: since30 } } }, { $count: 'n' }],
+      } },
+    ]);
+    const needsAttention = await Payment.countDocuments(needsAttentionFilter());
+
+    const one = (arr) => ({ revenue: arr?.[0]?.revenue || 0, count: arr?.[0]?.count || 0 });
+    const map = (arr) => Object.fromEntries((arr || []).map((x) => [x._id || 'unknown', { revenue: x.revenue, count: x.count }]));
+    const dailyMap = map(facets.daily);
+    const daily = [];
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(since30.getTime() + i * 864e5 + 12 * 3600e3);
+      const key = d.toLocaleDateString('en-CA', { timeZone: 'Africa/Kigali' });
+      daily.push({ date: key, ...(dailyMap[key] || { revenue: 0, count: 0 }) });
+    }
+
+    sendSuccess(res, {
+      total: one(facets.total),
+      thisMonth: one(facets.thisMonth),
+      lastMonth: one(facets.lastMonth),
+      byPurpose: map(facets.byPurpose),
+      byMethod: map(facets.byMethod),
+      byChannel: map(facets.byChannel),
+      statusCounts: Object.fromEntries((facets.status || []).map((x) => [x._id, x.count])),
+      needsAttention,
+      daily,
+      online30: { started: facets.online30?.[0]?.n || 0, notPaid: facets.onlineNotPaid30?.[0]?.n || 0 },
+      currency: 'RWF',
+    });
+  } catch (error) {
+    console.error('Error in getPaymentOverview:', error);
+    sendError(res, 'Failed to load the payments overview', 500, error.message);
   }
 };
 
@@ -620,6 +721,7 @@ const getPaymentStats = async (req, res) => {
 };
 
 module.exports = {
+  getPaymentOverview,
   initiatePayment,
   adminInitiatePayment,
   verifyPayment,

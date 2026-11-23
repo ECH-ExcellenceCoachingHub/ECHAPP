@@ -21,6 +21,8 @@ class Payment {
   final String? failureReason;
   final String? schoolName;
   final int? seats;
+  /// "2026 Term 2" for school-term payments.
+  final String? termLabel;
   final DateTime? paymentDate;
   final PaymentAdminApproval? adminApproval;
   final DateTime createdAt;
@@ -47,6 +49,7 @@ class Payment {
     this.failureReason,
     this.schoolName,
     this.seats,
+    this.termLabel,
     this.paymentDate,
     this.adminApproval,
     required this.createdAt,
@@ -93,6 +96,7 @@ class Payment {
       failureReason: json['gateway'] is Map ? json['gateway']['failureReason']?.toString() : null,
       schoolName: json['schoolId'] is Map ? json['schoolId']['name']?.toString() : null,
       seats: (json['seats'] as num?)?.toInt(),
+      termLabel: json['termId'] is Map ? '${json['termId']['academicYear'] ?? ''} Term ${json['termId']['term'] ?? ''}'.trim() : null,
       paymentDate: json['paymentDate'] != null 
           ? DateTime.parse(json['paymentDate'].toString()) 
           : null,
@@ -208,6 +212,8 @@ class PaymentCourse {
 
 class PaymentAdminApproval {
   final String approvedBy;
+  /// Name of the admin when the server populated it.
+  final String? approvedByName;
   final DateTime approvedAt;
   final String? adminNotes;
 
@@ -215,6 +221,7 @@ class PaymentAdminApproval {
     required this.approvedBy,
     required this.approvedAt,
     this.adminNotes,
+    this.approvedByName,
   });
 
   factory PaymentAdminApproval.fromJson(Map<String, dynamic> json) {
@@ -232,6 +239,7 @@ class PaymentAdminApproval {
       approvedBy: approvedByValue,
       approvedAt: json['approvedAt'] != null ? DateTime.parse(json['approvedAt'].toString()) : DateTime.now(),
       adminNotes: json['adminNotes'] as String?,
+      approvedByName: json['approvedBy'] is Map ? json['approvedBy']['fullName']?.toString() : null,
     );
   }
 

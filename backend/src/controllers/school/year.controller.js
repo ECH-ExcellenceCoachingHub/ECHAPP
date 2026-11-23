@@ -125,7 +125,12 @@ const promotionPreview = wrap(async (req, res) => {
  * POST /schools/:schoolId/promotion
  * { fromYear, toYear, copySubjects = true, archiveOld = true,
  *   plan: [{ classId, action: 'promote'|'graduate'|'skip', toLevel?, toCombination?, toStream?,
- *            repeaterIds?: [], leaverIds?: [] }] }
+ *            repeaterIds?: [], leaverIds?: [],
+ *            moves?: [{ studentId, toCombination?, toStream? }] }] }
+ *
+ * `moves` regroups students: they go up to the same next level as their class
+ * but into another combination / stream (S3 A → S4 MS-PURE B). Students of
+ * different classes sent to the same place end up in the same new class.
  */
 const runPromotion = wrap(async (req, res) => {
   const school = await schoolFor(req);
@@ -136,7 +141,7 @@ const runPromotion = wrap(async (req, res) => {
   if (!Array.isArray(b.plan) || !b.plan.length) throw new HttpError('Nothing to do.');
   const copySubjects = b.copySubjects !== false;
   const archiveOld = b.archiveOld !== false;
-  const summary = { promoted: 0, repeated: 0, graduated: 0, left: 0, classesCreated: 0, subjectsCopied: 0, classesArchived: 0 };
+  const summary = { promoted: 0, regrouped: 0, repeated: 0, graduated: 0, left: 0, classesCreated: 0, subjectsCopied: 0, classesArchived: 0 };
   const now = new Date();
 
   async function targetClass({ level, combination, stream }, from) {
@@ -145,6 +150,7 @@ const runPromotion = wrap(async (req, res) => {
     if (!t) {
       t = await Classroom.create({ ...spec, room: from.room, capacity: from.capacity });
       summary.classesCreated += 1;
+      if (spec.combination) await School.updateOne({ _id: school._id }, { $addToSet: { combinations: spec.combination } });
     } else if (!t.isActive) {
       t.isActive = true;
       await t.save();
@@ -170,7 +176,12 @@ const runPromotion = wrap(async (req, res) => {
     const ids = new Set(students.map((s) => String(s._id)));
     const repeaters = (item.repeaterIds || []).map(String).filter((x) => ids.has(x));
     const leavers = (item.leaverIds || []).map(String).filter((x) => ids.has(x) && !repeaters.includes(x));
-    const moving = [...ids].filter((x) => !repeaters.includes(x) && !leavers.includes(x));
+    // Students sent to another combination / stream (only when the class moves up).
+    const moves = item.action === 'promote' && Array.isArray(item.moves)
+      ? item.moves.filter((m) => m && ids.has(String(m.studentId)) && !repeaters.includes(String(m.studentId)) && !leavers.includes(String(m.studentId)))
+      : [];
+    const movedIds = new Set(moves.map((m) => String(m.studentId)));
+    const moving = [...ids].filter((x) => !repeaters.includes(x) && !leavers.includes(x) && !movedIds.has(x));
 
     if (leavers.length) {
       await User.updateMany({ _id: { $in: leavers } }, { isActive: false, leftReason: 'left', leftAt: now, activeSessionId: null });
@@ -197,6 +208,21 @@ const runPromotion = wrap(async (req, res) => {
       if (moving.length) {
         await User.updateMany({ _id: { $in: moving } }, { classroomId: target._id });
         summary.promoted += moving.length;
+      }
+      // Regrouped students, one target class per (combination, stream).
+      const groups = new Map();
+      for (const m of moves) {
+        const combination = String(m.toCombination ?? target.combination ?? '').trim().toUpperCase().slice(0, 20);
+        const stream = String(m.toStream ?? target.stream ?? '').trim().toUpperCase().slice(0, 10);
+        const key = `${combination}|${stream}`;
+        if (!groups.has(key)) groups.set(key, { combination, stream, ids: [] });
+        groups.get(key).ids.push(String(m.studentId));
+      }
+      for (const g of groups.values()) {
+        const t = await targetClass({ level, combination: g.combination, stream: g.stream }, from);
+        await User.updateMany({ _id: { $in: g.ids } }, { classroomId: t._id });
+        summary.promoted += g.ids.length;
+        summary.regrouped += g.ids.length;
       }
     } else {
       throw new HttpError(`Unknown action "${item.action}".`);

@@ -775,3 +775,78 @@ test('eexams exam sent to an ECH class: students and parents see it, the result 
   assert.equal((await call(learner.parentSubmit, { user: parent, params: { id: other.body.data.student.id, aid: hwId }, body: { text: 'x' } })).status, 404);
   assert.equal((await call(learner.parentOpenExam, { user: parent, params: { id: String(kid._id), aid: hwId } })).status, 400);
 });
+
+test('year-end promotion: regroup students of S3 A and S3 B into new streams / combinations', async () => {
+  const s = await setupSchool();
+  await School.updateOne({ _id: s.schoolId }, { levels: ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'] });
+  await SchoolTerm.updateOne({ _id: s.term._id }, { 'billing.studentsPaid': 20 });
+  const a = [];
+  const b = [];
+  for (const n of ['Aline Mukamana', 'Eric Habimana', 'Grace Uwera']) a.push((await addStudent(s.head, s.schoolId, { fullName: n, classroomId: s.s3a.id })).body.data.student.id);
+  for (const n of ['Kevin Mugisha', 'Diane Uwase', 'Olivier Nshuti']) b.push((await addStudent(s.head, s.schoolId, { fullName: n, classroomId: s.s3b.id })).body.data.student.id);
+
+  const run = await call(yearCtl.runPromotion, { user: s.head, params: { schoolId: s.schoolId }, body: {
+    fromYear: '2026', toYear: '2027',
+    plan: [
+      // S3 A goes to S4 MS-PURE A, but Eric joins the applied sciences class.
+      { classId: s.s3a.id, action: 'promote', toLevel: 'S4', toCombination: 'MS-PURE', toStream: 'A', moves: [{ studentId: a[1], toCombination: 'MS-APPLIED', toStream: 'A' }] },
+      // S3 B goes to S4 MS-APPLIED A, but Kevin and Diane join the pure sciences class with S3 A.
+      { classId: s.s3b.id, action: 'promote', toLevel: 'S4', toCombination: 'MS-APPLIED', toStream: 'A', moves: [
+        { studentId: b[0], toCombination: 'MS-PURE', toStream: 'A' },
+        { studentId: b[1], toCombination: 'MS-PURE', toStream: 'A' },
+        { studentId: 'aaaaaaaaaaaaaaaaaaaaaaaa', toCombination: 'X' }, // not in the class: ignored
+      ] },
+    ],
+  } });
+  assert.equal(run.status, 200, JSON.stringify(run.body));
+  assert.equal(run.body.data.summary.promoted, 6);
+  assert.equal(run.body.data.summary.regrouped, 3);
+
+  const pure = await Classroom.findOne({ schoolId: s.schoolId, academicYear: '2027', level: 'S4', combination: 'MS-PURE', stream: 'A' });
+  const applied = await Classroom.findOne({ schoolId: s.schoolId, academicYear: '2027', level: 'S4', combination: 'MS-APPLIED', stream: 'A' });
+  assert.ok(pure && applied);
+  assert.equal(pure.name, 'S4 MS-PURE A');
+  const inClass = async (room) => (await User.find({ classroomId: room._id, role: 'student' }).select('fullName').lean()).map((u) => u.fullName).sort();
+  assert.deepEqual(await inClass(pure), ['Aline Mukamana', 'Diane Uwase', 'Grace Uwera', 'Kevin Mugisha']);
+  assert.deepEqual(await inClass(applied), ['Eric Habimana', 'Olivier Nshuti']);
+  // Both new combinations are remembered on the school.
+  const sch = await School.findById(s.schoolId).lean();
+  assert.ok(sch.combinations.includes('MS-PURE') && sch.combinations.includes('MS-APPLIED'));
+  // Only one class was created per destination (no duplicates).
+  assert.equal(await Classroom.countDocuments({ schoolId: s.schoolId, academicYear: '2027', level: 'S4' }), 2);
+});
+
+test('year-end promotion: a student of S1 A can go to S2 C (stream change at any level)', async () => {
+  const s = await setupSchool();
+  await School.updateOne({ _id: s.schoolId }, { levels: ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'] });
+  await SchoolTerm.updateOne({ _id: s.term._id }, { 'billing.studentsPaid': 20 });
+  const c = await call(classes.createClasses, { user: s.head, params: { schoolId: s.schoolId }, body: { level: 'S1', stream: 'A', academicYear: '2026' } });
+  const s1a = c.body.data.classes[0].id;
+  const ids = [];
+  for (const n of ['Aline Mukamana', 'Eric Habimana']) ids.push((await addStudent(s.head, s.schoolId, { fullName: n, classroomId: s1a })).body.data.student.id);
+
+  const run = await call(yearCtl.runPromotion, { user: s.head, params: { schoolId: s.schoolId }, body: {
+    fromYear: '2026', toYear: '2027',
+    plan: [{ classId: s1a, action: 'promote', toLevel: 'S2', toCombination: '', toStream: 'A', moves: [{ studentId: ids[1], toCombination: '', toStream: 'C' }] }],
+  } });
+  assert.equal(run.status, 200, JSON.stringify(run.body));
+  const room = async (id) => Classroom.findById((await me(id)).classroomId);
+  assert.equal((await room(ids[0])).name, 'S2 A');
+  assert.equal((await room(ids[1])).name, 'S2 C');
+});
+
+test('school internet: IPv6 /64 ranges, suggested rule for the current connection, private addresses', () => {
+  const ipu = require('../src/utils/clientIp');
+  // Two devices on the same school Wi-Fi get different IPv6 addresses in the same /64.
+  const rule = ipu.suggestedRule('2c0f:eb68:601:3c00:1111:2222:3333:4444');
+  assert.equal(rule, '2c0f:eb68:601:3c00::/64');
+  assert.equal(ipu.isValidIpRule(rule), true);
+  assert.equal(ipu.ipAllowed('2c0f:eb68:601:3c00:a1b2:c3d4:e5f6:1', [rule]), true);
+  assert.equal(ipu.ipAllowed('2c0f:eb68:601:3c01::1', [rule]), false);
+  // IPv4: the exact address; ranges still work.
+  assert.equal(ipu.suggestedRule('41.186.12.34'), '41.186.12.34');
+  assert.equal(ipu.ipAllowed('41.186.12.99', ['41.186.12.0/24']), true);
+  assert.equal(ipu.ipMatches('2c0f:0:0:0:0:0:0:1', '2c0f::1'), true);
+  for (const p of ['192.168.1.4', '10.0.0.2', '127.0.0.1', 'fe80::1']) assert.equal(ipu.isPrivateIp(p), true, p);
+  assert.equal(ipu.isPrivateIp('41.186.1.1'), false);
+});

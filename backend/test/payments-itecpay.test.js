@@ -264,3 +264,45 @@ test('admin re-check applies a payment the user gave up on', async () => {
   assert.equal(out.body.data.status, 'completed');
   assert.equal(await Enrollment.countDocuments({ courseId: c._id }), 1);
 });
+
+test('admin list: server-side search, service/channel/attention filters, paging; overview totals', async () => {
+  const pay = require('../src/controllers/payment_workflow.controller');
+  const admin = await User.create({ fullName: 'Admin', email: 'adm@x.rw', role: 'admin' });
+  const alice = await User.create({ fullName: 'Alice Uwase', email: 'alice@x.rw', phone: '0788111222' });
+  const bob = await User.create({ fullName: 'Bob Kalisa', email: 'bob@x.rw' });
+  const school = await School.create({ name: 'Lycee de Kigali', code: 'LDK', pricePerStudentPerTerm: 1000 });
+  const c = await course({ title: 'Physics S6' });
+  const base = { currency: 'RWF', contactInfo: 'x' };
+  const mk = (extra) => Payment.create({ ...base, transactionId: 'T' + Math.random().toString(36).slice(2), ...extra });
+  await mk({ userId: alice._id, courseId: c._id, amount: 5000, paymentMethod: 'mtn_momo', status: 'completed', paymentDate: new Date(), gateway: { provider: 'itecpay', reference: 'ref-a' } });
+  await mk({ userId: bob._id, courseId: c._id, amount: 5000, paymentMethod: 'mtn_momo', status: 'pending' }); // manual waiting → attention
+  await mk({ userId: bob._id, courseId: c._id, amount: 3000, paymentMethod: 'airtel_money', purpose: 'teacher_guide', status: 'approved', paymentDate: new Date() });
+  await mk({ userId: alice._id, schoolId: school._id, termId: oid(), seats: 10, amount: 10000, paymentMethod: 'card', purpose: 'school_term', status: 'admin_review', gateway: { provider: 'itecpay', reference: 'ref-s' } });
+
+  const list = async (query) => (await call(pay.getAllPayments, { user: asReq(admin), query })).body.data;
+  assert.equal((await list({})).total, 4);
+  assert.equal((await list({ search: 'alice' })).total, 2, 'search by user name');
+  assert.equal((await list({ search: 'Kigali' })).total, 1, 'search by school name');
+  assert.equal((await list({ search: 'ref-a' })).total, 1, 'search by iTechPay reference');
+  assert.equal((await list({ search: 'Physics' })).total, 3, 'search by course title');
+  assert.equal((await list({ purpose: 'school_term' })).total, 1);
+  assert.equal((await list({ purpose: 'course' })).total, 2);
+  assert.equal((await list({ channel: 'online' })).total, 2);
+  assert.equal((await list({ channel: 'manual' })).total, 2);
+  assert.equal((await list({ attention: '1' })).total, 2, 'manual pending + admin_review');
+  const p1 = await list({ limit: '3', page: '2' });
+  assert.equal(p1.payments.length, 1);
+  assert.equal(p1.totalPages, 2);
+  assert.equal((await list({ search: '(.*' })).total, 0, 'regex characters are escaped');
+
+  const o = (await call(pay.getPaymentOverview, { user: asReq(admin) })).body.data;
+  assert.equal(o.total.revenue, 8000);
+  assert.equal(o.thisMonth.revenue, 8000);
+  assert.equal(o.byPurpose.course.revenue, 5000);
+  assert.equal(o.byPurpose.teacher_guide.revenue, 3000);
+  assert.equal(o.byChannel.online.revenue, 5000);
+  assert.equal(o.byMethod.airtel_money.count, 1);
+  assert.equal(o.needsAttention, 2);
+  assert.equal(o.daily.length, 30);
+  assert.equal(o.daily.at(-1).revenue, 8000);
+});

@@ -10,7 +10,7 @@ const AccessCode = require('../../models/AccessCode');
 const LoginAudit = require('../../models/LoginAudit');
 const access = require('../../services/school/accessPolicy.service');
 const { classroomAccess, canManageSchool, isSchoolTeacher } = require('../../services/school/access.service');
-const { clientIp, ipAllowed } = require('../../utils/clientIp');
+const { clientIp, ipAllowed, isPrivateIp, suggestedRule } = require('../../utils/clientIp');
 const { HttpError, ok, wrap, requireId } = require('./helpers');
 
 const currentAccessCode = wrap(async (req, res) => {
@@ -72,7 +72,15 @@ const myIp = wrap(async (req, res) => {
     const school = await School.findById(req.user.schoolId).select('studentAccess').lean();
     onSchoolNetwork = ipAllowed(ip, access.policyOf(school).allowedIps);
   }
-  ok(res, { ip, onSchoolNetwork });
+  ok(res, {
+    ip,
+    version: ip.includes(':') ? 6 : 4,
+    // What to save as "school internet" for this connection (IPv6: the whole /64 network).
+    suggestedRule: suggestedRule(ip),
+    // A local / private address means the server cannot see the real school address (should not happen online).
+    usable: !!ip && !isPrivateIp(ip),
+    onSchoolNetwork,
+  });
 });
 
 module.exports = { currentAccessCode, myIp };
