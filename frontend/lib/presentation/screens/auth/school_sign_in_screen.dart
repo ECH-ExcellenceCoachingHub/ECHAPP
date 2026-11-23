@@ -199,7 +199,7 @@ class _SchoolSignInScreenState extends ConsumerState<SchoolSignInScreen> {
                   tooltip: MaterialLocalizations.of(context).backButtonTooltip,
                   color: Colors.white,
                   icon: const Icon(Icons.arrow_back),
-                  onPressed: () => context.canPop() ? context.pop() : context.go('/auth-selection'),
+                  onPressed: () => context.canPop() ? context.pop() : context.go(signedOutStartRoute()),
                 ),
               ),
               Container(

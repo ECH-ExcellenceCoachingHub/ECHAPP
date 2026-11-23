@@ -80,6 +80,7 @@ router.delete('/admins/:id', ...adminOnly, admins.deleteAdmin(deleteUserAccount)
 router.get('/course-stats', protect, authorize('admin'), getCourseStats);
 router.get('/payment-stats', protect, authorize('admin'), getPaymentStats);
 router.get('/exam-stats', protect, authorize('admin'), getExamStats);
+router.get('/analytics/overview', protect, authorize('admin'), require('../controllers/analyticsOverview.controller').getAnalyticsOverview);
 router.get('/analytics/students', protect, authorize('admin'), getStudentAnalytics);
 router.get('/analytics/course/:courseId', protect, authorize('admin'), getCourseAnalytics);
 router.get('/courses/:courseId/students/:studentId/performance', protect, authorize('admin'), getStudentCoursePerformance);

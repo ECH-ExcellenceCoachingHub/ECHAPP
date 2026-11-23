@@ -6,6 +6,16 @@ import 'package:excellencecoachinghub/models/user.dart';
 import 'package:excellencecoachinghub/presentation/providers/auth_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/enrollment_provider.dart';
 
+/// First sign-in screen for a signed-out user. Desktop windows (as on the
+/// splash screen: wider than 1024) open the email screen, which also offers
+/// "School code & PIN"; phones open the sign-in choice screen.
+String signedOutStartRoute() {
+  final views = WidgetsBinding.instance.platformDispatcher.views;
+  if (views.isEmpty) return '/auth-selection';
+  final v = views.first;
+  return v.physicalSize.width / v.devicePixelRatio > 1024 ? '/email-auth-option' : '/auth-selection';
+}
+
 /// Single source of truth for where a signed-in user goes next.
 ///
 /// Every onboarding step is skipped when the user already supplied that

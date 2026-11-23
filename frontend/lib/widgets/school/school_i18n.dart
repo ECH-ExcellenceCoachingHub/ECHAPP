@@ -419,4 +419,5 @@ const Map<String, String> _exact = {
   'Are you at school now?': 'Uri ku kigo ubu?',
   'Yes, use it': 'Yego, yikoreshe',
   'This connection is now a school internet': 'Iyi interineti ubu ni iy\'ikigo',
+  'Students and parents of a school': "Abanyeshuri n'ababyeyi b'ikigo",
 };

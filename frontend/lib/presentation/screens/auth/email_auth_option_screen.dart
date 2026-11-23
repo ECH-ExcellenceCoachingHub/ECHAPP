@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import '../../../widgets/school/school_i18n.dart';
 import 'package:go_router/go_router.dart';
 import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
@@ -269,6 +270,16 @@ class _EmailAuthOptionScreenState extends State<EmailAuthOptionScreen>
                 onTap: () => context.push('/forgot-password'),
                 isDark: _isDark,
               ),
+              const SizedBox(height: 16),
+              // School students (student code) and parents (phone) sign in with a PIN.
+              _CompactAuthOptionButton(
+                icon: Icons.badge_outlined,
+                title: trSchool(context, 'School code & PIN'),
+                subtitle: trSchool(context, 'Students and parents of a school'),
+                color: const Color(0xFF0D9488),
+                onTap: () => context.push('/school-sign-in'),
+                isDark: _isDark,
+              ),
             ],
           ),
         ),
@@ -419,6 +430,15 @@ class _EmailAuthOptionScreenState extends State<EmailAuthOptionScreen>
                         subtitle: resetPasswordSubtitleText,
                         color: const Color(0xFFF59E0B),
                         onTap: () => context.push('/forgot-password'),
+                        compact: isSmallMobile,
+                      ),
+                      const SizedBox(height: 12),
+                      _AuthOptionButton(
+                        icon: Icons.badge_outlined,
+                        title: trSchool(context, 'School code & PIN'),
+                        subtitle: trSchool(context, 'Students and parents of a school'),
+                        color: const Color(0xFF0D9488),
+                        onTap: () => context.push('/school-sign-in'),
                         compact: isSmallMobile,
                       ),
                       const SizedBox(height: 24),

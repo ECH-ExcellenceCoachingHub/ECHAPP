@@ -336,6 +336,20 @@ class AdminService {
     }
   }
 
+  /// Platform-wide KPIs for the super admin analytics dashboard.
+  /// [days] is 7, 30, 90 or 365; every KPI also carries the previous period.
+  Future<Map<String, dynamic>> getAnalyticsOverview({int days = 30}) async {
+    try {
+      final response = await _apiClient.get('${ApiConfig.admin}/analytics/overview?days=$days');
+      response.validateStatus();
+      final jsonBody = jsonDecode(response.body) as Map<String, dynamic>;
+      return (jsonBody['data'] as Map?)?.cast<String, dynamic>() ?? <String, dynamic>{};
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Failed to fetch analytics overview: $e');
+    }
+  }
+
   /// Get student analytics data
   Future<StudentAnalytics> getStudentAnalytics() async {
     try {

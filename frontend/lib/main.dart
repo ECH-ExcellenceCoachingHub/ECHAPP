@@ -4,6 +4,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
+import 'package:excellencecoachinghub/presentation/router/post_auth_navigation.dart';
 import 'package:flutter/semantics.dart';
 import 'package:excellencecoachinghub/config/app_theme.dart';
 import 'package:excellencecoachinghub/presentation/router/app_router.dart';
@@ -181,7 +182,7 @@ class ExcellenceCoachingHubApp extends ConsumerWidget {
       final was = prev?.user;
       if (was == null || next.user != null || next.isLoading) return;
       final schoolAccount = was.isSchoolStudent || was.role == 'parent';
-      AppRouter.routerInstance.go(schoolAccount ? '/school-sign-in' : '/auth-selection');
+      AppRouter.routerInstance.go(schoolAccount ? '/school-sign-in' : signedOutStartRoute());
     });
 
     // Wire static services so local notifications are also saved to the
