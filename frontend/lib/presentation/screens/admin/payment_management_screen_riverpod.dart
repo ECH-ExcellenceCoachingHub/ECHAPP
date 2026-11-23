@@ -409,7 +409,7 @@ class _PaymentManagementScreenState extends State<PaymentManagementScreen> {
                     _Notice(
                       icon: Icons.info_outline,
                       color: const Color(0xFF2563EB),
-                      text: 'Showing basic totals only. The monthly figures, chart and breakdowns appear once the latest backend is deployed.',
+                      text: 'The server is running an older version: search, filters, monthly figures, the chart and breakdowns work once the latest backend is deployed. Showing basic totals only.',
                     ),
                     const SizedBox(height: 12),
                   ],

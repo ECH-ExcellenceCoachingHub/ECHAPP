@@ -294,6 +294,11 @@ test('admin list: server-side search, service/channel/attention filters, paging;
   assert.equal(p1.payments.length, 1);
   assert.equal(p1.totalPages, 2);
   assert.equal((await list({ search: '(.*' })).total, 0, 'regex characters are escaped');
+  assert.equal((await list({ search: 'Uwase Alice' })).total, 2, 'name words in any order');
+  assert.equal((await list({ search: 'alice physics' })).total, 1, 'mixed terms: all must match');
+  assert.equal((await list({ search: '0788 111 222' })).total, 2, 'phone with spaces');
+  assert.equal((await list({ search: '+250788111222' })).total, 2, 'phone with country code');
+  assert.equal((await list({ search: 'alice nobody' })).total, 0);
 
   const o = (await call(pay.getPaymentOverview, { user: asReq(admin) })).body.data;
   assert.equal(o.total.revenue, 8000);

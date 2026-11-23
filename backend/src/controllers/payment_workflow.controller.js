@@ -430,6 +430,50 @@ function needsAttentionFilter() {
 }
 
 /**
+ * Splits the admin search into terms. Every term must match (any field), so
+ * "Uwase Alice", "alice uwase" and "alice chemistry" all work. A query that
+ * is a phone number ("0788 123 456", "+250788123456") becomes one term
+ * matched on its last 9 digits, whatever format it was stored in.
+ */
+function searchTerms(raw) {
+  const s = String(raw || '').trim().slice(0, 80);
+  if (!s) return [];
+  const digits = s.replace(/[\s()+\-.]/g, '');
+  if (/^\d{6,}$/.test(digits)) return [{ phone: digits.length > 9 ? digits.slice(-9) : digits }];
+  return s.split(/\s+/).filter(Boolean).slice(0, 5).map((t) => ({ text: t }));
+}
+
+async function termFilter(term) {
+  const School = require('../models/School');
+  if (term.phone) {
+    // digits may be stored with spaces or dashes: allow them between digits
+    const rx = new RegExp(term.phone.split('').join('[\\s\\-]?'));
+    const users = await User.find({ phone: rx }).select('_id').limit(300).lean();
+    return { $or: [
+      { contactInfo: rx },
+      { 'gateway.phone': rx },
+      { transactionId: rx },
+      { userId: { $in: users.map(u => u._id) } },
+    ] };
+  }
+  const rx = new RegExp(escapeRegex(term.text), 'i');
+  const [users, courses, schools] = await Promise.all([
+    User.find({ $or: [{ fullName: rx }, { email: rx }, { phone: rx }] }).select('_id').limit(500).lean(),
+    Course.find({ title: rx }).select('_id').limit(300).lean(),
+    School.find({ name: rx }).select('_id').limit(100).lean(),
+  ]);
+  return { $or: [
+    { transactionId: rx },
+    { 'gateway.reference': rx },
+    { 'gateway.phone': rx },
+    { contactInfo: rx },
+    { userId: { $in: users.map(u => u._id) } },
+    { courseId: { $in: courses.map(c => c._id) } },
+    { schoolId: { $in: schools.map(x => x._id) } },
+  ] };
+}
+
+/**
  * Builds the admin list filter from the query string. Everything is filtered
  * on the server so search and status work across all payments, not one page.
  *   status, purpose (course|teacher_guide|school_term), channel (online|manual),
@@ -452,25 +496,7 @@ async function adminPaymentFilter(q) {
   if (to && !Number.isNaN(+to)) and.push({ createdAt: { $lte: to } });
   if (q.attention === '1' || q.attention === 'true') and.push(needsAttentionFilter());
 
-  const search = String(q.search || '').trim().slice(0, 80);
-  if (search) {
-    const rx = new RegExp(escapeRegex(search), 'i');
-    const School = require('../models/School');
-    const [users, courses, schools] = await Promise.all([
-      User.find({ $or: [{ fullName: rx }, { email: rx }, { phone: rx }] }).select('_id').limit(300).lean(),
-      Course.find({ title: rx }).select('_id').limit(300).lean(),
-      School.find({ name: rx }).select('_id').limit(100).lean(),
-    ]);
-    and.push({ $or: [
-      { transactionId: rx },
-      { 'gateway.reference': rx },
-      { 'gateway.phone': rx },
-      { contactInfo: rx },
-      { userId: { $in: users.map(u => u._id) } },
-      { courseId: { $in: courses.map(c => c._id) } },
-      { schoolId: { $in: schools.map(x => x._id) } },
-    ] });
-  }
+  for (const term of searchTerms(q.search)) and.push(await termFilter(term));
   return and.length ? { $and: and } : {};
 }
 
