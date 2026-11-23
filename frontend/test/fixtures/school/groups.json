@@ -1,0 +1,23 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "groups": [
+   {
+    "id": "6b03082aa1f7f36c29e5e976",
+    "name": "S3 A Biology questions",
+    "description": "Ask questions about our Biology lessons and homework.",
+    "subject": null,
+    "classroomId": "6b02fe55113b675c8a975a9d",
+    "className": "S3 A",
+    "wholeClass": true,
+    "announcementsOnly": false,
+    "studentCount": 4,
+    "unread": 0,
+    "lastMessageAt": "2026-11-22T15:21:39.235Z",
+    "isTeacher": false,
+    "createdAt": "2026-11-22T15:20:10.684Z"
+   }
+  ]
+ }
+}

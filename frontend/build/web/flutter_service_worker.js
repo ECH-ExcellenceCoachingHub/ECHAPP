@@ -3,8 +3,8 @@ const MANIFEST = 'flutter-app-manifest';
 const TEMP = 'flutter-temp-cache';
 const CACHE_NAME = 'flutter-app-cache';
 
-const RESOURCES = {"assets/AssetManifest.bin": "d0d1a92b612c705836997be2a41f41cd",
-"assets/AssetManifest.bin.json": "00e592e3e23ebc5b293236f29de39e38",
+const RESOURCES = {"assets/AssetManifest.bin": "6515bfaf91dc68a6a20f0fa9af6be9ab",
+"assets/AssetManifest.bin.json": "2c3f8aaba8f63d7d6f0e59c789c55ab1",
 "assets/assets/24247-45305-cashy-character.riv": "d71db9d21a3356691305d8d7276e248a",
 "assets/assets/continue%2520learning.png": "a05c96b750fa80db0eabb644dd0dbe4f",
 "assets/assets/Course%2520app-bro.png": "8359e7ab34f12ba85a9564f6edd3f1d2",
@@ -20,6 +20,7 @@ const RESOURCES = {"assets/AssetManifest.bin": "d0d1a92b612c705836997be2a41f41cd
 "assets/assets/logo.webp": "1a7f5611989b12b4bf05210d9a3fe3c5",
 "assets/assets/onboading%2520desktop.png": "83eff0563f19be1805ef4722eb4c5b82",
 "assets/assets/onboardign%2520mobile.png": "ca33197bfb17b34a4b2c2869d5c2f4c7",
+"assets/assets/rwanda_locations.json": "952aed6720da4e46a86f16650901fca0",
 "assets/assets/sounds/achievement_unlocked.mp3": "2cecfd7157cf5b736d497789e6cf095e",
 "assets/assets/sounds/certificate_earned.mp3": "50ee32a15a609d132e6d4b1dc8d14737",
 "assets/assets/sounds/chapter_complete.mp3": "03d3f70ac50decb8cd4eca75efa0a66f",
@@ -30,8 +31,8 @@ const RESOURCES = {"assets/AssetManifest.bin": "d0d1a92b612c705836997be2a41f41cd
 "assets/assets/sounds/quiz_passed.mp3": "df90a821f74217a23d969ffc4708e20f",
 "assets/assets/sounds/xp_gain.mp3": "9cb3ab5388c04ac0658802dbded75fc7",
 "assets/FontManifest.json": "2b52acee7bee9f34d372a965ef37754f",
-"assets/fonts/MaterialIcons-Regular.otf": "988e9dfffb279e500724209d44e5154c",
-"assets/NOTICES": "729b3af6937a384441da4d90f172fef9",
+"assets/fonts/MaterialIcons-Regular.otf": "cad5424ef9c5a4ea5a3415784fe00881",
+"assets/NOTICES": "c6acbaedf467c1b3857e6905aaf4f20c",
 "assets/packages/cupertino_icons/assets/CupertinoIcons.ttf": "0ce23a4d9cc4864c3acd685b3ed90f1a",
 "assets/packages/media_kit/assets/web/hls1.4.10.js": "bd60e2701c42b6bf2c339dcf5d495865",
 "assets/packages/record_web/assets/js/record.fixwebmduration.js": "1f0108ea80c8951ba702ced40cf8cdce",
@@ -66,7 +67,7 @@ const RESOURCES = {"assets/AssetManifest.bin": "d0d1a92b612c705836997be2a41f41cd
 "downloads/README.md": "579ceafb902fd4b9f8ec5129f2099868",
 "favicon.png": "8b9329253290363662120b2405940d19",
 "flutter.js": "24bc71911b75b5f8135c949e27a2984e",
-"flutter_bootstrap.js": "064ca742bcc6dd4575f2e0c1981a9439",
+"flutter_bootstrap.js": "20fef8f9fc8e56c6c459f600dd86a379",
 "icons/Icon-192.png": "71725503944dd3ebc468db5cc9bddeae",
 "icons/Icon-512.png": "6003758a48529bce18fc5627628599aa",
 "icons/Icon-maskable-192.png": "71725503944dd3ebc468db5cc9bddeae",
@@ -80,10 +81,10 @@ const RESOURCES = {"assets/AssetManifest.bin": "d0d1a92b612c705836997be2a41f41cd
 "lab/index.html": "83143302a0a6de459ab98cf2c2f50234",
 "landing.html": "2042a24aac21b3c87c2f2936ac5e5721",
 "logo.png": "1a7f5611989b12b4bf05210d9a3fe3c5",
-"main.dart.js": "596c113c5cafebea97f9451192de6212",
+"main.dart.js": "894a50cf584fe2b19388bc7890c9df40",
 "manifest.json": "c09d1a390f8896214d6626d4dd669dd6",
 "README.md": "c763a6cce21b20ae6d0566c2cd045760",
-"version.json": "3630bbe40a4ee57a6c80ec1537c62887"};
+"version.json": "a56d40e765156c7c5ef1a337dfb5ad22"};
 // The application shell files that are downloaded before a service worker can
 // start.
 const CORE = ["main.dart.js",

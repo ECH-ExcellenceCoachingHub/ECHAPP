@@ -60,6 +60,7 @@ import 'package:excellencecoachinghub/presentation/screens/admin/admin_content_m
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_management_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_books_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_schools_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/admin/school_courses_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/admin/school_detail_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_teachers_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/admin/admin_live_sessions_screen.dart';
@@ -485,6 +486,13 @@ class AppRouter {
             ),
           ),
           GoRoute(
+            path: '/admin/school-courses',
+            builder: (context, state) => const AdminLayoutWrapper(
+              screenName: 'Courses for schools',
+              child: SchoolCoursesScreen(),
+            ),
+          ),
+          GoRoute(
             path: '/school-detail/:schoolId',
             builder: (context, state) {
               final schoolId = state.pathParameters['schoolId'] ?? '';
@@ -681,6 +689,10 @@ class AppRouter {
           GoRoute(
             path: '/parent/child/:id',
             builder: (context, state) => ParentChildScreen(childId: state.pathParameters['id'] ?? ''),
+          ),
+          GoRoute(
+            path: '/parent/child/:id/homework/:aid',
+            builder: (context, state) => StudentHomeworkScreen(assessmentId: state.pathParameters['aid'] ?? '', childId: state.pathParameters['id']),
           ),
 
           // Teacher Routes - Outside MainLayout for full-screen experience

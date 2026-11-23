@@ -1,0 +1,31 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "classSize": 4,
+  "assessments": [
+   {
+    "id": "6b030295a1f7f36c29e5e494",
+    "classSubjectId": "6b02ff83113b675c8a975b37",
+    "classroomId": "6b02fe55113b675c8a975a9d",
+    "subject": "Biology",
+    "type": "homework",
+    "title": "Draw and label a plant cell",
+    "instructions": "Read pages 12-15. Draw a plant cell in your exercise book, label 6 parts, and upload a clear photo.",
+    "attachments": [],
+    "submissionMode": "photo",
+    "maxScore": 10,
+    "dueAt": "2026-11-24T14:56:10.911Z",
+    "allowLate": true,
+    "eexamsExamId": null,
+    "eexamsPath": null,
+    "status": "published",
+    "createdAt": "2026-11-22T14:56:21.742Z",
+    "submitted": 1,
+    "graded": 1,
+    "averageScore": 8,
+    "classSize": 4
+   }
+  ]
+ }
+}

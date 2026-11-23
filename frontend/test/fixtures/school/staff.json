@@ -1,0 +1,119 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "staff": [
+   {
+    "id": "6b02fd93113b675c8a975a46",
+    "fullName": "Uwase Claudine",
+    "email": "headteacher.gstb@example.com",
+    "phone": "+250788300400",
+    "role": "school_admin",
+    "schoolId": "6b02fd91113b675c8a975a43",
+    "classroomId": null,
+    "studentCode": null,
+    "gender": null,
+    "dateOfBirth": null,
+    "guardians": [],
+    "address": {},
+    "teacherProfile": {
+     "school": "Groupe Scolaire Test Butare",
+     "levels": [],
+     "subjects": [],
+     "phone": "+250788300400"
+    },
+    "isActive": true,
+    "lastActive": "2026-11-22T19:23:52.925Z",
+    "createdAt": "2026-11-22T14:34:59.870Z",
+    "classTeacherOf": [],
+    "teaches": []
+   },
+   {
+    "id": "6b02fec7113b675c8a975aec",
+    "fullName": "Jean Bosco Habimana",
+    "email": "jean.teacher.gstb@example.com",
+    "phone": "+250788400500",
+    "role": "instructor",
+    "schoolId": "6b02fd91113b675c8a975a43",
+    "classroomId": null,
+    "studentCode": null,
+    "gender": null,
+    "dateOfBirth": null,
+    "guardians": [],
+    "address": {
+     "province": "Southern",
+     "district": "Huye",
+     "sector": "Tumba",
+     "cell": "Cyarwa"
+    },
+    "teacherProfile": {
+     "school": "Groupe Scolaire Test Butare",
+     "levels": [
+      "S3"
+     ],
+     "subjects": [
+      "Biology"
+     ],
+     "yearsExperience": 6,
+     "qualification": "A0 Education, Biology",
+     "phone": "+250788400500"
+    },
+    "isActive": true,
+    "lastActive": "2026-11-22T19:23:47.868Z",
+    "createdAt": "2026-11-22T14:40:07.891Z",
+    "classTeacherOf": [
+     {
+      "id": "6b02fe55113b675c8a975a9d",
+      "name": "S3 A"
+     }
+    ],
+    "teaches": [
+     {
+      "id": "6b02ff83113b675c8a975b37",
+      "subject": "Biology",
+      "classroomId": "6b02fe55113b675c8a975a9d",
+      "className": "S3 A"
+     }
+    ]
+   },
+   {
+    "id": "6b02ff20113b675c8a975b00",
+    "fullName": "Marie Mukamana",
+    "email": null,
+    "phone": "+250788500600",
+    "role": "instructor",
+    "schoolId": "6b02fd91113b675c8a975a43",
+    "classroomId": null,
+    "studentCode": null,
+    "gender": null,
+    "dateOfBirth": null,
+    "guardians": [],
+    "address": {},
+    "teacherProfile": {
+     "school": "Groupe Scolaire Test Butare",
+     "levels": [],
+     "subjects": [
+      "Mathematics"
+     ],
+     "yearsExperience": 0,
+     "phone": "+250788500600"
+    },
+    "isActive": true,
+    "lastActive": "2026-11-22T14:41:36.377Z",
+    "createdAt": "2026-11-22T14:41:36.378Z",
+    "classTeacherOf": [],
+    "teaches": [
+     {
+      "id": "6b02ff8f113b675c8a975b4c",
+      "subject": "Mathematics",
+      "classroomId": "6b02fe55113b675c8a975a9d",
+      "className": "S3 A"
+     }
+    ]
+   }
+  ],
+  "total": 3,
+  "currentPage": 1,
+  "totalPages": 1
+ }
+}

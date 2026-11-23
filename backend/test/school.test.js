@@ -325,7 +325,23 @@ test('homework: teacher assigns, students notified, student hands in, teacher ma
 test('billing: paid term gives course access, grace period, then expiry', async () => {
   const s = await setupSchool();
   const r = await addStudent(s.head, s.schoolId, { fullName: 'Aline Mukamana', classroomId: s.s3a.id });
-  assert.equal(await hasSchoolCourseAccess(r.body.data.student.id), true);
+  // The class syllabus course (Biology S3) is free; other courses only when the super admin marks them for S3.
+  assert.equal(await hasSchoolCourseAccess(r.body.data.student.id, s.course), true);
+  assert.equal(await hasSchoolCourseAccess(r.body.data.student.id), false);
+  const chem = await Course.create({ title: 'Chemistry S3', description: 'x', createdBy: s.sa._id, price: 5000, duration: 10, level: 'beginner', isPublished: true });
+  const physS4 = await Course.create({ title: 'Physics S4', description: 'x', createdBy: s.sa._id, price: 5000, duration: 10, level: 'beginner', isPublished: true });
+  assert.equal(await hasSchoolCourseAccess(r.body.data.student.id, chem), false);
+  const schoolCourses = require('../src/controllers/school/courses.controller');
+  const mark = await call(schoolCourses.updateCourseAccess, { user: s.sa, params: { courseId: String(chem._id) }, body: { enabled: true, levels: ['s3', 'S2'], subject: 'Chemistry' } });
+  assert.equal(mark.status, 200, JSON.stringify(mark.body));
+  assert.deepEqual(mark.body.data.course.schoolAccess.levels, ['S3', 'S2']);
+  assert.equal((await call(schoolCourses.updateCourseAccess, { user: s.sa, params: { courseId: String(physS4._id) }, body: { enabled: true, levels: ['X9'] } })).status, 400);
+  await call(schoolCourses.updateCourseAccess, { user: s.sa, params: { courseId: String(physS4._id) }, body: { enabled: true, levels: ['S4'] } });
+  assert.equal(await hasSchoolCourseAccess(r.body.data.student.id, await Course.findById(chem._id)), true);
+  assert.equal(await hasSchoolCourseAccess(r.body.data.student.id, await Course.findById(physS4._id)), false);
+  const home = await call(learner.studentHome, { user: await me(r.body.data.student.id) });
+  assert.deepEqual(home.body.data.courses.map((c) => c.title), ['Biology S3', 'Chemistry S3']);
+  assert.equal(home.body.data.courses.find((c) => c.title === 'Chemistry S3').subject, 'Chemistry');
 
   // Only ECH records payments.
   const headTries = await call(schools.updateTerm, { user: s.head, params: { schoolId: s.schoolId, termId: String(s.term._id) }, body: { billing: { studentsPaid: 999 } } });
@@ -336,7 +352,7 @@ test('billing: paid term gives course access, grace period, then expiry', async 
   assert.equal((await subscriptionStatus(s.schoolId)).status, 'grace');
   await SchoolTerm.updateOne({ _id: s.term._id }, { endDate: new Date(Date.now() - 40 * DAY) });
   assert.equal((await subscriptionStatus(s.schoolId)).status, 'expired');
-  assert.equal(await hasSchoolCourseAccess(r.body.data.student.id), false);
+  assert.equal(await hasSchoolCourseAccess(r.body.data.student.id, s.course), false);
 });
 
 test('school teachers cannot edit ECH course content; staff passwords never default', async () => {
@@ -684,4 +700,78 @@ test('class teacher can manage the roster from the class page (populated class t
   assert.equal(page.body.data.access.canManageRoster, true);
   const subjectTeacher = await call(classes.getClass, { user: s.mathsTeacher, params: { classId: s.s3a.id } });
   assert.equal(subjectTeacher.body.data.access.canManageRoster, false);
+});
+
+test('eexams exam sent to an ECH class: students and parents see it, the result becomes the mark; parents hand in homework', async () => {
+  process.env.ECH_EEXAMS_SSO_SECRET = 'sso-secret-for-tests';
+  const bridge = require('../src/controllers/school/eexamsBridge.controller');
+  const eexams = require('../src/services/integrations/eexams.service');
+  const AssessmentSubmission = require('../src/models/AssessmentSubmission');
+  const s = await setupSchool();
+  const r = await addStudent(s.head, s.schoolId, { fullName: 'Aline Mukamana', classroomId: s.s3a.id, guardians: [{ name: 'Paul', phone: '0788123456' }] });
+  const kid = await me(r.body.data.student.id);
+  const parent = await me(r.body.data.parents[0].id);
+  const svc = (teacher) => ({ authorization: 'Bearer sso-secret-for-tests', 'x-ech-user': String(teacher._id) });
+
+  // Service auth is required.
+  const noAuth = await call(bridge.classes, { headers: { 'x-ech-user': String(s.classTeacher._id) } });
+  assert.equal(noAuth.status, 401);
+
+  const cls = await call(bridge.classes, { headers: svc(s.classTeacher) });
+  assert.equal(cls.status, 200, JSON.stringify(cls.body));
+  assert.deepEqual(cls.body.data.classes.map((c) => `${c.className} ${c.subject}`), ['S3 A Biology']);
+
+  // The maths teacher cannot send to Biology.
+  const wrong = await call(bridge.assign, { headers: svc(s.mathsTeacher), body: { examId: 'exam123', title: 'Cells test', classSubjectIds: [s.bio.id] } });
+  assert.equal(wrong.status, 403);
+
+  const due = new Date(Date.now() + 2 * 864e5);
+  const sent = await call(bridge.assign, { headers: svc(s.classTeacher), body: { examId: 'exam123', title: 'Cells test', classSubjectIds: [s.bio.id], dueAt: due } });
+  assert.equal(sent.status, 201, JSON.stringify(sent.body));
+  assert.equal(sent.body.data.created.length, 1);
+  // Sending again updates instead of duplicating.
+  const again = await call(bridge.assign, { headers: svc(s.classTeacher), body: { examId: 'exam123', title: 'Cells test (Unit 1)', classSubjectIds: [s.bio.id], dueAt: due } });
+  assert.equal(again.body.data.updated.length, 1);
+  const listed = await call(bridge.assignments, { headers: svc(s.classTeacher), query: { examId: 'exam123' } });
+  assert.equal(listed.body.data.assignments.length, 1);
+
+  let home = await call(learner.studentHome, { user: kid });
+  const exam = home.body.data.todo.find((a) => a.eexamsExamId === 'exam123');
+  assert.ok(exam);
+  assert.equal(exam.title, 'Cells test (Unit 1)');
+  assert.equal(exam.eexamsPath, '/student/exam/start/exam123');
+  assert.ok(await Notification.exists({ userId: parent._id, type: 'homework' }));
+
+  // The parent opens the exam as the child (one-time eexams sign-in link).
+  const open = await call(learner.parentOpenExam, { user: parent, params: { id: String(kid._id), aid: exam.id } });
+  assert.equal(open.status, 200, JSON.stringify(open.body));
+  assert.match(open.body.data.url, /\/ech\/sso\?code=/);
+
+  // eexams pushes the graded result → it becomes the class exam mark.
+  await eexams.handleEvent({ type: 'exam.result', data: { echUserId: String(kid._id), resultId: 'res1', examId: 'exam123', examTitle: 'Cells test', score: 15, maxScore: 20, passingScore: 50, completedAt: new Date() } });
+  home = await call(learner.studentHome, { user: kid });
+  const done = home.body.data.recent.find((a) => a.eexamsExamId === 'exam123');
+  assert.equal(done.state, 'graded');
+  assert.equal(done.submission.score, 75);
+  assert.equal(done.submission.submittedVia, 'eexams');
+  const child = await call(learner.parentChild, { user: parent, params: { id: String(kid._id) } });
+  assert.equal(child.body.data.recent.find((a) => a.eexamsExamId === 'exam123').submission.score, 75);
+
+  // A teacher's hand-typed mark is never overwritten by a later eexams push.
+  await AssessmentSubmission.updateOne({ studentId: kid._id }, { submittedVia: 'student', score: 90 });
+  await eexams.handleEvent({ type: 'exam.result', data: { echUserId: String(kid._id), resultId: 'res1', examId: 'exam123', score: 10, maxScore: 20 } });
+  assert.equal((await AssessmentSubmission.findOne({ studentId: kid._id })).score, 90);
+
+  // Homework handed in by the parent from home is marked as such.
+  const hw = await call(teaching.createAssessment, { user: s.classTeacher, params: { id: s.bio.id }, body: { title: 'Draw a cell', dueAt: new Date(Date.now() + 864e5), submissionMode: 'text' } });
+  const hwId = hw.body.data.assessment.id;
+  const view = await call(learner.parentAssessment, { user: parent, params: { id: String(kid._id), aid: hwId } });
+  assert.equal(view.status, 200);
+  const handed = await call(learner.parentSubmit, { user: parent, params: { id: String(kid._id), aid: hwId }, body: { text: 'A cell has a nucleus.' } });
+  assert.equal(handed.status, 201, JSON.stringify(handed.body));
+  assert.equal(handed.body.data.submission.submittedVia, 'parent');
+  // Not the parent's child → 404; the parent cannot open plain homework on eexams.
+  const other = await addStudent(s.head, s.schoolId, { fullName: 'Someone Else', classroomId: s.s3a.id });
+  assert.equal((await call(learner.parentSubmit, { user: parent, params: { id: other.body.data.student.id, aid: hwId }, body: { text: 'x' } })).status, 404);
+  assert.equal((await call(learner.parentOpenExam, { user: parent, params: { id: String(kid._id), aid: hwId } })).status, 400);
 });

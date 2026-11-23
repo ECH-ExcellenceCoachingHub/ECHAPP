@@ -1,0 +1,43 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "parents": [
+   {
+    "id": "6b0300c7a1f7f36c29e5e351",
+    "name": "Diane Uwimana",
+    "phone": "+250788777888",
+    "children": [
+     {
+      "id": "6b0300c7a1f7f36c29e5e34c",
+      "fullName": "Kevin Mugisha",
+      "className": "S3 A",
+      "relationship": "Parent"
+     }
+    ]
+   },
+   {
+    "id": "6b030070a1f7f36c29e5e312",
+    "name": "Paul Habimana",
+    "phone": "+250788123456",
+    "children": [
+     {
+      "id": "6b030070a1f7f36c29e5e30d",
+      "fullName": "Aline Mukamana",
+      "className": "S3 A",
+      "relationship": "Father"
+     },
+     {
+      "id": "6b0300c7a1f7f36c29e5e337",
+      "fullName": "Eric Habimana",
+      "className": "S3 A",
+      "relationship": "Parent"
+     }
+    ]
+   }
+  ],
+  "total": 2,
+  "currentPage": 1,
+  "totalPages": 1
+ }
+}

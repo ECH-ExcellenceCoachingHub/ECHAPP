@@ -1,0 +1,145 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "students": [
+   {
+    "id": "6b030070a1f7f36c29e5e30d",
+    "fullName": "Aline Mukamana",
+    "email": null,
+    "phone": null,
+    "role": "student",
+    "schoolId": "6b02fd91113b675c8a975a43",
+    "classroomId": "6b02fe55113b675c8a975a9d",
+    "classroom": {
+     "id": "6b02fe55113b675c8a975a9d",
+     "name": "S3 A",
+     "level": "S3"
+    },
+    "studentCode": "GSTB260001",
+    "gender": "female",
+    "dateOfBirth": "2011-03-02T00:00:00.000Z",
+    "guardians": [
+     {
+      "name": "Paul Habimana",
+      "phone": "+250788123456",
+      "relationship": "Father",
+      "hasAccount": true,
+      "userId": "6b030070a1f7f36c29e5e312"
+     }
+    ],
+    "address": {},
+    "isActive": true,
+    "lastActive": "2026-11-22T16:59:18.663Z",
+    "createdAt": "2026-11-22T14:47:13.017Z"
+   },
+   {
+    "id": "6b0300c7a1f7f36c29e5e337",
+    "fullName": "Eric Habimana",
+    "email": null,
+    "phone": null,
+    "role": "student",
+    "schoolId": "6b02fd91113b675c8a975a43",
+    "classroomId": "6b02fe55113b675c8a975a9d",
+    "classroom": {
+     "id": "6b02fe55113b675c8a975a9d",
+     "name": "S3 A",
+     "level": "S3"
+    },
+    "studentCode": "GSTB260002",
+    "gender": "male",
+    "dateOfBirth": "2010-08-14T00:00:00.000Z",
+    "guardians": [
+     {
+      "name": "Paul Habimana",
+      "phone": "+250788123456",
+      "relationship": "Parent",
+      "hasAccount": true,
+      "userId": "6b030070a1f7f36c29e5e312"
+     }
+    ],
+    "address": {},
+    "isActive": true,
+    "lastActive": "2026-11-22T14:48:39.660Z",
+    "createdAt": "2026-11-22T14:48:39.663Z"
+   },
+   {
+    "id": "6b0300c7a1f7f36c29e5e342",
+    "fullName": "Grace Uwera",
+    "email": null,
+    "phone": null,
+    "role": "student",
+    "schoolId": "6b02fd91113b675c8a975a43",
+    "classroomId": "6b02fe55113b675c8a975a9d",
+    "classroom": {
+     "id": "6b02fe55113b675c8a975a9d",
+     "name": "S3 A",
+     "level": "S3"
+    },
+    "studentCode": "GSTB260003",
+    "gender": "female",
+    "dateOfBirth": "2011-01-20T00:00:00.000Z",
+    "guardians": [],
+    "address": {},
+    "isActive": true,
+    "lastActive": "2026-11-22T14:48:39.750Z",
+    "createdAt": "2026-11-22T14:48:39.750Z"
+   },
+   {
+    "id": "6b0300c7a1f7f36c29e5e34c",
+    "fullName": "Kevin Mugisha",
+    "email": null,
+    "phone": null,
+    "role": "student",
+    "schoolId": "6b02fd91113b675c8a975a43",
+    "classroomId": "6b02fe55113b675c8a975a9d",
+    "classroom": {
+     "id": "6b02fe55113b675c8a975a9d",
+     "name": "S3 A",
+     "level": "S3"
+    },
+    "studentCode": "GSTB260004",
+    "gender": "male",
+    "dateOfBirth": "2010-11-05T00:00:00.000Z",
+    "guardians": [
+     {
+      "name": "Diane Uwimana",
+      "phone": "+250788777888",
+      "relationship": "Parent",
+      "hasAccount": true,
+      "userId": "6b0300c7a1f7f36c29e5e351"
+     }
+    ],
+    "address": {},
+    "isActive": true,
+    "lastActive": "2026-11-22T14:48:39.841Z",
+    "createdAt": "2026-11-22T14:48:39.913Z"
+   },
+   {
+    "id": "6b030602a1f7f36c29e5e723",
+    "fullName": "Keza Uwase",
+    "email": null,
+    "phone": null,
+    "role": "student",
+    "schoolId": "6b02fd91113b675c8a975a43",
+    "classroomId": "6b02fe6f113b675c8a975ab6",
+    "classroom": {
+     "id": "6b02fe6f113b675c8a975ab6",
+     "name": "P2 A",
+     "level": "P2"
+    },
+    "studentCode": "GSTB260005",
+    "gender": null,
+    "dateOfBirth": null,
+    "guardians": [],
+    "address": {},
+    "isActive": true,
+    "lastActive": "2026-11-22T15:12:35.438Z",
+    "createdAt": "2026-11-22T15:10:58.611Z"
+   }
+  ],
+  "total": 5,
+  "currentPage": 1,
+  "totalPages": 1
+ }
+}

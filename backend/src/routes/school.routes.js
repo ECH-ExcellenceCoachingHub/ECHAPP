@@ -38,6 +38,11 @@ router.patch('/schools/:schoolId', ...managers, schools.updateSchool);
 router.delete('/schools/:schoolId', ...superAdmin, schools.deleteSchool);
 router.patch('/schools/:schoolId/main-admin', ...superAdmin, members.setMainAdmin);
 
+// Courses offered free to school students, by class level (super admin)
+const schoolCourses = require('../controllers/school/courses.controller');
+router.get('/schools-courses', ...superAdmin, schoolCourses.listCourses);
+router.patch('/schools-courses/:courseId', ...superAdmin, schoolCourses.updateCourseAccess);
+
 // Terms & billing (per student per term)
 router.get('/schools/:schoolId/terms', ...staff, schools.listTerms);
 router.post('/schools/:schoolId/terms', ...managers, schools.createTerm);
@@ -120,5 +125,8 @@ router.post('/school/learning/coverage/:id/check', ...students, learner.checkLes
 // ── Parent portal ───────────────────────────────────────────────────────
 router.get('/school/parent/children', ...parents, learner.parentChildren);
 router.get('/school/parent/children/:id', ...parents, learner.parentChild);
+router.get('/school/parent/children/:id/assessments/:aid', ...parents, learner.parentAssessment);
+router.post('/school/parent/children/:id/assessments/:aid/submit', ...parents, learner.parentSubmit);
+router.post('/school/parent/children/:id/assessments/:aid/eexams', ...parents, learner.parentOpenExam);
 
 module.exports = router;

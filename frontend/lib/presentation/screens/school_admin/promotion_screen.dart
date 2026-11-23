@@ -109,7 +109,7 @@ class _PromotionScreenState extends State<PromotionScreen> {
                     Expanded(child: T('${s['fullName']}')),
                     SegmentedButton<String>(
                       showSelectedIcon: false,
-                      style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                      style: schoolSegmentStyle(context).copyWith(visualDensity: VisualDensity.compact),
                       segments: [
                         ButtonSegment(value: 'move', label: Text(p.action == 'graduate' ? 'Graduates' : 'Moves')),
                         const ButtonSegment(value: 'repeat', label: T('Repeats')),
@@ -240,7 +240,7 @@ class _PromotionScreenState extends State<PromotionScreen> {
                   subtitle: '${p.studentCount} students',
                   trailing: SegmentedButton<String>(
                     showSelectedIcon: false,
-                    style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                    style: schoolSegmentStyle(context).copyWith(visualDensity: VisualDensity.compact),
                     segments: const [
                       ButtonSegment(value: 'promote', label: T('Move up')),
                       ButtonSegment(value: 'graduate', label: T('Graduate')),

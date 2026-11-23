@@ -1,0 +1,105 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "classes": [
+   {
+    "id": "6b02fe6f113b675c8a975ab6",
+    "schoolId": "6b02fd91113b675c8a975a43",
+    "academicYear": "2026",
+    "level": "P2",
+    "combination": "",
+    "stream": "A",
+    "name": "P2 A",
+    "room": null,
+    "capacity": null,
+    "isActive": true,
+    "classTeacher": null,
+    "classTeacherId": null,
+    "studentCount": 1,
+    "subjects": []
+   },
+   {
+    "id": "6b02fe55113b675c8a975a9d",
+    "schoolId": "6b02fd91113b675c8a975a43",
+    "academicYear": "2026",
+    "level": "S3",
+    "combination": "",
+    "stream": "A",
+    "name": "S3 A",
+    "room": null,
+    "capacity": null,
+    "isActive": true,
+    "classTeacher": {
+     "id": "6b02fec7113b675c8a975aec",
+     "fullName": "Jean Bosco Habimana"
+    },
+    "classTeacherId": "6b02fec7113b675c8a975aec",
+    "studentCount": 4,
+    "subjects": [
+     {
+      "id": "6b02ff83113b675c8a975b37",
+      "classroomId": "6b02fe55113b675c8a975a9d",
+      "subject": "Biology",
+      "teacher": {
+       "id": "6b02fec7113b675c8a975aec",
+       "fullName": "Jean Bosco Habimana"
+      },
+      "teacherId": "6b02fec7113b675c8a975aec",
+      "course": {
+       "id": "6b02aef50227dd199e0a0b35",
+       "title": "Biology S3 (test)"
+      },
+      "courseId": "6b02aef50227dd199e0a0b35",
+      "periodsPerWeek": null
+     },
+     {
+      "id": "6b02ff8f113b675c8a975b4c",
+      "classroomId": "6b02fe55113b675c8a975a9d",
+      "subject": "Mathematics",
+      "teacher": {
+       "id": "6b02ff20113b675c8a975b00",
+       "fullName": "Marie Mukamana"
+      },
+      "teacherId": "6b02ff20113b675c8a975b00",
+      "course": null,
+      "courseId": null,
+      "periodsPerWeek": null
+     }
+    ]
+   },
+   {
+    "id": "6b02fe55113b675c8a975aa0",
+    "schoolId": "6b02fd91113b675c8a975a43",
+    "academicYear": "2026",
+    "level": "S3",
+    "combination": "",
+    "stream": "B",
+    "name": "S3 B",
+    "room": null,
+    "capacity": null,
+    "isActive": true,
+    "classTeacher": null,
+    "classTeacherId": null,
+    "studentCount": 0,
+    "subjects": []
+   },
+   {
+    "id": "6b02fe65113b675c8a975aab",
+    "schoolId": "6b02fd91113b675c8a975a43",
+    "academicYear": "2026",
+    "level": "S5",
+    "combination": "MPC",
+    "stream": "A",
+    "name": "S5 MPC A",
+    "room": null,
+    "capacity": null,
+    "isActive": true,
+    "classTeacher": null,
+    "classTeacherId": null,
+    "studentCount": 0,
+    "subjects": []
+   }
+  ]
+ }
+}

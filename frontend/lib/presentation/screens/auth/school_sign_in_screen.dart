@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../widgets/school/school_i18n.dart';
+import '../../../widgets/school/school_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -151,73 +151,121 @@ class _SchoolSignInScreenState extends ConsumerState<SchoolSignInScreen> {
       _Who.young => 'Type the class code your teacher shows, then tap your name.',
       _Who.parent => 'Use the phone number you gave the school and your PIN.',
     };
-    return Scaffold(
-      backgroundColor: AppTheme.getBackgroundColor(context),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.canPop() ? context.pop() : context.go('/auth-selection')),
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 460),
-            child: Form(
-              key: _form,
-              child: AutofillGroup(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Icon(Icons.school_outlined, size: 48, color: AppTheme.primary),
-                  const SizedBox(height: 12),
-                  T('Sign in with your school', textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: text)),
-                  const SizedBox(height: 6),
-                  T(subtitle, textAlign: TextAlign.center, style: TextStyle(color: muted)),
-                  const SizedBox(height: 20),
-                  // Narrow phones: no icons, so the labels (longer in Kinyarwanda) fit on one line.
-                  SegmentedButton<_Who>(
-                    showSelectedIcon: MediaQuery.of(context).size.width >= 420,
-                    segments: [
-                      for (final (w, label, icon) in const [
-                        (_Who.student, 'Student', Icons.person_outline),
-                        (_Who.young, 'Young pupil', Icons.child_care_outlined),
-                        (_Who.parent, 'Parent', Icons.family_restroom_outlined),
-                      ])
-                        ButtonSegment(
-                          value: w,
-                          icon: MediaQuery.of(context).size.width >= 420 ? Icon(icon) : null,
-                          label: FittedBox(fit: BoxFit.scaleDown, child: T(label, maxLines: 1, softWrap: false)),
-                        ),
-                    ],
-                    selected: {_who},
-                    onSelectionChanged: (v) => _switch(v.first),
-                  ),
-                  const SizedBox(height: 20),
-                  if (_who == _Who.young) ..._youngPupil(muted) else ..._codeAndPin(),
-                  if (_error != null) ...[
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: AppTheme.errorColor.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-                      child: Row(children: [
-                        const Icon(Icons.error_outline, color: AppTheme.errorColor, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(_error!, style: const TextStyle(color: AppTheme.errorColor))),
-                      ]),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  T(
-                    _who == _Who.parent
-                        ? 'Forgot your PIN? Ask the school office for a new one.'
-                        : 'Forgot your PIN? Ask your class teacher. Only one device can use a student account at a time.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12.5, color: muted),
-                  ),
-                ]),
+    final narrow = MediaQuery.sizeOf(context).width < 420;
+    Widget whoTab(_Who w, String label, IconData icon) {
+      final sel = _who == w;
+      return Expanded(
+        child: Semantics(
+          button: true,
+          selected: sel,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => _switch(w),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+              decoration: BoxDecoration(
+                color: sel ? AppTheme.getCardColor(context) : Colors.transparent,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: sel ? [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, 2))] : null,
               ),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(icon, size: 22, color: sel ? AppTheme.primary : muted),
+                const SizedBox(height: 4),
+                Text(trSchool(context, label), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12.5, fontWeight: sel ? FontWeight.w700 : FontWeight.w500, color: sel ? text : muted)),
+              ]),
             ),
           ),
         ),
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: AppTheme.getBackgroundColor(context),
+      body: SingleChildScrollView(
+        child: Column(children: [
+          // Brand header
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 8, 20, 56),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [AppTheme.primary, AppTheme.primaryDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(28)),
+            ),
+            child: Column(children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                  color: Colors.white,
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => context.canPop() ? context.pop() : context.go('/auth-selection'),
+                ),
+              ),
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(20)),
+                child: const Icon(Icons.school_rounded, size: 36, color: Colors.white),
+              ),
+              const SizedBox(height: 12),
+              T('Sign in with your school', textAlign: TextAlign.center, style: TextStyle(fontSize: narrow ? 21 : 24, fontWeight: FontWeight.w700, color: Colors.white)),
+              const SizedBox(height: 6),
+              T(subtitle, textAlign: TextAlign.center, style: TextStyle(color: Colors.white.withValues(alpha: 0.88))),
+            ]),
+          ),
+          // Form card, overlapping the header
+          Transform.translate(
+            offset: const Offset(0, -36),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: cardDecoration(context, radius: 20),
+                    child: Form(
+                      key: _form,
+                      child: AutofillGroup(
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(color: AppTheme.getBackgroundColor(context), borderRadius: BorderRadius.circular(14)),
+                            child: Row(children: [
+                              whoTab(_Who.student, 'Student', Icons.person_outline),
+                              whoTab(_Who.young, 'Young pupil', Icons.child_care_outlined),
+                              whoTab(_Who.parent, 'Parent', Icons.family_restroom_outlined),
+                            ]),
+                          ),
+                          const SizedBox(height: 20),
+                          if (_who == _Who.young) ..._youngPupil(muted) else ..._codeAndPin(),
+                          if (_error != null) ...[
+                            const SizedBox(height: 14),
+                            InfoBanner(tone: Tone.bad, icon: Icons.error_outline, text: _error!),
+                          ],
+                        ]),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 460),
+              child: T(
+                _who == _Who.parent
+                    ? 'Forgot your PIN? Ask the school office for a new one.'
+                    : 'Forgot your PIN? Ask your class teacher. Only one device can use a student account at a time.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12.5, color: muted),
+              ),
+            ),
+          ),
+        ]),
       ),
     );
   }
@@ -288,15 +336,25 @@ class _SchoolSignInScreenState extends ConsumerState<SchoolSignInScreen> {
       const SizedBox(height: 4),
       T('Tap your name', textAlign: TextAlign.center, style: TextStyle(color: muted)),
       const SizedBox(height: 12),
-      Wrap(spacing: 8, runSpacing: 8, alignment: WrapAlignment.center, children: [
-        for (final s in students)
-          ActionChip(
-            avatar: const Icon(Icons.person, size: 18),
-            label: T('${s['fullName']}', style: const TextStyle(fontSize: 15)),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-            onPressed: _busy ? null : () => _pickName(s),
-          ),
-      ]),
+      LayoutBuilder(builder: (context, box) {
+        final cols = box.maxWidth >= 380 ? 2 : 1;
+        final w = (box.maxWidth - (cols - 1) * 10) / cols;
+        return Wrap(spacing: 10, runSpacing: 10, children: [
+          for (final s in students)
+            SizedBox(
+              width: w,
+              child: OutlinedButton(
+                style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14), alignment: Alignment.centerLeft),
+                onPressed: _busy ? null : () => _pickName(s),
+                child: Row(children: [
+                  InitialsAvatar('${s['fullName']}', radius: 16),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text('${s['fullName']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600))),
+                ]),
+              ),
+            ),
+        ]);
+      }),
       const SizedBox(height: 12),
       TextButton(onPressed: () => setState(() => _classInfo = null), child: const T('Wrong class? Enter the code again')),
     ];

@@ -55,32 +55,41 @@ class _ResultsSectionState extends State<ResultsSection> {
     final atRisk = SchoolService.list(_data?['atRisk']);
     final muted = AppTheme.getSecondaryTextColor(context);
 
+    final classAvg = avgs.values.whereType<num>().isEmpty ? null : avgs.values.whereType<num>().reduce((a, b) => a + b) / avgs.values.whereType<num>().length;
+
     return SchoolPage(onRefresh: () => _pick(_classId!), children: [
-      SizedBox(
-        width: 260,
-        child: DropdownButtonFormField<String>(
-          initialValue: _classId,
-          decoration: const InputDecoration(labelText: 'Class'),
-          items: [for (final c in _classes!) DropdownMenuItem(value: '${c['id']}', child: T('${c['name']}'))],
-          onChanged: (v) => v == null ? null : _pick(v),
-        ),
+      DropdownButtonFormField<String>(
+        initialValue: _classId,
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'Class', prefixIcon: Icon(Icons.meeting_room_outlined)),
+        items: [for (final c in _classes!) DropdownMenuItem(value: '${c['id']}', child: T('${c['name']}'))],
+        onChanged: (v) => v == null ? null : _pick(v),
       ),
       if (_loading)
         const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
       else if (_error != null)
         ErrorRetry(message: _error!, onRetry: () => _pick(_classId!))
       else ...[
+        MiniStats(items: [
+          MiniStat(classAvg == null ? '—' : '${classAvg.round()}%', 'Class average', tone: _tone(classAvg)),
+          MiniStat('${students.length}', 'Students'),
+          MiniStat('${atRisk.length}', 'Below 50%', tone: atRisk.isEmpty ? Tone.good : Tone.bad),
+        ]),
         if (subjects.isEmpty)
           const EmptyState(icon: Icons.assignment_outlined, title: 'No marked homework yet', message: 'Averages appear once teachers mark homework for this class.')
         else
           SectionCard(
-            title: 'Subject averages (homework)',
+            icon: Icons.bar_chart_rounded,
+            title: 'Subject averages',
+            subtitle: 'Homework and class exams',
             child: Column(children: [
-              for (final s in subjects) Padding(padding: const EdgeInsets.only(bottom: 10), child: ProgressLine(percent: (avgs[s] as num?)?.round(), label: s)),
+              for (final s in subjects) Padding(padding: const EdgeInsets.only(bottom: 12), child: ProgressLine(percent: (avgs[s] as num?)?.round(), label: s)),
             ]),
           ),
         if (atRisk.isNotEmpty)
           SectionCard(
+            icon: Icons.warning_amber_rounded,
+            tone: Tone.bad,
             title: 'Students below 50%',
             subtitle: 'Talk to their parents and teachers early.',
             child: Wrap(spacing: 8, runSpacing: 8, children: [
@@ -89,30 +98,53 @@ class _ResultsSectionState extends State<ResultsSection> {
           ),
         if (students.isNotEmpty)
           SectionCard(
+            icon: Icons.groups_outlined,
             title: 'Students',
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingTextStyle: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.getTextColor(context)),
-                columnSpacing: 22,
-                columns: [
-                  const DataColumn(label: T('Student')),
-                  for (final s in subjects) DataColumn(label: Text(s), numeric: true),
-                  const DataColumn(label: T('Average'), numeric: true),
-                  const DataColumn(label: T('eexams'), numeric: true),
-                ],
-                rows: [
-                  for (final st in students)
-                    DataRow(cells: [
-                      DataCell(T('${st['fullName']}')),
-                      for (final s in subjects) DataCell(_pct((st['bySubject'] as Map?)?[s] as num?)),
-                      DataCell(_pct(st['homeworkAverage'] as num?, bold: true)),
-                      DataCell(_pct(st['examAverage'] as num?)),
-                    ]),
-                ],
-              ),
-            ),
+            padding: const EdgeInsets.fromLTRB(14, 16, 14, 8),
+            child: LayoutBuilder(builder: (context, box) {
+              // Phones: one row per student with marks as pills. Wide: a table.
+              if (box.maxWidth < 600) {
+                return Column(children: [
+                  for (var i = 0; i < students.length; i++) ...[
+                    if (i > 0) const RowDivider(),
+                    EntityTile(
+                      dense: true,
+                      leading: InitialsAvatar('${students[i]['fullName']}', tone: _tone(students[i]['homeworkAverage'] as num?)),
+                      title: '${students[i]['fullName']}',
+                      trailing: _pct(students[i]['homeworkAverage'] as num?, bold: true),
+                      pills: [
+                        for (final s in subjects)
+                          if ((students[i]['bySubject'] as Map?)?[s] != null)
+                            StatusPill('$s ${((students[i]['bySubject'] as Map)[s] as num).round()}%', tone: _tone((students[i]['bySubject'] as Map)[s] as num)),
+                        if (students[i]['examAverage'] != null) StatusPill('eexams ${(students[i]['examAverage'] as num).round()}%', tone: Tone.info),
+                      ],
+                    ),
+                  ],
+                ]);
+              }
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  headingTextStyle: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.getTextColor(context)),
+                  columnSpacing: 22,
+                  columns: [
+                    const DataColumn(label: T('Student')),
+                    for (final s in subjects) DataColumn(label: Text(s), numeric: true),
+                    const DataColumn(label: T('Average'), numeric: true),
+                    const DataColumn(label: T('eexams'), numeric: true),
+                  ],
+                  rows: [
+                    for (final st in students)
+                      DataRow(cells: [
+                        DataCell(T('${st['fullName']}')),
+                        for (final s in subjects) DataCell(_pct((st['bySubject'] as Map?)?[s] as num?)),
+                        DataCell(_pct(st['homeworkAverage'] as num?, bold: true)),
+                        DataCell(_pct(st['examAverage'] as num?)),
+                      ]),
+                  ],
+                ),
+              );
+            }),
           ),
         T('Homework marks come from ECH; exam results come from eexams.net for students who sat exams there.', style: TextStyle(fontSize: 12, color: muted)),
       ],

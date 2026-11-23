@@ -1,0 +1,47 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "class": {
+   "id": "6b02fe6f113b675c8a975ab6",
+   "schoolId": "6b02fd91113b675c8a975a43",
+   "academicYear": "2026",
+   "level": "P2",
+   "combination": "",
+   "stream": "A",
+   "name": "P2 A",
+   "room": null,
+   "capacity": null,
+   "isActive": true,
+   "classTeacher": null,
+   "classTeacherId": null,
+   "studentCount": 1
+  },
+  "students": [
+   {
+    "id": "6b030602a1f7f36c29e5e723",
+    "fullName": "Keza Uwase",
+    "email": null,
+    "phone": null,
+    "role": "student",
+    "schoolId": "6b02fd91113b675c8a975a43",
+    "classroomId": "6b02fe6f113b675c8a975ab6",
+    "studentCode": "GSTB260005",
+    "gender": null,
+    "dateOfBirth": null,
+    "guardians": [],
+    "address": {},
+    "isActive": true,
+    "lastActive": "2026-11-22T15:12:35.438Z",
+    "createdAt": "2026-11-22T15:10:58.611Z"
+   }
+  ],
+  "subjects": [],
+  "access": {
+   "canManageRoster": true,
+   "isClassTeacher": false,
+   "isAdmin": true,
+   "mySubjects": []
+  }
+ }
+}

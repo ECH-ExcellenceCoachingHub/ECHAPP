@@ -29,7 +29,10 @@ class SchoolApiError implements Exception {
 ///
 /// Responses are returned as plain maps (the `data` part of the API answer).
 class SchoolService {
-  SchoolService({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
+  SchoolService({ApiClient? apiClient}) : _api = apiClient ?? testClient ?? ApiClient();
+
+  /// Tests only: every SchoolService() created by a screen uses this client.
+  static ApiClient? testClient;
 
   final ApiClient _api;
   static String get _base => ApiConfig.baseUrl;
@@ -237,6 +240,13 @@ class SchoolService {
   Future<Map<String, dynamic>> grade(String assessmentId, String submissionId, num score, {String? feedback}) =>
       _send('POST', '/school/teaching/assessments/$assessmentId/submissions/$submissionId/grade', {'score': score, 'feedback': feedback});
 
+  // ── Courses offered to schools (super admin) ─────────────────────────
+
+  Future<List<Map<String, dynamic>>> schoolCourses({String search = '', bool onlyMarked = false}) async =>
+      list((await _get('/schools-courses', {if (search.isNotEmpty) 'search': search, if (onlyMarked) 'onlyMarked': 'true'}))['courses']);
+  Future<Map<String, dynamic>> setCourseSchoolAccess(String courseId, {required bool enabled, required List<String> levels, String subject = ''}) async =>
+      Map<String, dynamic>.from((await _send('PATCH', '/schools-courses/$courseId', {'enabled': enabled, 'levels': levels, 'subject': subject}))['course'] as Map);
+
   // ── Student portal ───────────────────────────────────────────────────
 
   Future<Map<String, dynamic>> studentHome() => _get('/school/learning/home');
@@ -251,6 +261,14 @@ class SchoolService {
 
   Future<List<Map<String, dynamic>>> children() async => list((await _get('/school/parent/children'))['children']);
   Future<Map<String, dynamic>> child(String id) => _get('/school/parent/children/$id');
+  Future<Map<String, dynamic>> childAssessment(String childId, String id) async =>
+      Map<String, dynamic>.from((await _get('/school/parent/children/$childId/assessments/$id'))['assessment'] as Map);
+  /// The parent hands in the child's homework (school-only schools: done at home).
+  Future<Map<String, dynamic>> submitChildAssessment(String childId, String id, {String? text, List<Map<String, dynamic>> attachments = const []}) =>
+      _send('POST', '/school/parent/children/$childId/assessments/$id/submit', {'text': text, 'attachments': attachments});
+  /// One-time eexams sign-in link that opens the class exam as the child.
+  Future<String> childExamLink(String childId, String id) async =>
+      '${(await _send('POST', '/school/parent/children/$childId/assessments/$id/eexams', {}))['url']}';
 
   // ── Photos (homework, lesson evidence) ───────────────────────────────
 

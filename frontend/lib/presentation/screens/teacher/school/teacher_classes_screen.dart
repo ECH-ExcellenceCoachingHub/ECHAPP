@@ -55,9 +55,10 @@ class _MyClassesBody extends StatelessWidget {
       );
     }
     return SectionCard(
+      icon: Icons.co_present_outlined,
       title: 'My classes',
       subtitle: 'Mark lessons you taught, give homework, mark hand-ins.',
-      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+      trailing: Wrap(spacing: 4, children: [
         TextButton.icon(onPressed: () => context.push('/school/groups'), icon: const Icon(Icons.forum_outlined, size: 18), label: const T('Groups')),
         TextButton.icon(onPressed: () => context.push('/school/code'), icon: const Icon(Icons.computer_outlined, size: 18), label: const T('Lab code')),
         if (compact) TextButton(onPressed: () => context.push('/teacher/my-classes'), child: const T('Open')),
@@ -65,12 +66,25 @@ class _MyClassesBody extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         for (final c in led)
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(alignment: Alignment.centerLeft, padding: const EdgeInsets.all(12)),
-              icon: const Icon(Icons.person_pin_outlined),
-              label: T('Class teacher of ${c['name']} · ${c['studentCount']} students — manage class list'),
-              onPressed: () => context.push('/school/class/${c['id']}'),
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Material(
+              color: AppTheme.primary.withValues(alpha: 0.07),
+              borderRadius: BorderRadius.circular(14),
+              child: EntityTile(
+                leading: Container(
+                  width: 42,
+                  height: 42,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [AppTheme.primary, AppTheme.primaryDark]),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.person_pin_outlined, color: Colors.white, size: 22),
+                ),
+                title: 'Class teacher of ${c['name']}',
+                subtitle: '${plural(c['studentCount'] as num?, 'student')} · manage the class list',
+                onTap: () => context.push('/school/class/${c['id']}'),
+              ),
             ),
           ),
         LayoutBuilder(builder: (context, box) {
@@ -81,17 +95,24 @@ class _MyClassesBody extends StatelessWidget {
               SizedBox(
                 width: w,
                 child: Material(
-                  color: AppTheme.getCardColor(context),
-                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.transparent,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(14),
                     onTap: () => context.push('/teacher/class-subject/${s['id']}'),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.6))),
+                    child: Ink(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.5)),
+                      ),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        T('${s['subject']}', style: TextStyle(fontWeight: FontWeight.w700, color: AppTheme.getTextColor(context))),
-                        T('${s['className']} · ${s['studentCount']} students', style: TextStyle(fontSize: 12.5, color: muted)),
+                        Row(children: [
+                          Expanded(child: T('${s['subject']}', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5, color: AppTheme.getTextColor(context)))),
+                          StatusPill('${s['className']}', tone: Tone.info),
+                        ]),
+                        const SizedBox(height: 2),
+                        T(plural(s['studentCount'] as num?, 'student'), style: TextStyle(fontSize: 12.5, color: muted)),
                         const SizedBox(height: 10),
                         ProgressLine(percent: (s['coveragePercent'] as num?)?.toInt(), label: (s['syllabusLessons'] ?? 0) > 0 ? '${s['lessonsMarked']}/${s['syllabusLessons']} lessons' : '${s['lessonsMarked']} lessons taught'),
                         const SizedBox(height: 8),

@@ -64,6 +64,7 @@ class _TeacherActivityScreenState extends State<TeacherActivityScreen> {
               T('Last', style: TextStyle(color: muted)),
               const SizedBox(width: 8),
               SegmentedButton<int>(
+                style: schoolSegmentStyle(context),
                 segments: const [ButtonSegment(value: 7, label: T('7 days')), ButtonSegment(value: 30, label: T('30 days')), ButtonSegment(value: 90, label: T('90 days'))],
                 selected: {_days},
                 onSelectionChanged: (v) { setState(() => _days = v.first); _key.currentState?.reload(); },

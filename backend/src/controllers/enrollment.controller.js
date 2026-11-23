@@ -62,7 +62,7 @@ const calculateAccessExpirationDate = (course, from = new Date()) => {
 const hasValidPaidAccess = async (enrollment, course) => {
   if (!course.price || course.price <= 0) return true;
   // School students with an active paid subscription get free access to all courses.
-  if (await hasActiveSchoolSubscription(enrollment.userId)) return true;
+  if (await hasActiveSchoolSubscription(enrollment.userId, course)) return true;
   if (isEnrollmentExpired(enrollment)) return false;
   if (enrollment.paymentId) return true;
   const payment = await Payment.findOne({
@@ -73,8 +73,8 @@ const hasValidPaidAccess = async (enrollment, course) => {
   return !!payment;
 };
 
-// Students of a school whose per-term subscription is active (or in grace) get all courses free.
-const hasActiveSchoolSubscription = (userId) => hasSchoolCourseAccess(userId);
+// School students get the courses meant for their class free while the school's term is paid (or in grace).
+const hasActiveSchoolSubscription = (userId, course) => hasSchoolCourseAccess(userId, course);
 
 // Reactivate an enrollment the learner previously left. All earlier progress
 // (completed lessons, sections, quiz results, certificates) is restored as-is.
@@ -301,7 +301,7 @@ const enrollInCourse = async (req, res) => {
     // Check if course is free or payment exists for paid courses
     // School students with an active paid subscription get free access to all courses.
     if (course.price > 0) {
-      const hasSchoolAccess = await hasActiveSchoolSubscription(userId);
+      const hasSchoolAccess = await hasActiveSchoolSubscription(userId, course);
       if (!hasSchoolAccess) {
         const payment = await Payment.findOne({ 
           userId, 
@@ -319,7 +319,7 @@ const enrollInCourse = async (req, res) => {
     // (no per-course access expiration).
     const accessExpirationDate = calculateAccessExpirationDate(course);
     // School access is checked on every visit (hasValidPaidAccess), so it needs no expiry date here.
-    const finalAccessExpirationDate = (course.price > 0 && await hasActiveSchoolSubscription(userId))
+    const finalAccessExpirationDate = (course.price > 0 && await hasActiveSchoolSubscription(userId, course))
       ? null
       : accessExpirationDate;
 

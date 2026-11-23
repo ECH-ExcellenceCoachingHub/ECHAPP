@@ -2,9 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../../../../config/app_theme.dart';
 import '../../../../services/api/school_service.dart';
-import '../../../../widgets/school/pickers.dart';
 import '../../../../widgets/school/school_ui.dart';
 import '../../school/class_detail_screen.dart';
 import '../../school/student_form_screen.dart';
@@ -95,40 +93,49 @@ class _StudentsSectionState extends State<StudentsSection> {
   Widget build(BuildContext context) {
     final sub = Map<String, dynamic>.from(widget.c.school['subscription'] as Map? ?? {});
     return SchoolPage(onRefresh: _load, children: [
-      Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-        FilledButton.icon(onPressed: _register, icon: const Icon(Icons.person_add_alt_1_outlined), label: const T('Register student')),
-        OutlinedButton.icon(onPressed: _import, icon: const Icon(Icons.playlist_add_outlined), label: const T('Import a list')),
-        T('${widget.c.school['studentCount'] ?? 0} of ${sub['studentLimit'] ?? 0} paid places used', style: TextStyle(color: AppTheme.getSecondaryTextColor(context))),
+      MiniStats(items: [
+        MiniStat('${widget.c.school['studentCount'] ?? 0}', 'Students', tone: Tone.info),
+        MiniStat('${sub['studentLimit'] ?? 0}', 'Paid places'),
+        MiniStat('${_classes.length}', 'Classes'),
       ]),
-      Wrap(spacing: 10, runSpacing: 10, crossAxisAlignment: WrapCrossAlignment.center, children: [
-        SizedBox(
-          width: 320,
-          child: TextField(
+      ActionBar(
+        primary: BarAction('Register student', Icons.person_add_alt_1_outlined, _register),
+        more: [BarAction('Import a list', Icons.playlist_add_outlined, _import)],
+      ),
+      SectionCard(
+        padding: const EdgeInsets.all(12),
+        child: LayoutBuilder(builder: (context, box) {
+          final wide = box.maxWidth >= 640;
+          final search = TextField(
             controller: _search,
-            decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Name or student code', isDense: true),
+            decoration: InputDecoration(prefixIcon: const Icon(Icons.search), hintText: trSchool(context, 'Name or student code'), isDense: true),
             onChanged: (_) { _debounce?.cancel(); _debounce = Timer(const Duration(milliseconds: 350), _load); },
-          ),
-        ),
-        SizedBox(
-          width: 200,
-          child: DropdownButtonFormField<String?>(
+          );
+          final cls = DropdownButtonFormField<String?>(
             initialValue: _classId,
+            isExpanded: true,
             isDense: true,
             decoration: const InputDecoration(labelText: 'Class', isDense: true),
             items: [const DropdownMenuItem(value: null, child: T('All classes')), for (final c in _classes) DropdownMenuItem(value: '${c['id']}', child: T('${c['name']}'))],
             onChanged: (v) { setState(() { _classId = v; _filter = 'all'; }); _load(); },
-          ),
-        ),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'all', label: T('Active')),
-            ButtonSegment(value: 'unassigned', label: T('No class')),
-            ButtonSegment(value: 'removed', label: T('Removed')),
-          ],
-          selected: {_filter},
-          onSelectionChanged: (v) { setState(() => _filter = v.first); _load(); },
-        ),
-      ]),
+          );
+          final status = SegmentedButton<String>(
+            style: schoolSegmentStyle(context),
+            showSelectedIcon: false,
+            segments: const [
+              ButtonSegment(value: 'all', label: T('Active')),
+              ButtonSegment(value: 'unassigned', label: T('No class')),
+              ButtonSegment(value: 'removed', label: T('Removed')),
+            ],
+            selected: {_filter},
+            onSelectionChanged: (v) { setState(() => _filter = v.first); _load(); },
+          );
+          if (wide) {
+            return Row(children: [Expanded(flex: 3, child: search), const SizedBox(width: 10), Expanded(flex: 2, child: cls), const SizedBox(width: 10), status]);
+          }
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [search, const SizedBox(height: 10), cls, const SizedBox(height: 10), status]);
+        }),
+      ),
       if (_loading)
         const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))
       else if (_error != null)
@@ -137,24 +144,27 @@ class _StudentsSectionState extends State<StudentsSection> {
         const EmptyState(icon: Icons.groups_outlined, title: 'No students found')
       else
         SectionCard(
-          title: '$_total student${_total == 1 ? '' : 's'}',
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-          child: Column(children: [for (final s in _students) _tile(s)]),
+          icon: Icons.groups_outlined,
+          title: plural(_total, 'student'),
+          padding: const EdgeInsets.fromLTRB(14, 16, 8, 6),
+          child: Column(children: [
+            for (var i = 0; i < _students.length; i++) ...[if (i > 0) const RowDivider(), _tile(_students[i])],
+          ]),
         ),
     ]);
   }
 
   Widget _tile(Map<String, dynamic> s) {
     final g = (s['guardians'] as List?) ?? const [];
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(child: Text(initialsOf(s['fullName']))),
-      title: T('${s['fullName']}'),
-      subtitle: Text([
-        '${s['studentCode'] ?? ''}',
-        s['classroom']?['name'] ?? 'No class',
-        if (g.isNotEmpty) 'Parent: ${g.first['name']}${g.first['hasAccount'] == true ? ' ✓' : ''}',
-      ].where((e) => '$e'.isNotEmpty).join(' · ')),
+    return EntityTile(
+      leading: InitialsAvatar('${s['fullName']}', tone: s['isActive'] == false ? Tone.neutral : null),
+      title: '${s['fullName']}',
+      subtitle: '${s['studentCode'] ?? ''}',
+      pills: [
+        if (s['classroom']?['name'] != null) StatusPill('${s['classroom']['name']}', tone: Tone.info, icon: Icons.meeting_room_outlined) else const StatusPill('No class', tone: Tone.warn),
+        if (g.isNotEmpty) StatusPill('Parent: ${g.first['name'] ?? g.first['phone'] ?? ''}', tone: g.first['hasAccount'] == true ? Tone.good : Tone.neutral, icon: Icons.family_restroom_outlined),
+        if (s['isActive'] == false) const StatusPill('Removed', tone: Tone.bad),
+      ],
       onTap: () async {
         final ok = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => StudentFormScreen(schoolId: widget.c.schoolId, existing: s, classes: _classes)));
         if (ok == true) _load();

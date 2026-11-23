@@ -122,8 +122,12 @@ class _ClassSubjectScreenState extends State<ClassSubjectScreen> {
     final muted = AppTheme.getSecondaryTextColor(context);
     return SchoolPage(onRefresh: _load, children: [
       SectionCard(
+        icon: Icons.track_changes_outlined,
+        tone: Tone.good,
+        title: _cs['course'] != null ? 'Syllabus: ${_cs['course']['title']}' : 'No ECH course linked',
+        subtitle: _cs['course'] != null ? '${s['taught']} of ${s['total']} lessons taught' : 'Mark the topics you teach.',
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          ProgressLine(percent: (s['percent'] as num?)?.toInt(), label: _cs['course'] != null ? 'Syllabus: ${_cs['course']['title']} — ${s['taught']}/${s['total']} lessons' : 'No ECH course linked — mark topics you taught'),
+          ProgressLine(percent: (s['percent'] as num?)?.toInt()),
           if ((s['flagged'] ?? 0) > 0) ...[const SizedBox(height: 8), StatusPill('${s['flagged']} mark(s) flagged for review', tone: Tone.bad)],
           const SizedBox(height: 8),
           T('Mark a lesson on the day you teach it. Add a short note or a photo of the board — marks without evidence, in bulk, or that students say did not happen are flagged to the head teacher.', style: TextStyle(fontSize: 12.5, color: muted)),
@@ -131,6 +135,7 @@ class _ClassSubjectScreenState extends State<ClassSubjectScreen> {
       ),
       for (final ch in chapters)
         SectionCard(
+          icon: Icons.bookmark_outline,
           title: '${ch['title']}',
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
           child: Column(children: [
@@ -152,11 +157,17 @@ class _ClassSubjectScreenState extends State<ClassSubjectScreen> {
   Widget _lessonTile(Map<String, dynamic> l) {
     final cov = l['coverage'] as Map<String, dynamic>?;
     if (cov != null) return _coverageTile(cov, title: '${l['title']}');
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
+    return EntityTile(
+      dense: true,
       leading: Icon(Icons.radio_button_unchecked, color: AppTheme.getSecondaryTextColor(context)),
-      title: T('${l['title']}'),
-      trailing: _canTeach ? TextButton(onPressed: () => _mark(lesson: l), child: const T('Mark taught')) : null,
+      title: '${l['title']}',
+      trailing: _canTeach
+          ? OutlinedButton(
+              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 12), minimumSize: const Size(0, 36), side: BorderSide(color: AppTheme.primary.withValues(alpha: 0.5)), textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              onPressed: () => _mark(lesson: l),
+              child: const T('Mark taught'),
+            )
+          : null,
     );
   }
 
@@ -164,17 +175,18 @@ class _ClassSubjectScreenState extends State<ClassSubjectScreen> {
     final flagged = c['status'] == 'flagged' || c['status'] == 'confirmed';
     final flags = SchoolService.list(c['flags']);
     final canUndo = _canTeach && c['review'] == null && DateTime.now().difference(parseDate(c['markedAt']) ?? DateTime(2000)).inHours < 48;
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
+    return EntityTile(
+      dense: true,
       leading: Icon(flagged ? Icons.flag : Icons.check_circle, color: flagged ? AppTheme.errorColor : AppTheme.successColor),
-      title: Text(title ?? '${c['topic']}'),
-      subtitle: Text([
-        'Taught ${fmtDay(c['taughtOn'])}',
-        if (c['status'] == 'confirmed') 'Recorded as NOT taught by the school',
-        if (c['status'] == 'dismissed') 'Checked by the school',
-        if (flags.isNotEmpty && c['status'] == 'flagged') flags.map((f) => f['message']).join(' '),
-      ].join(' · ')),
-      trailing: canUndo ? IconButton(tooltip: 'Undo', icon: const Icon(Icons.undo), onPressed: () => _unmark(c)) : null,
+      title: title ?? '${c['topic']}',
+      subtitle: 'Taught ${fmtDay(c['taughtOn'])}',
+      pills: [
+        if (c['status'] == 'confirmed') const StatusPill('Recorded as not taught by the school', tone: Tone.bad),
+        if (c['status'] == 'dismissed') const StatusPill('Checked by the school', tone: Tone.good),
+        if (c['status'] == 'flagged')
+          for (final f in flags) StatusPill('${f['message']}', tone: f['severity'] == 'high' ? Tone.bad : f['severity'] == 'medium' ? Tone.warn : Tone.neutral),
+      ],
+      trailing: canUndo ? IconButton(tooltip: trSchool(context, 'Undo'), icon: const Icon(Icons.undo), onPressed: () => _unmark(c)) : null,
     );
   }
 

@@ -116,7 +116,7 @@ class _SchoolAdminDashboardScreenState extends ConsumerState<SchoolAdminDashboar
       appBar: AppBar(
         automaticallyImplyLeading: !wide,
         leading: superAdmin && wide ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.canPop() ? context.pop() : context.go('/admin/schools')) : null,
-        title: Text(wide ? '${_school!['name']}' : current.label),
+        title: Text(wide ? '${_school!['name']}' : trSchool(context, current.label)),
         actions: [
           if (superAdmin && !wide) IconButton(tooltip: 'All schools', icon: const Icon(Icons.apartment), onPressed: () => context.go('/admin/schools')),
           IconButton(tooltip: 'Refresh', icon: const Icon(Icons.refresh), onPressed: () { _loadSchool(); setState(() {}); }),
@@ -173,12 +173,29 @@ class _NavList extends StatelessWidget {
   Widget build(BuildContext context) {
     final muted = AppTheme.getSecondaryTextColor(context);
     return ListView(padding: const EdgeInsets.symmetric(vertical: 12), children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          T('${school['name']}', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: AppTheme.getTextColor(context))),
-          const SizedBox(height: 2),
-          T('Code ${school['code'] ?? '—'}${superAdmin ? ' · ECH admin view' : ''}', style: TextStyle(fontSize: 12, color: muted)),
+      Container(
+        margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: const LinearGradient(colors: [AppTheme.primary, AppTheme.primaryDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        ),
+        child: Row(children: [
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.apartment_rounded, color: Colors.white),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('${school['name']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5, color: Colors.white)),
+              const SizedBox(height: 2),
+              Text(trSchool(context, 'Code ${school['code'] ?? '—'}${superAdmin ? ' · ECH admin view' : ''}'), style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.85))),
+            ]),
+          ),
         ]),
       ),
       for (final s in _sections)
@@ -191,7 +208,7 @@ class _NavList extends StatelessWidget {
             selectedColor: AppTheme.primaryDark,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             leading: Icon(s.icon, size: 21),
-            title: Text(s.label, style: const TextStyle(fontSize: 14)),
+            title: Text(trSchool(context, s.label), style: const TextStyle(fontSize: 14)),
             onTap: () => onSelect(s.key),
           ),
         ),
@@ -237,7 +254,7 @@ class _Overview extends StatelessWidget {
           if (status == 'expired')
             const _Alert(tone: Tone.bad, icon: Icons.block, text: 'Subscription expired: students have no course access. Contact ECH to pay for this term.'),
           if (status == 'trial')
-            _Alert(tone: Tone.info, icon: Icons.info_outline, text: 'Trial: up to $limit students. Pay for a term to unlock all ECH courses for your students.', onTap: () => c.go('billing')),
+            _Alert(tone: Tone.info, icon: Icons.info_outline, text: 'Trial: up to $limit students. Pay for a term to unlock the ECH courses for your classes.', onTap: () => c.go('billing')),
           if ((att['flaggedLessons'] ?? 0) > 0)
             _Alert(tone: Tone.bad, icon: Icons.flag_outlined, text: '${att['flaggedLessons']} lesson mark(s) look untaught and need your review.', onTap: () => c.go('progress')),
           if ((att['suspiciousSignIns'] ?? 0) > 0)
@@ -252,9 +269,31 @@ class _Overview extends StatelessWidget {
         final setupSteps = SchoolService.list(setup['steps']);
         final setupDone = (setup['done'] as num?)?.toInt() ?? 0;
 
+        final narrow = MediaQuery.sizeOf(context).width < 980;
         return SchoolPage(onRefresh: reload, children: [
+          PageHero(
+            leading: Container(
+              width: 52,
+              height: 52,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.18), borderRadius: BorderRadius.circular(14)),
+              child: const Icon(Icons.apartment_rounded, color: Colors.white, size: 28),
+            ),
+            title: '${c.school['name'] ?? school['name'] ?? ''}',
+            subtitle: [
+              if (c.school['code'] != null) 'Code ${c.school['code']}',
+              if ((c.school['headTeacherName'] ?? '').toString().isNotEmpty) '${c.school['headTeacherName']}',
+            ].join(' · '),
+            chips: [
+              if (_statusLabel(status).isNotEmpty) HeroChip(_statusLabel(status), icon: status == 'active' ? Icons.verified_outlined : Icons.schedule),
+              HeroChip('$students of $limit students', icon: Icons.groups_outlined),
+              if (sub['daysLeft'] != null && status != 'active') HeroChip('${sub['daysLeft']} days left', icon: Icons.hourglass_bottom),
+            ],
+          ),
           if (setupSteps.isNotEmpty && setupDone < setupSteps.length)
             SectionCard(
+              icon: Icons.rocket_launch_outlined,
+              tone: Tone.good,
               title: 'Get your school ready',
               subtitle: '$setupDone of ${setupSteps.length} steps done',
               child: Column(children: [
@@ -284,17 +323,34 @@ class _Overview extends StatelessWidget {
             StatTile(label: 'Classes', value: '${school['classCount'] ?? 0}', icon: Icons.meeting_room_outlined, tone: Tone.info, onTap: () => c.go('classes')),
             StatTile(label: 'Flagged lessons', value: '${att['flaggedLessons'] ?? 0}', icon: Icons.flag_outlined, tone: (att['flaggedLessons'] ?? 0) > 0 ? Tone.bad : Tone.good, onTap: () => c.go('progress')),
           ]),
-          if (alerts.isNotEmpty) SectionCard(title: 'Needs attention', child: Column(children: alerts)),
+          if (alerts.isNotEmpty) SectionCard(icon: Icons.priority_high_rounded, tone: Tone.bad, title: 'Needs attention', child: Column(children: alerts)),
           SectionCard(
+            icon: Icons.date_range_outlined,
             title: 'This week',
-            child: StatGrid(children: [
-              StatTile(label: 'Lessons marked taught', value: '${week['lessonsMarked'] ?? 0}', icon: Icons.fact_check_outlined, tone: Tone.good),
-              StatTile(label: 'Homework given', value: '${week['homeworkGiven'] ?? 0}', icon: Icons.assignment_outlined, tone: Tone.info),
-              StatTile(label: 'Hand-ins', value: '${week['handIns'] ?? 0}', icon: Icons.upload_file_outlined, tone: Tone.info, caption: week['handInRate'] == null ? null : '${week['handInRate']}% of expected'),
+            subtitle: week['handInRate'] == null ? null : 'Hand-in rate: ${week['handInRate']}%',
+            child: MiniStats(items: [
+              MiniStat('${week['lessonsMarked'] ?? 0}', 'Lessons taught', tone: Tone.good),
+              MiniStat('${week['homeworkGiven'] ?? 0}', 'Homework given', tone: Tone.info),
+              MiniStat('${week['handIns'] ?? 0}', 'Hand-ins', tone: Tone.info),
             ]),
           ),
+          if (narrow)
+            SectionCard(
+              icon: Icons.apps_rounded,
+              title: 'Go to',
+              child: LayoutBuilder(builder: (context, box) {
+                final cols = box.maxWidth >= 520 ? 4 : 3;
+                final w = (box.maxWidth - (cols - 1) * 10) / cols;
+                return Wrap(spacing: 10, runSpacing: 10, children: [
+                  for (final sec in _sections.where((x) => x.key != 'overview'))
+                    SizedBox(width: w, child: _QuickLink(icon: sec.icon, label: sec.label, onTap: () => c.go(sec.key))),
+                ]);
+              }),
+            ),
           if (quiet.isNotEmpty)
             SectionCard(
+              icon: Icons.person_search_outlined,
+              tone: Tone.warn,
               title: 'Teachers with no lesson marked this week',
               subtitle: 'They may be teaching without recording it — or not teaching.',
               child: Column(children: [
@@ -311,6 +367,8 @@ class _Overview extends StatelessWidget {
             ),
           if (flagged.isNotEmpty)
             SectionCard(
+              icon: Icons.flag_outlined,
+              tone: Tone.bad,
               title: 'Latest flagged lessons',
               trailing: TextButton(onPressed: () => c.go('progress'), child: const T('Review all')),
               child: Column(children: [
@@ -338,6 +396,35 @@ class _Overview extends StatelessWidget {
       };
 }
 
+class _QuickLink extends StatelessWidget {
+  const _QuickLink({required this.icon, required this.label, required this.onTap});
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+        container: true,
+        button: true,
+        child: Material(
+          color: AppTheme.primary.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 6),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Icon(icon, color: AppTheme.primaryDark, size: 24),
+                const SizedBox(height: 6),
+                Text(trSchool(context, label), maxLines: 2, textAlign: TextAlign.center, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.getTextColor(context), height: 1.2)),
+              ]),
+            ),
+          ),
+        ),
+      );
+}
+
 class _Alert extends StatelessWidget {
   const _Alert({required this.tone, required this.icon, required this.text, this.onTap});
   final Tone tone;
@@ -361,7 +448,7 @@ class _Alert extends StatelessWidget {
             child: Row(children: [
               Icon(icon, color: col, size: 20),
               const SizedBox(width: 10),
-              Expanded(child: Text(text, style: TextStyle(color: AppTheme.getTextColor(context)))),
+              Expanded(child: Text(trSchool(context, text), style: TextStyle(color: AppTheme.getTextColor(context)))),
               if (onTap != null) Icon(Icons.chevron_right, color: col),
             ]),
           ),

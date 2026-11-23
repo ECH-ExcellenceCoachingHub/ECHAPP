@@ -212,22 +212,24 @@ class _BillingSectionState extends State<BillingSection> {
             StatTile(label: 'Price per student / term', value: fmtMoney(price), icon: Icons.payments_outlined, tone: Tone.neutral),
           ]),
           SectionCard(
+            icon: Icons.info_outline,
             title: 'How billing works',
             trailing: widget.c.superAdmin ? TextButton.icon(onPressed: _settings, icon: const Icon(Icons.tune), label: const T('Settings')) : null,
             child: Text(
-              'Your school pays ECH per student for each term. While a paid term is running, all your students get every ECH course for free and you can register up to the number of students paid for. '
+              'Your school pays ECH per student for each term. While a paid term is running, your students get the ECH courses meant for their class for free, and you can register up to the number of students paid for. '
               'After a term ends you have ${widget.c.school['graceDays'] ?? 21} days of grace (school holidays) before course access stops.'
               '${widget.c.superAdmin ? '' : ' To pay for a term, contact ECH; the payment appears here once recorded.'}',
               style: TextStyle(color: muted, height: 1.45),
             ),
           ),
           SectionCard(
+            icon: Icons.event_note_outlined,
             title: 'Terms',
             trailing: FilledButton.tonalIcon(onPressed: () => _termDialog(), icon: const Icon(Icons.add), label: const T('Add term')),
             child: terms.isEmpty
                 ? T('Add your school terms (e.g. 2026 Term 1, 2 and 3 with their dates). They are used for billing, homework and lesson reports.', style: TextStyle(color: muted))
                 : Column(children: [
-                    for (final t in terms) _termTile(t, price),
+                    for (var i = 0; i < terms.length; i++) ...[if (i > 0) const RowDivider(), _termTile(terms[i], price)],
                   ]),
           ),
         ]);
@@ -242,18 +244,22 @@ class _BillingSectionState extends State<BillingSection> {
     final s = parseDate(t['startDate']);
     final e = parseDate(t['endDate']);
     final current = s != null && e != null && !now.isBefore(s) && !now.isAfter(e);
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(current ? Icons.play_circle_outline : Icons.event_outlined, color: current ? AppTheme.primary : null),
-      title: Row(children: [
-        T('${t['label']}', style: const TextStyle(fontWeight: FontWeight.w600)),
-        const SizedBox(width: 8),
-        StatusPill(switch (st) { 'paid' => 'Paid', 'waived' => 'Free', 'pending' => 'Pending', _ => 'Unpaid' }, tone: switch (st) { 'paid' || 'waived' => Tone.good, 'pending' => Tone.warn, _ => Tone.bad }),
-        if (current) const Padding(padding: EdgeInsets.only(left: 6), child: StatusPill('Current', tone: Tone.info)),
-      ]),
-      subtitle: T('${fmtDate(t['startDate'])} – ${fmtDate(t['endDate'])}'
+    final c = current ? AppTheme.primary : AppTheme.getSecondaryTextColor(context);
+    return EntityTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(color: c.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(11)),
+        child: Icon(current ? Icons.play_circle_outline : Icons.event_outlined, color: c, size: 21),
+      ),
+      title: '${t['label']}',
+      subtitle: '${fmtDate(t['startDate'])} – ${fmtDate(t['endDate'])}'
           '${(b['studentsPaid'] ?? 0) > 0 ? ' · ${b['studentsPaid']} students · ${fmtMoney(b['amount'] as num?)}' : ''}'
-          '${b['reference'] != null && '${b['reference']}'.isNotEmpty ? ' · ref ${b['reference']}' : ''}'),
+          '${b['reference'] != null && '${b['reference']}'.isNotEmpty ? ' · ref ${b['reference']}' : ''}',
+      pills: [
+        StatusPill(switch (st) { 'paid' => 'Paid', 'waived' => 'Free', 'pending' => 'Pending', _ => 'Unpaid' }, tone: switch (st) { 'paid' || 'waived' => Tone.good, 'pending' => Tone.warn, _ => Tone.bad }),
+        if (current) const StatusPill('Current', tone: Tone.info),
+      ],
       trailing: PopupMenuButton<String>(
         onSelected: (v) async {
           if (v == 'pay') _paymentDialog(t, price);

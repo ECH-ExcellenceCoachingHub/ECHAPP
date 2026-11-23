@@ -1,0 +1,67 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "class": {
+   "id": "6b02fe55113b675c8a975a9d",
+   "name": "S3 A"
+  },
+  "subjects": [
+   "Biology"
+  ],
+  "subjectAverages": {
+   "Biology": 80
+  },
+  "students": [
+   {
+    "id": "6b030070a1f7f36c29e5e30d",
+    "fullName": "Aline Mukamana",
+    "studentCode": "GSTB260001",
+    "bySubject": {
+     "Biology": 80
+    },
+    "homeworkAverage": 80,
+    "handedIn": 1,
+    "examAverage": null,
+    "exams": []
+   },
+   {
+    "id": "6b0300c7a1f7f36c29e5e337",
+    "fullName": "Eric Habimana",
+    "studentCode": "GSTB260002",
+    "bySubject": {
+     "Biology": null
+    },
+    "homeworkAverage": null,
+    "handedIn": 0,
+    "examAverage": null,
+    "exams": []
+   },
+   {
+    "id": "6b0300c7a1f7f36c29e5e342",
+    "fullName": "Grace Uwera",
+    "studentCode": "GSTB260003",
+    "bySubject": {
+     "Biology": null
+    },
+    "homeworkAverage": null,
+    "handedIn": 0,
+    "examAverage": null,
+    "exams": []
+   },
+   {
+    "id": "6b0300c7a1f7f36c29e5e34c",
+    "fullName": "Kevin Mugisha",
+    "studentCode": "GSTB260004",
+    "bySubject": {
+     "Biology": null
+    },
+    "homeworkAverage": null,
+    "handedIn": 0,
+    "examAverage": null,
+    "exams": []
+   }
+  ],
+  "atRisk": []
+ }
+}

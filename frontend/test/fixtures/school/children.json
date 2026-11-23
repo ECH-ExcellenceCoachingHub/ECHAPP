@@ -1,0 +1,88 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "children": [
+   {
+    "id": "6b030070a1f7f36c29e5e30d",
+    "fullName": "Aline Mukamana",
+    "studentCode": "GSTB260001",
+    "school": {
+     "id": "6b02fd91113b675c8a975a43",
+     "name": "Groupe Scolaire Test Butare",
+     "logo": null,
+     "hasCourseAccess": true
+    },
+    "classroom": {
+     "id": "6b02fe55113b675c8a975a9d",
+     "name": "S3 A",
+     "level": "S3",
+     "academicYear": "2026",
+     "classTeacher": {
+      "id": "6b02fec7113b675c8a975aec",
+      "fullName": "Jean Bosco Habimana",
+      "phone": "+250788400500"
+     }
+    },
+    "stats": {
+     "todo": 0,
+     "overdue": 0,
+     "missed": 0,
+     "submitted": 1
+    },
+    "subjects": [
+     {
+      "subject": "Biology",
+      "averagePercent": 80,
+      "coveragePercent": 50
+     },
+     {
+      "subject": "Mathematics",
+      "averagePercent": null,
+      "coveragePercent": null
+     }
+    ]
+   },
+   {
+    "id": "6b0300c7a1f7f36c29e5e337",
+    "fullName": "Eric Habimana",
+    "studentCode": "GSTB260002",
+    "school": {
+     "id": "6b02fd91113b675c8a975a43",
+     "name": "Groupe Scolaire Test Butare",
+     "logo": null,
+     "hasCourseAccess": true
+    },
+    "classroom": {
+     "id": "6b02fe55113b675c8a975a9d",
+     "name": "S3 A",
+     "level": "S3",
+     "academicYear": "2026",
+     "classTeacher": {
+      "id": "6b02fec7113b675c8a975aec",
+      "fullName": "Jean Bosco Habimana",
+      "phone": "+250788400500"
+     }
+    },
+    "stats": {
+     "todo": 1,
+     "overdue": 0,
+     "missed": 0,
+     "submitted": 0
+    },
+    "subjects": [
+     {
+      "subject": "Biology",
+      "averagePercent": null,
+      "coveragePercent": 50
+     },
+     {
+      "subject": "Mathematics",
+      "averagePercent": null,
+      "coveragePercent": null
+     }
+    ]
+   }
+  ]
+ }
+}

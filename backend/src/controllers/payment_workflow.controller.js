@@ -134,16 +134,15 @@ const initiatePayment = async (req, res) => {
       return sendError(res, 'Course ID, payment method, and contact info are required', 400);
     }
 
-    // School students with an active paid subscription get free access to all courses
-    // and should enroll directly instead of paying.
-    if (await hasSchoolCourseAccess(userId)) {
-      return sendError(res, 'Your school\'s subscription already gives you free access to all courses. Please enroll directly from the course page.', 400);
-    }
-
     // Check if course exists and is paid
     const course = await Course.findById(courseId);
     if (!course) {
       return sendNotFound(res, 'Course not found');
+    }
+
+    // School students get the courses meant for their class free: enroll directly.
+    if (await hasSchoolCourseAccess(userId, course)) {
+      return sendError(res, 'Your school already gives you this course for free. Please enroll directly from the course page.', 400);
     }
 
     if (course.price <= 0) {

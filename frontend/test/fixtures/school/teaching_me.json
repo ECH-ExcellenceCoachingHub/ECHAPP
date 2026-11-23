@@ -1,0 +1,32 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "schoolTeacher": true,
+  "classTeacherOf": [
+   {
+    "id": "6b02fe55113b675c8a975a9d",
+    "name": "S3 A",
+    "level": "S3",
+    "studentCount": 4
+   }
+  ],
+  "subjects": [
+   {
+    "id": "6b02ff83113b675c8a975b37",
+    "subject": "Biology",
+    "classroomId": "6b02fe55113b675c8a975a9d",
+    "className": "S3 A",
+    "level": "S3",
+    "courseId": "6b02aef50227dd199e0a0b35",
+    "studentCount": 4,
+    "toGrade": 0,
+    "flagged": 2,
+    "lessonsMarked": 3,
+    "syllabusLessons": 6,
+    "coveragePercent": 50,
+    "lastTaughtOn": "2026-11-20T10:00:00.000Z"
+   }
+  ]
+ }
+}

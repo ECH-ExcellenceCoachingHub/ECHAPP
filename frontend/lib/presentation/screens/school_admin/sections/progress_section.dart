@@ -22,17 +22,21 @@ class _ProgressSectionState extends State<ProgressSection> {
   @override
   Widget build(BuildContext context) {
     return Column(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
-        child: SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'flagged', label: T('To review'), icon: Icon(Icons.flag_outlined)),
-            ButtonSegment(value: 'coverage', label: T('Syllabus coverage'), icon: Icon(Icons.stacked_bar_chart)),
-            ButtonSegment(value: 'all', label: T('All lessons'), icon: Icon(Icons.list_alt)),
-          ],
-          selected: {_tab},
-          onSelectionChanged: (v) => setState(() => _tab = v.first),
-        ),
+      // Scrollable chips: fit any phone width (a 3-part toggle did not).
+      SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 0),
+        child: Row(children: [
+          for (final (key, label, icon) in const [
+            ('flagged', 'To review', Icons.flag_outlined),
+            ('coverage', 'Syllabus coverage', Icons.stacked_bar_chart),
+            ('all', 'All lessons', Icons.list_alt),
+          ])
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: PillChoice(icon: icon, label: label, selected: _tab == key, onTap: () => setState(() => _tab = key)),
+            ),
+        ]),
       ),
       Expanded(
         child: KeyedSubtree(
@@ -56,10 +60,11 @@ class _Coverage extends StatelessWidget {
         final classes = SchoolService.list(d['classes']);
         final muted = AppTheme.getSecondaryTextColor(context);
         return SchoolPage(onRefresh: reload, children: [
-          T('Coverage = lessons marked taught ÷ lessons in the linked ECH course. Link a course to each subject (Classes → class → Subjects) to see percentages.', style: TextStyle(fontSize: 12.5, color: muted)),
+          const InfoBanner(icon: Icons.stacked_bar_chart, text: 'Coverage = lessons marked taught ÷ lessons in the linked ECH course. Link a course to each subject (Classes → class → Subjects) to see percentages.'),
           if (classes.isEmpty) const EmptyState(icon: Icons.meeting_room_outlined, title: 'No classes yet'),
           for (final cl in classes)
             SectionCard(
+              icon: Icons.meeting_room_outlined,
               title: '${cl['name']}',
               child: SchoolService.list(cl['subjects']).isEmpty
                   ? T('No subjects assigned', style: TextStyle(color: muted))
@@ -149,7 +154,7 @@ class _MarksState extends State<_Marks> {
         final muted = AppTheme.getSecondaryTextColor(context);
         return SchoolPage(onRefresh: reload, children: [
           if (widget.flaggedOnly)
-            T('ECH flags a lesson mark when it was marked in bulk, dated in the future or on a weekend, has no evidence, or when most students say it was not taught.', style: TextStyle(fontSize: 12.5, color: muted)),
+            const InfoBanner(icon: Icons.flag_outlined, tone: Tone.warn, text: 'ECH flags a lesson mark when it was marked in bulk, dated in the future or on a weekend, has no evidence, or when most students say it was not taught.'),
           if (items.isEmpty)
             EmptyState(icon: Icons.task_alt, title: widget.flaggedOnly ? 'Nothing to review' : 'No lessons marked yet')
           else
@@ -157,11 +162,11 @@ class _MarksState extends State<_Marks> {
               SectionCard(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
-                    Expanded(child: T('${m['subject']} · ${m['className']}', style: const TextStyle(fontWeight: FontWeight.w600))),
+                    Expanded(child: T('${m['subject']} · ${m['className']}', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5, color: AppTheme.getTextColor(context)))),
                     StatusPill(_label(m['status'] as String?), tone: _tone(m['status'] as String?)),
                   ]),
                   const SizedBox(height: 4),
-                  T('${m['chapterTitle'] != null ? '${m['chapterTitle']} › ' : ''}${m['topic']}'),
+                  T('${m['chapterTitle'] != null ? '${m['chapterTitle']} › ' : ''}${m['topic']}', style: TextStyle(color: AppTheme.getTextColor(context))),
                   const SizedBox(height: 4),
                   InkWell(
                     onTap: m['teacher'] == null ? null : () => context.push('/school-admin/teachers/${m['teacher']['id']}?school=${widget.c.schoolId}'),
@@ -180,13 +185,23 @@ class _MarksState extends State<_Marks> {
                   ]),
                   if (m['status'] == 'flagged' || m['status'] == 'ok') ...[
                     const SizedBox(height: 10),
-                    Wrap(spacing: 8, children: [
-                      OutlinedButton.icon(onPressed: () => _review(m, 'dismissed'), icon: const Icon(Icons.check), label: const T('It was taught')),
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(foregroundColor: AppTheme.errorColor),
-                        onPressed: () => _review(m, 'confirmed'),
-                        icon: const Icon(Icons.close),
-                        label: const T('Not taught'),
+                    Row(children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12), side: BorderSide(color: AppTheme.successColor.withValues(alpha: 0.6)), foregroundColor: AppTheme.successColor),
+                          onPressed: () => _review(m, 'dismissed'),
+                          icon: const Icon(Icons.check, size: 18),
+                          label: const T('It was taught'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12), side: BorderSide(color: AppTheme.errorColor.withValues(alpha: 0.6)), foregroundColor: AppTheme.errorColor),
+                          onPressed: () => _review(m, 'confirmed'),
+                          icon: const Icon(Icons.close, size: 18),
+                          label: const T('Not taught'),
+                        ),
                       ),
                     ]),
                   ],

@@ -101,7 +101,10 @@ class _AdminSchoolsScreenState extends State<AdminSchoolsScreen> {
       appBar: AppBar(
         title: const Text('Schools'),
         leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => context.canPop() ? context.pop() : context.go('/admin')),
-        actions: [IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh))],
+        actions: [
+          TextButton.icon(onPressed: () => context.push('/admin/school-courses'), icon: const Icon(Icons.menu_book_outlined), label: const Text('Courses for schools')),
+          IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh)),
+        ],
       ),
       floatingActionButton: FloatingActionButton.extended(onPressed: _create, icon: const Icon(Icons.add), label: const Text('New school')),
       body: SchoolPage(

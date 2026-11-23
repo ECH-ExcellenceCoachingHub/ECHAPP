@@ -240,6 +240,8 @@ function assessmentView(a, extra = {}) {
   };
 }
 
+const eexamsStartPath = (examId) => `/student/exam/start/${encodeURIComponent(String(examId))}`;
+
 function submissionView(s) {
   return {
     id: String(s._id),
@@ -253,13 +255,17 @@ function submissionView(s) {
     score: s.score,
     feedback: s.feedback || '',
     gradedAt: s.gradedAt || null,
+    // 'student', 'parent' (handed in from the parent's account) or 'eexams' (exam result).
+    submittedVia: s.submittedVia || 'student',
   };
 }
 
-/** POST /teaching/class-subjects/:id/assessments */
-const createAssessment = wrap(async (req, res) => {
-  const { cs } = await loadClassSubject(req, req.params.id, { teach: true });
-  const b = req.body || {};
+/**
+ * Creates homework / a quiz / an exam for one class subject and tells the
+ * students and their parents. `cs` must have classroomId populated. Used by
+ * the teacher screens and by eexams ("Send to my ECH class").
+ */
+async function createAssessmentFor(teacher, cs, b = {}) {
   const title = String(b.title || '').trim();
   if (!title) throw new HttpError('Give the homework a title.');
   const dueAt = new Date(b.dueAt);
@@ -278,7 +284,7 @@ const createAssessment = wrap(async (req, res) => {
     classroomId: cs.classroomId._id,
     classSubjectId: cs._id,
     subject: cs.subject,
-    teacherId: req.user._id,
+    teacherId: teacher._id,
     termId: await currentTermId(cs.schoolId),
     type,
     title,
@@ -290,7 +296,7 @@ const createAssessment = wrap(async (req, res) => {
     allowLate: b.allowLate !== false,
     coverageId,
     eexamsExamId: b.eexamsExamId ? String(b.eexamsExamId) : null,
-    eexamsPath: b.eexamsExamId ? `/student/exam/start/${encodeURIComponent(String(b.eexamsExamId))}` : null,
+    eexamsPath: b.eexamsExamId ? eexamsStartPath(b.eexamsExamId) : null,
   });
 
   const students = await User.find({ classroomId: cs.classroomId._id, role: 'student', isActive: true }).select('_id guardians').lean();
@@ -298,8 +304,14 @@ const createAssessment = wrap(async (req, res) => {
   const due = dueAt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
   await notifyUsers(students.map((s) => s._id), { title: `${label}: ${cs.subject}`, message: `${title} — due ${due}`, type: 'homework', data: { kind: 'assessment', assessmentId: String(a._id), route: `/school/homework/${a._id}` } });
   await notifyUsers(guardianIds(students), { title: `${label} for your child`, message: `${cs.subject}: ${title} — due ${due}`, type: 'homework', data: { kind: 'assessment', assessmentId: String(a._id) }, push: false });
+  return { assessment: a, notified: students.length };
+}
 
-  ok(res, { assessment: assessmentView(a.toObject(), { notified: students.length }) }, 'Homework sent to the class', 201);
+/** POST /teaching/class-subjects/:id/assessments */
+const createAssessment = wrap(async (req, res) => {
+  const { cs } = await loadClassSubject(req, req.params.id, { teach: true });
+  const { assessment: a, notified } = await createAssessmentFor(req.user, cs, req.body || {});
+  ok(res, { assessment: assessmentView(a.toObject(), { notified }) }, 'Homework sent to the class', 201);
 });
 
 /** GET /teaching/class-subjects/:id/assessments */
@@ -400,6 +412,6 @@ const gradeSubmission = wrap(async (req, res) => {
 
 module.exports = {
   myTeaching, syllabus, markTaught, unmarkTaught,
-  createAssessment, listAssessments, getAssessment, updateAssessment, deleteAssessment, gradeSubmission,
+  createAssessment, createAssessmentFor, eexamsStartPath, listAssessments, getAssessment, updateAssessment, deleteAssessment, gradeSubmission,
   assessmentView, submissionView, coverageView, cleanAttachments,
 };

@@ -1,0 +1,197 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "classSubject": {
+   "id": "6b02ff83113b675c8a975b37",
+   "subject": "Biology",
+   "className": "S3 A",
+   "classroomId": "6b02fe55113b675c8a975a9d",
+   "course": {
+    "id": "6b02aef50227dd199e0a0b35",
+    "title": "Biology S3 (test)"
+   }
+  },
+  "canTeach": true,
+  "chapters": [
+   {
+    "id": "6b02aef50227dd199e0a0b37",
+    "title": "Unit 1: Cell structure",
+    "lessons": [
+     {
+      "id": "6b02aef50227dd199e0a0b39",
+      "title": "Animal and plant cells",
+      "coverage": {
+       "id": "6b030246a1f7f36c29e5e3fb",
+       "topic": "Animal and plant cells",
+       "chapterTitle": "Unit 1: Cell structure",
+       "lessonId": "6b02aef50227dd199e0a0b39",
+       "taughtOn": "2026-11-20T10:00:00.000Z",
+       "notes": "Drew and labelled animal and plant cells; pupils compared them in pairs and copied the notes.",
+       "attachments": [],
+       "status": "dismissed",
+       "flags": [
+        {
+         "code": "BULK_MARKING",
+         "severity": "high",
+         "message": "4 lessons were marked for this class within 15 minutes."
+        },
+        {
+         "code": "TOO_MANY_IN_DAY",
+         "severity": "medium",
+         "message": "4 lessons of this subject marked on the same day."
+        }
+       ],
+       "studentChecks": {
+        "yes": 1,
+        "no": 0
+       },
+       "review": {
+        "at": "2026-11-22T15:07:23.666Z",
+        "note": "Checked the class register and the pupils' notebooks."
+       },
+       "markedAt": "2026-11-22T14:55:02.146Z"
+      }
+     },
+     {
+      "id": "6b02aef50227dd199e0a0b3b",
+      "title": "Cell organelles",
+      "coverage": {
+       "id": "6b03025ca1f7f36c29e5e41f",
+       "topic": "Cell organelles",
+       "chapterTitle": "Unit 1: Cell structure",
+       "lessonId": "6b02aef50227dd199e0a0b3b",
+       "taughtOn": "2026-11-20T10:00:00.000Z",
+       "notes": "",
+       "attachments": [],
+       "status": "flagged",
+       "flags": [
+        {
+         "code": "BULK_MARKING",
+         "severity": "high",
+         "message": "4 lessons were marked for this class within 15 minutes."
+        },
+        {
+         "code": "TOO_MANY_IN_DAY",
+         "severity": "medium",
+         "message": "4 lessons of this subject marked on the same day."
+        },
+        {
+         "code": "NO_EVIDENCE",
+         "severity": "low",
+         "message": "No notes, photo, live class or homework around this date."
+        }
+       ],
+       "studentChecks": {
+        "yes": 0,
+        "no": 0
+       },
+       "review": null,
+       "markedAt": "2026-11-22T14:55:24.199Z"
+      }
+     },
+     {
+      "id": "6b02aef50227dd199e0a0b3d",
+      "title": "Specialised cells",
+      "coverage": {
+       "id": "6b030269a1f7f36c29e5e43d",
+       "topic": "Specialised cells",
+       "chapterTitle": "Unit 1: Cell structure",
+       "lessonId": "6b02aef50227dd199e0a0b3d",
+       "taughtOn": "2026-11-20T10:00:00.000Z",
+       "notes": "",
+       "attachments": [],
+       "status": "flagged",
+       "flags": [
+        {
+         "code": "BULK_MARKING",
+         "severity": "high",
+         "message": "4 lessons were marked for this class within 15 minutes."
+        },
+        {
+         "code": "TOO_MANY_IN_DAY",
+         "severity": "medium",
+         "message": "4 lessons of this subject marked on the same day."
+        },
+        {
+         "code": "NO_EVIDENCE",
+         "severity": "low",
+         "message": "No notes, photo, live class or homework around this date."
+        }
+       ],
+       "studentChecks": {
+        "yes": 0,
+        "no": 0
+       },
+       "review": null,
+       "markedAt": "2026-11-22T14:55:37.135Z"
+      }
+     }
+    ]
+   },
+   {
+    "id": "6b02aef50227dd199e0a0b3f",
+    "title": "Unit 2: Transport in cells",
+    "lessons": [
+     {
+      "id": "6b02aef50227dd199e0a0b41",
+      "title": "Diffusion",
+      "coverage": {
+       "id": "6b030276a1f7f36c29e5e45e",
+       "topic": "Diffusion",
+       "chapterTitle": "Unit 2: Transport in cells",
+       "lessonId": "6b02aef50227dd199e0a0b41",
+       "taughtOn": "2026-11-20T10:00:00.000Z",
+       "notes": "",
+       "attachments": [],
+       "status": "confirmed",
+       "flags": [
+        {
+         "code": "BULK_MARKING",
+         "severity": "high",
+         "message": "4 lessons were marked for this class within 15 minutes."
+        },
+        {
+         "code": "TOO_MANY_IN_DAY",
+         "severity": "medium",
+         "message": "4 lessons of this subject marked on the same day."
+        },
+        {
+         "code": "NO_EVIDENCE",
+         "severity": "low",
+         "message": "No notes, photo, live class or homework around this date."
+        }
+       ],
+       "studentChecks": {
+        "yes": 0,
+        "no": 1
+       },
+       "review": {
+        "at": "2026-11-22T15:07:30.544Z",
+        "note": ""
+       },
+       "markedAt": "2026-11-22T14:55:50.186Z"
+      }
+     },
+     {
+      "id": "6b02aef50227dd199e0a0b43",
+      "title": "Osmosis",
+      "coverage": null
+     },
+     {
+      "id": "6b02aef50227dd199e0a0b45",
+      "title": "Active transport",
+      "coverage": null
+     }
+    ]
+   }
+  ],
+  "otherTopics": [],
+  "summary": {
+   "total": 6,
+   "taught": 3,
+   "percent": 50,
+   "flagged": 2
+  }
+ }
+}

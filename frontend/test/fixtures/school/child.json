@@ -1,0 +1,114 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "student": {
+   "id": "6b030070a1f7f36c29e5e30d",
+   "fullName": "Aline Mukamana",
+   "studentCode": "GSTB260001"
+  },
+  "school": {
+   "id": "6b02fd91113b675c8a975a43",
+   "name": "Groupe Scolaire Test Butare",
+   "logo": null,
+   "hasCourseAccess": true
+  },
+  "classroom": {
+   "id": "6b02fe55113b675c8a975a9d",
+   "name": "S3 A",
+   "level": "S3",
+   "academicYear": "2026",
+   "classTeacher": {
+    "id": "6b02fec7113b675c8a975aec",
+    "fullName": "Jean Bosco Habimana",
+    "phone": "+250788400500"
+   }
+  },
+  "subjects": [
+   {
+    "id": "6b02ff83113b675c8a975b37",
+    "subject": "Biology",
+    "teacher": {
+     "id": "6b02fec7113b675c8a975aec",
+     "fullName": "Jean Bosco Habimana"
+    },
+    "courseId": "6b02aef50227dd199e0a0b35",
+    "lessonsTaught": 3,
+    "syllabusLessons": 6,
+    "coveragePercent": 50,
+    "lastTaughtOn": "2026-11-20T10:00:00.000Z",
+    "averagePercent": 80
+   },
+   {
+    "id": "6b02ff8f113b675c8a975b4c",
+    "subject": "Mathematics",
+    "teacher": {
+     "id": "6b02ff20113b675c8a975b00",
+     "fullName": "Marie Mukamana"
+    },
+    "courseId": null,
+    "lessonsTaught": 0,
+    "syllabusLessons": 0,
+    "coveragePercent": null,
+    "lastTaughtOn": null,
+    "averagePercent": null
+   }
+  ],
+  "courses": [],
+  "todo": [],
+  "recent": [
+   {
+    "id": "6b030295a1f7f36c29e5e494",
+    "classSubjectId": "6b02ff83113b675c8a975b37",
+    "classroomId": "6b02fe55113b675c8a975a9d",
+    "subject": "Biology",
+    "teacher": {
+     "id": "6b02fec7113b675c8a975aec",
+     "fullName": "Jean Bosco Habimana"
+    },
+    "type": "homework",
+    "title": "Draw and label a plant cell",
+    "instructions": "Read pages 12-15. Draw a plant cell in your exercise book, label 6 parts, and upload a clear photo.",
+    "attachments": [],
+    "submissionMode": "photo",
+    "maxScore": 10,
+    "dueAt": "2026-11-24T14:56:10.911Z",
+    "allowLate": true,
+    "eexamsExamId": null,
+    "eexamsPath": null,
+    "status": "published",
+    "createdAt": "2026-11-22T14:56:21.742Z",
+    "state": "graded",
+    "submission": {
+     "id": "6b03030fa1f7f36c29e5e4fe",
+     "assessmentId": "6b030295a1f7f36c29e5e494",
+     "student": {
+      "id": "6b030070a1f7f36c29e5e30d"
+     },
+     "text": "",
+     "attachments": [
+      {
+       "url": "https://d3ofk5ujo941v.cloudfront.net/images/scaled_1000147435-1795359484011-3ce919753506a0c0.jpg",
+       "name": "scaled_1000147435.jpg",
+       "type": "image/jpeg"
+      }
+     ],
+     "submittedAt": "2026-11-22T14:58:23.934Z",
+     "isLate": false,
+     "status": "graded",
+     "score": 8,
+     "feedback": "Good drawing and labels. Add the chloroplast label next time.",
+     "gradedAt": "2026-11-22T14:59:30.830Z",
+     "submittedVia": "student"
+    }
+   }
+  ],
+  "lessonChecks": [],
+  "stats": {
+   "todo": 0,
+   "overdue": 0,
+   "missed": 0,
+   "submitted": 1
+  }
+ }
+}

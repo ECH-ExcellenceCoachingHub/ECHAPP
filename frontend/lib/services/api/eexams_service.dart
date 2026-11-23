@@ -119,14 +119,19 @@ class EexamsService {
       signedIn = false;
       url = Uri.parse('$publicBaseUrl${redirect.startsWith('/') ? redirect : '/'}');
     }
+    await launch(url);
+    return signedIn;
+  }
+
+  /// Opens an eexams URL (e.g. a one-time sign-in link) in a new tab / the browser.
+  Future<void> launch(Uri url) async {
     if (kIsWeb) {
       // New tab; if the browser blocks it (the click → request → open gap), use this tab.
       final opened = await launchUrl(url, webOnlyWindowName: '_blank');
       if (!opened) await launchUrl(url, webOnlyWindowName: '_self');
-      return signedIn;
+      return;
     }
     final opened = await launchUrl(url, mode: LaunchMode.externalApplication);
     if (!opened) throw ApiException('Could not open eexams');
-    return signedIn;
   }
 }

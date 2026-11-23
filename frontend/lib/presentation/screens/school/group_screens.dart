@@ -71,44 +71,57 @@ class GroupTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final unread = (g['unread'] as num?)?.toInt() ?? 0;
     final muted = AppTheme.getSecondaryTextColor(context);
+    final announce = g['announcementsOnly'] == true;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Material(
-        color: AppTheme.getCardColor(context),
-        borderRadius: BorderRadius.circular(12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(12),
-          onTap: () async {
-            await context.push('/school/groups/${g['id']}');
-            onReturn?.call();
-          },
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.6))),
-            child: Row(children: [
-              CircleAvatar(
-                backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
-                child: Icon(g['announcementsOnly'] == true ? Icons.campaign_outlined : Icons.forum_outlined, color: AppTheme.primaryDark),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  T('${g['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                  Text(
-                    [g['className'], g['subject'], '${g['studentCount']} students', if (g['lastMessageAt'] != null) 'last ${relativeDay(g['lastMessageAt'])}']
-                        .where((e) => e != null && '$e'.isNotEmpty).join(' · '),
-                    style: TextStyle(fontSize: 12.5, color: muted),
-                  ),
-                ]),
-              ),
-              if (unread > 0)
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Semantics(
+        container: true,
+        button: true,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(16),
+            onTap: () async {
+              await context.push('/school/groups/${g['id']}');
+              onReturn?.call();
+            },
+            child: Ink(
+              padding: const EdgeInsets.all(14),
+              decoration: cardDecoration(context),
+              child: Row(children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: AppTheme.primary, borderRadius: BorderRadius.circular(20)),
-                  child: T('$unread', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: announce ? const [Color(0xFFF59E0B), Color(0xFFD97706)] : const [AppTheme.primary, AppTheme.primaryDark]),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(announce ? Icons.campaign_outlined : Icons.forum_outlined, color: Colors.white),
                 ),
-              const Icon(Icons.chevron_right),
-            ]),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    T('${g['name']}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: unread > 0 ? FontWeight.w800 : FontWeight.w600, fontSize: 15)),
+                    const SizedBox(height: 2),
+                    Text(
+                      [g['className'], g['subject'], plural(g['studentCount'] as num?, 'student'), if (g['lastMessageAt'] != null) relativeDay(g['lastMessageAt'])]
+                          .where((e) => e != null && '$e'.isNotEmpty).join(' · '),
+                      maxLines: 2,
+                      style: TextStyle(fontSize: 12.5, color: muted),
+                    ),
+                  ]),
+                ),
+                if (unread > 0)
+                  Container(
+                    margin: const EdgeInsets.only(left: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(color: AppTheme.primary, borderRadius: BorderRadius.circular(20)),
+                    child: Text('$unread', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+                  )
+                else
+                  Icon(Icons.chevron_right, color: muted),
+              ]),
+            ),
           ),
         ),
       ),
@@ -116,7 +129,6 @@ class GroupTile extends StatelessWidget {
   }
 }
 
-/// Teacher: create a group for one of their classes (whole class or chosen students).
 class CreateGroupScreen extends StatefulWidget {
   const CreateGroupScreen({super.key, this.classroomId, this.subject});
   final String? classroomId;
@@ -268,6 +280,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                     title: 'Members',
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       SegmentedButton<bool>(
+                        style: schoolSegmentStyle(context),
                         segments: const [ButtonSegment(value: true, label: T('Whole class')), ButtonSegment(value: false, label: T('Choose students'))],
                         selected: {_wholeClass},
                         onSelectionChanged: (v) => setState(() => _wholeClass = v.first),
@@ -497,8 +510,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           SafeArea(
             top: false,
             child: Container(
-              color: AppTheme.getCardColor(context),
-              padding: const EdgeInsets.fromLTRB(8, 6, 8, 8),
+              decoration: BoxDecoration(
+                color: AppTheme.getCardColor(context),
+                border: Border(top: BorderSide(color: AppTheme.getBorderColor(context).withValues(alpha: 0.5))),
+              ),
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
               child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                 if (_replyTo != null)
                   Row(children: [
@@ -527,12 +543,27 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                       minLines: 1,
                       maxLines: 5,
                       textCapitalization: TextCapitalization.sentences,
-                      decoration: InputDecoration(hintText: trSchool(context, 'Write a message'), isDense: true),
+                      decoration: InputDecoration(
+                        hintText: trSchool(context, 'Write a message'),
+                        isDense: true,
+                        filled: true,
+                        fillColor: AppTheme.getBackgroundColor(context),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: AppTheme.primary.withValues(alpha: 0.5))),
+                      ),
                       onSubmitted: (_) => _send(),
                     ),
                     ),
                   ),
-                  IconButton(onPressed: _sending ? null : _send, icon: const Icon(Icons.send), color: AppTheme.primary),
+                  const SizedBox(width: 6),
+                  IconButton.filled(
+                    tooltip: trSchool(context, 'Send'),
+                    style: IconButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white, fixedSize: const Size(46, 46)),
+                    onPressed: _sending ? null : _send,
+                    icon: _sending ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Icon(Icons.send_rounded, size: 20),
+                  ),
                 ]),
               ]),
             ),
@@ -558,48 +589,70 @@ class _Bubble extends StatelessWidget {
     final mine = m['mine'] == true;
     final staff = ['instructor', 'school_admin', 'admin'].contains(m['author']?['role']);
     final muted = AppTheme.getSecondaryTextColor(context);
-    final bg = mine ? AppTheme.primary.withValues(alpha: 0.14) : AppTheme.getCardColor(context);
+    final fg = mine ? Colors.white : AppTheme.getTextColor(context);
+    final sub = mine ? Colors.white.withValues(alpha: 0.8) : muted;
+    final width = MediaQuery.sizeOf(context).width;
+    const r = Radius.circular(18);
+    const tail = Radius.circular(5);
+    final bubble = Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.fromLTRB(13, 9, 13, 7),
+      decoration: BoxDecoration(
+        color: mine ? AppTheme.primary : AppTheme.getCardColor(context),
+        borderRadius: BorderRadius.only(topLeft: r, topRight: r, bottomLeft: mine ? r : tail, bottomRight: mine ? tail : r),
+        border: mine ? null : Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.5)),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        if (!mine)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Flexible(child: T('${m['author']?['fullName'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: staff ? AppTheme.primaryDark : AppTheme.getTextColor(context)))),
+              if (staff) const Padding(padding: EdgeInsets.only(left: 6), child: StatusPill('Teacher', tone: Tone.good)),
+            ]),
+          ),
+        if (replyTo != null)
+          Container(
+            margin: const EdgeInsets.only(top: 2, bottom: 6),
+            padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+            decoration: BoxDecoration(
+              color: mine ? Colors.white.withValues(alpha: 0.16) : AppTheme.getBackgroundColor(context),
+              borderRadius: BorderRadius.circular(8),
+              border: Border(left: BorderSide(color: mine ? Colors.white : AppTheme.primary, width: 3)),
+            ),
+            child: T('${replyTo!['author']?['fullName'] ?? ''}: ${replyTo!['text']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: sub)),
+          ),
+        if (m['deleted'] == true)
+          T('Message deleted', style: TextStyle(fontStyle: FontStyle.italic, color: sub))
+        else ...[
+          if ('${m['text']}'.isNotEmpty) SelectableText('${m['text']}', style: TextStyle(color: fg, height: 1.35, fontSize: 14.5)),
+          if ((m['attachments'] as List?)?.isNotEmpty == true) Padding(padding: const EdgeInsets.only(top: 6), child: AttachmentStrip(items: SchoolService.list(m['attachments']), size: 120)),
+        ],
+        const SizedBox(height: 3),
+        Align(
+          alignment: Alignment.centerRight,
+          widthFactor: 1,
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            if (m['pinned'] == true) Padding(padding: const EdgeInsets.only(right: 4), child: Icon(Icons.push_pin, size: 12, color: mine ? Colors.white : AppTheme.warningColor)),
+            Text(fmtDateTime(m['createdAt']).split(', ').last, style: TextStyle(fontSize: 10.5, color: sub)),
+          ]),
+        ),
+      ]),
+    );
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
         onLongPress: onLongPress,
         onSecondaryTap: onLongPress,
         child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.78 > 560 ? 560 : MediaQuery.of(context).size.width * 0.78),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: mine ? 0 : 0.5)),
-            ),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              if (!mine)
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  T('${m['author']?['fullName'] ?? ''}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: staff ? AppTheme.primaryDark : AppTheme.getTextColor(context))),
-                  if (staff) const Padding(padding: EdgeInsets.only(left: 6), child: StatusPill('Teacher', tone: Tone.good)),
+          constraints: BoxConstraints(maxWidth: width * 0.8 > 560 ? 560 : width * 0.8),
+          child: mine
+              ? bubble
+              : Row(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+                  Padding(padding: const EdgeInsets.only(bottom: 8, right: 6), child: InitialsAvatar('${m['author']?['fullName'] ?? ''}', radius: 14, tone: staff ? Tone.good : Tone.info)),
+                  Flexible(child: bubble),
                 ]),
-              if (replyTo != null)
-                Container(
-                  margin: const EdgeInsets.only(top: 4, bottom: 4),
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(color: AppTheme.getBorderColor(context).withValues(alpha: 0.25), borderRadius: BorderRadius.circular(8)),
-                  child: T('${replyTo!['author']?['fullName'] ?? ''}: ${replyTo!['text']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: muted)),
-                ),
-              if (m['deleted'] == true)
-                T('Message deleted', style: TextStyle(fontStyle: FontStyle.italic, color: muted))
-              else ...[
-                if ('${m['text']}'.isNotEmpty) SelectableText('${m['text']}'),
-                if ((m['attachments'] as List?)?.isNotEmpty == true) Padding(padding: const EdgeInsets.only(top: 6), child: AttachmentStrip(items: SchoolService.list(m['attachments']), size: 120)),
-              ],
-              const SizedBox(height: 2),
-              Row(mainAxisSize: MainAxisSize.min, children: [
-                if (m['pinned'] == true) const Padding(padding: EdgeInsets.only(right: 4), child: Icon(Icons.push_pin, size: 12, color: AppTheme.warningColor)),
-                Text(fmtDateTime(m['createdAt']), style: TextStyle(fontSize: 10.5, color: muted)),
-              ]),
-            ]),
-          ),
         ),
       ),
     );

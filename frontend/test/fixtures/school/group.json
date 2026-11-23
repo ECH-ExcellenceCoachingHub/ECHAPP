@@ -1,0 +1,50 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "group": {
+   "id": "6b03082aa1f7f36c29e5e976",
+   "name": "S3 A Biology questions",
+   "description": "Ask questions about our Biology lessons and homework.",
+   "subject": null,
+   "classroomId": "6b02fe55113b675c8a975a9d",
+   "className": "S3 A",
+   "wholeClass": true,
+   "announcementsOnly": false,
+   "studentCount": 4,
+   "unread": 0,
+   "lastMessageAt": "2026-11-22T15:21:39.235Z",
+   "isTeacher": false,
+   "createdAt": "2026-11-22T15:20:10.684Z",
+   "teachers": [
+    {
+     "id": "6b02fec7113b675c8a975aec",
+     "fullName": "Jean Bosco Habimana"
+    }
+   ],
+   "students": [
+    {
+     "id": "6b030070a1f7f36c29e5e30d",
+     "fullName": "Aline Mukamana",
+     "studentCode": "GSTB260001"
+    },
+    {
+     "id": "6b0300c7a1f7f36c29e5e337",
+     "fullName": "Eric Habimana",
+     "studentCode": "GSTB260002"
+    },
+    {
+     "id": "6b0300c7a1f7f36c29e5e342",
+     "fullName": "Grace Uwera",
+     "studentCode": "GSTB260003"
+    },
+    {
+     "id": "6b0300c7a1f7f36c29e5e34c",
+     "fullName": "Kevin Mugisha",
+     "studentCode": "GSTB260004"
+    }
+   ],
+   "studentIds": []
+  }
+ }
+}

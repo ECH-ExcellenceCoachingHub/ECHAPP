@@ -1,0 +1,59 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "classes": [
+   {
+    "id": "6b02fe6f113b675c8a975ab6",
+    "name": "P2 A",
+    "subjects": []
+   },
+   {
+    "id": "6b02fe55113b675c8a975a9d",
+    "name": "S3 A",
+    "subjects": [
+     {
+      "id": "6b02ff83113b675c8a975b37",
+      "subject": "Biology",
+      "teacher": {
+       "id": "6b02fec7113b675c8a975aec",
+       "fullName": "Jean Bosco Habimana"
+      },
+      "lessonsMarked": 3,
+      "flagged": 2,
+      "confirmedNotTaught": 1,
+      "syllabusLessons": 6,
+      "coveragePercent": 50,
+      "lastTaughtOn": "2026-11-20T10:00:00.000Z",
+      "daysSinceLastLesson": 2
+     },
+     {
+      "id": "6b02ff8f113b675c8a975b4c",
+      "subject": "Mathematics",
+      "teacher": {
+       "id": "6b02ff20113b675c8a975b00",
+       "fullName": "Marie Mukamana"
+      },
+      "lessonsMarked": 0,
+      "flagged": 0,
+      "confirmedNotTaught": 0,
+      "syllabusLessons": 0,
+      "coveragePercent": null,
+      "lastTaughtOn": null,
+      "daysSinceLastLesson": null
+     }
+    ]
+   },
+   {
+    "id": "6b02fe55113b675c8a975aa0",
+    "name": "S3 B",
+    "subjects": []
+   },
+   {
+    "id": "6b02fe65113b675c8a975aab",
+    "name": "S5 MPC A",
+    "subjects": []
+   }
+  ]
+ }
+}

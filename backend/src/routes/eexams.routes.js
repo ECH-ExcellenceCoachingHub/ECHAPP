@@ -34,4 +34,10 @@ router.get('/me', protect, c.me);
 router.post('/sso/exchange', serviceLimiter, c.exchange);
 router.post('/events', serviceLimiter, c.events);
 
+// eexams teacher → their ECH school classes ("Send to my ECH class")
+const bridge = require('../controllers/school/eexamsBridge.controller');
+router.get('/school/classes', serviceLimiter, bridge.classes);
+router.get('/school/assignments', serviceLimiter, bridge.assignments);
+router.post('/school/assign', serviceLimiter, bridge.assign);
+
 module.exports = router;

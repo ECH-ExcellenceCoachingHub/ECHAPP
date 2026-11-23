@@ -1,0 +1,125 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "signIns": [
+   {
+    "id": "6b03fd2d4228c2bfd758e078",
+    "user": {
+     "id": "6b030070a1f7f36c29e5e30d",
+     "fullName": "Aline Mukamana",
+     "role": "student",
+     "studentCode": "GSTB260001"
+    },
+    "identifier": "GSTB260001",
+    "at": "2026-11-23T08:45:33.404Z",
+    "success": false,
+    "reason": "access_code_required",
+    "method": "code_pin",
+    "ip": "127.0.0.1",
+    "deviceId": null,
+    "userAgent": "curl/8.16.0",
+    "suspicious": false,
+    "suspiciousReason": null
+   },
+   {
+    "id": "6b030765a1f7f36c29e5e87d",
+    "user": {
+     "id": "6b030070a1f7f36c29e5e30d",
+     "fullName": "Aline Mukamana",
+     "role": "student",
+     "studentCode": "GSTB260001"
+    },
+    "identifier": "GSTB260001",
+    "at": "2026-11-22T15:16:53.316Z",
+    "success": true,
+    "reason": null,
+    "method": "code_pin",
+    "ip": "127.0.0.1",
+    "deviceId": "d6a46d…",
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/157.0.0.0 Safari/537.36",
+    "suspicious": false,
+    "suspiciousReason": null
+   },
+   {
+    "id": "6b03072ca1f7f36c29e5e834",
+    "user": {
+     "id": "6b030070a1f7f36c29e5e30d",
+     "fullName": "Aline Mukamana",
+     "role": "student",
+     "studentCode": "GSTB260001"
+    },
+    "identifier": "GSTB260001",
+    "at": "2026-11-22T15:15:56.668Z",
+    "success": true,
+    "reason": null,
+    "method": "code_pin",
+    "ip": "127.0.0.1",
+    "deviceId": "dd208d…",
+    "userAgent": "Dart/3.10 (dart:io)",
+    "suspicious": false,
+    "suspiciousReason": null
+   },
+   {
+    "id": "6b0306b0a1f7f36c29e5e7a4",
+    "user": {
+     "id": "6b030070a1f7f36c29e5e30d",
+     "fullName": "Aline Mukamana",
+     "role": "student",
+     "studentCode": "GSTB260001"
+    },
+    "identifier": "GSTB260001",
+    "at": "2026-11-22T15:13:52.422Z",
+    "success": false,
+    "reason": "access_code_required",
+    "method": "code_pin",
+    "ip": "127.0.0.1",
+    "deviceId": "dd208d…",
+    "userAgent": "Dart/3.10 (dart:io)",
+    "suspicious": false,
+    "suspiciousReason": null
+   },
+   {
+    "id": "6b030663a1f7f36c29e5e76a",
+    "user": {
+     "id": "6b030602a1f7f36c29e5e723",
+     "fullName": "Keza Uwase",
+     "role": "student",
+     "studentCode": "GSTB260005"
+    },
+    "identifier": "GSTB260005",
+    "at": "2026-11-22T15:12:35.441Z",
+    "success": true,
+    "reason": null,
+    "method": "class_code",
+    "ip": "127.0.0.1",
+    "deviceId": "dd208d…",
+    "userAgent": "Dart/3.10 (dart:io)",
+    "suspicious": false,
+    "suspiciousReason": null
+   },
+   {
+    "id": "6b030166a1f7f36c29e5e37b",
+    "user": {
+     "id": "6b030070a1f7f36c29e5e30d",
+     "fullName": "Aline Mukamana",
+     "role": "student",
+     "studentCode": "GSTB260001"
+    },
+    "identifier": "GSTB260001",
+    "at": "2026-11-22T14:51:18.150Z",
+    "success": true,
+    "reason": null,
+    "method": "code_pin",
+    "ip": "127.0.0.1",
+    "deviceId": "dd208d…",
+    "userAgent": "Dart/3.10 (dart:io)",
+    "suspicious": false,
+    "suspiciousReason": null
+   }
+  ],
+  "total": 6,
+  "currentPage": 1,
+  "totalPages": 1
+ }
+}

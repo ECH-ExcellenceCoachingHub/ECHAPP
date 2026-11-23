@@ -14,6 +14,11 @@ const submissionSchema = new mongoose.Schema({
   feedback: { type: String, trim: true, maxlength: 2000 },
   gradedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   gradedAt: Date,
+  // Who handed it in: the student, a parent from their own account (school-only
+  // schools: homework done at home), or an eexams exam result.
+  submittedVia: { type: String, enum: ['student', 'parent', 'eexams'], default: 'student' },
+  submittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  percentage: { type: Number, default: null },
 }, { timestamps: true });
 
 submissionSchema.index({ assessmentId: 1, studentId: 1 }, { unique: true });

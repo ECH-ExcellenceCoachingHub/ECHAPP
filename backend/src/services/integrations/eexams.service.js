@@ -15,6 +15,8 @@ const User = require('../../models/User');
 const EexamsSsoCode = require('../../models/EexamsSsoCode');
 const ExternalExamResult = require('../../models/ExternalExamResult');
 const Notification = require('../../models/Notification');
+const Assessment = require('../../models/Assessment');
+const AssessmentSubmission = require('../../models/AssessmentSubmission');
 
 const CODE_TTL_MS = 60 * 1000;
 const WEBHOOK_MAX_SKEW_MS = 5 * 60 * 1000;
@@ -171,7 +173,43 @@ async function handleExamResult(data) {
       console.warn('[eexams] result notification failed:', e.message);
     }
   }
+  await recordOnSchoolHomework(user._id, update).catch((e) => console.warn('[eexams] homework mark not saved:', e.message));
   return { ok: true, created: isNew };
+}
+
+/**
+ * A school student's eexams result becomes the mark of the class exam that
+ * links that eexams exam, so teachers, the student and parents see it in ECH.
+ * A mark the teacher typed by hand is never overwritten.
+ */
+async function recordOnSchoolHomework(userId, result) {
+  if (!result.externalExamId) return;
+  const student = await User.findById(userId).select('role schoolId classroomId').lean();
+  if (!student || student.role !== 'student' || !student.classroomId) return;
+  const list = await Assessment.find({ classroomId: student.classroomId, eexamsExamId: result.externalExamId }).lean();
+  for (const a of list) {
+    const existing = await AssessmentSubmission.findOne({ assessmentId: a._id, studentId: userId }).lean();
+    if (existing && existing.status === 'graded' && existing.submittedVia !== 'eexams') continue;
+    const max = a.maxScore > 0 ? a.maxScore : 100;
+    await AssessmentSubmission.updateOne(
+      { assessmentId: a._id, studentId: userId },
+      {
+        $set: {
+          schoolId: a.schoolId,
+          classroomId: a.classroomId,
+          status: 'graded',
+          score: Math.round((result.percentage / 100) * max * 10) / 10,
+          percentage: result.percentage,
+          submittedVia: 'eexams',
+          submittedAt: result.completedAt || new Date(),
+          isLate: !!(result.completedAt && a.dueAt && new Date(result.completedAt) > new Date(a.dueAt)),
+          gradedAt: new Date(),
+          feedback: result.passed === true ? 'Passed on eexams' : result.passed === false ? 'Not passed yet on eexams' : '',
+        },
+      },
+      { upsert: true },
+    );
+  }
 }
 
 async function handleEvent(event) {

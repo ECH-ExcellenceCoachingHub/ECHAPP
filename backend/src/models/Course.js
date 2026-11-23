@@ -100,6 +100,14 @@ const courseSchema = new mongoose.Schema({
   },
   // Teacher's guide sold to teachers (separate from the student price).
   // Content lives in the CourseBuildItems of `buildJobId` (purpose 'teacher_guide').
+  // Free for school students of these class levels while their school's term
+  // is paid (set by the super admin). A course a class subject uses as its
+  // syllabus is also free for that class.
+  schoolAccess: {
+    enabled: { type: Boolean, default: false },
+    levels: [{ type: String, trim: true, uppercase: true, maxlength: 20 }], // N1…P6, S1…S6, L3…L5
+    subject: { type: String, trim: true, maxlength: 80, default: '' },
+  },
   teacherGuide: {
     enabled: { type: Boolean, default: false },
     price: { type: Number, default: 0, min: 0 },
@@ -120,5 +128,6 @@ courseSchema.index({ price: 1 });
 courseSchema.index({ isPublished: 1 });
 courseSchema.index({ assignedTeacherIds: 1 });
 courseSchema.index({ 'teacherGuide.enabled': 1 });
+courseSchema.index({ 'schoolAccess.enabled': 1, 'schoolAccess.levels': 1 });
 
 module.exports = mongoose.model('Course', courseSchema);

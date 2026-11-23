@@ -73,43 +73,73 @@ class _ClassCodeScreenState extends State<ClassCodeScreen> {
               final code = '${d['code']}';
               final shown = '${code.substring(0, 3)} ${code.substring(3)}';
               final signIns = SchoolService.list(d['signIns']);
+              final exp = parseDate(d['expiresAt']);
+              final total = ((d['codeMinutes'] as num?) ?? 60) * 60;
+              final left = exp == null ? 0 : exp.difference(DateTime.now()).inSeconds.clamp(0, total);
               return SchoolPage(onRefresh: _load, maxWidth: 900, children: [
                 if (d['mode'] == 'anywhere')
-                  const SectionCard(
-                    child: T('Your school currently lets students sign in from anywhere, so this code is not needed. The school admin can change this in Student sign-in.'),
+                  const InfoBanner(
+                    tone: Tone.warn,
+                    icon: Icons.info_outline,
+                    text: 'Your school currently lets students sign in from anywhere, so this code is not needed. The school admin can change this in Student sign-in.',
                   ),
-                SectionCard(
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: big ? 36 : 26),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(24),
+                    gradient: const LinearGradient(colors: [AppTheme.primary, AppTheme.primaryDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                    boxShadow: [BoxShadow(color: AppTheme.primaryDark.withValues(alpha: 0.3), blurRadius: 24, offset: const Offset(0, 10))],
+                  ),
                   child: Column(children: [
-                    Text(d['scope'] == 'class' ? 'Students of ${d['className']} sign in with' : 'Any student of the school signs in with', style: TextStyle(color: muted, fontSize: big ? 18 : 14)),
-                    const SizedBox(height: 4),
+                    HeroChip(d['scope'] == 'class' ? '${d['className']}' : '${d['schoolName']}', icon: d['scope'] == 'class' ? Icons.meeting_room_outlined : Icons.apartment_rounded),
+                    const SizedBox(height: 14),
                     Text(
-                      d['pinless'] == true ? 'this code, then tap their name' : 'student code + PIN + this code',
-                      style: TextStyle(color: muted, fontSize: big ? 18 : 14),
+                      trSchool(context, d['pinless'] == true ? 'Type this code, then tap your name' : 'Student code + PIN + this code'),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: big ? 20 : 15),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 14),
                     FittedBox(
                       child: SelectableText(
                         shown,
-                        style: TextStyle(fontSize: big ? 120 : 72, fontWeight: FontWeight.w800, letterSpacing: 6, fontFamily: 'monospace', color: AppTheme.getTextColor(context)),
+                        style: TextStyle(fontSize: big ? 128 : 76, fontWeight: FontWeight.w800, letterSpacing: 8, fontFamily: 'monospace', color: Colors.white, height: 1.1),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    StatusPill(_left(), tone: Tone.info, icon: Icons.timer_outlined),
-                    const SizedBox(height: 12),
-                    T('The code changes every ${d['codeMinutes']} minutes. Do not share it outside the classroom.', textAlign: TextAlign.center, style: TextStyle(color: muted)),
+                    const SizedBox(height: 16),
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          value: total == 0 ? 0 : left / total,
+                          strokeWidth: 3,
+                          color: Colors.white,
+                          backgroundColor: Colors.white.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(trSchool(context, _left()), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    ]),
                   ]),
                 ),
+                T('The code changes every ${d['codeMinutes']} minutes. Do not share it outside the classroom.', textAlign: TextAlign.center, style: TextStyle(color: muted)),
                 SectionCard(
+                  icon: Icons.how_to_reg_outlined,
+                  tone: Tone.good,
                   title: 'Signed in with this code today (${signIns.length})',
                   subtitle: 'Check that everyone here is really in the room.',
                   child: signIns.isEmpty
                       ? T('Nobody yet.', style: TextStyle(color: muted))
-                      : Wrap(spacing: 8, runSpacing: 8, children: [
-                          for (final p in signIns)
-                            Chip(
-                              avatar: const Icon(Icons.check_circle, size: 18, color: AppTheme.successColor),
-                              label: T('${p['fullName']} · ${fmtDateTime(p['at']).split(', ').last}'),
+                      : Column(children: [
+                          for (var i = 0; i < signIns.length; i++) ...[
+                            if (i > 0) const RowDivider(),
+                            EntityTile(
+                              dense: true,
+                              leading: InitialsAvatar('${signIns[i]['fullName']}', radius: 17, tone: Tone.good),
+                              title: '${signIns[i]['fullName']}',
+                              trailing: Text(fmtDateTime(signIns[i]['at']).split(', ').last, style: TextStyle(color: muted, fontSize: 12.5)),
                             ),
+                          ],
                         ]),
                 ),
               ]);

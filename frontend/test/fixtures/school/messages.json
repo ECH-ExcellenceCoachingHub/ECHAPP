@@ -1,0 +1,27 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "messages": [
+   {
+    "id": "6b030883a1f7f36c29e5e9e2",
+    "author": {
+     "id": "6b030070a1f7f36c29e5e30d",
+     "fullName": "Aline Mukamana",
+     "role": "student"
+    },
+    "text": "Do we need to colour the chloroplasts in the drawing?",
+    "attachments": [],
+    "replyTo": null,
+    "pinned": false,
+    "deleted": false,
+    "mine": true,
+    "canDelete": true,
+    "createdAt": "2026-11-22T15:21:39.235Z"
+   }
+  ],
+  "pinned": [],
+  "hasMore": false,
+  "canPost": true
+ }
+}

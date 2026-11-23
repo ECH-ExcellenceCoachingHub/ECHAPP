@@ -1,0 +1,120 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "school": {
+   "studentAccess": {
+    "mode": "code",
+    "codeMinutes": 60,
+    "dayStartsAt": "06:00",
+    "dayEndsAt": "19:00",
+    "maxSessionHours": 9,
+    "allowedIps": [],
+    "pinlessLevels": [
+     "N1",
+     "N2",
+     "N3",
+     "P1",
+     "P2",
+     "P3"
+    ],
+    "reviewedAt": "2026-11-22T15:10:31.760Z"
+   },
+   "_id": "6b02fd91113b675c8a975a43",
+   "name": "Groupe Scolaire Test Butare",
+   "code": "GSTB",
+   "type": "secondary",
+   "ownership": "private",
+   "levels": [
+    "P2",
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6"
+   ],
+   "combinations": [
+    "MPC"
+   ],
+   "pricePerStudentPerTerm": 3000,
+   "currency": "RWF",
+   "graceDays": 21,
+   "trialStudentLimit": 30,
+   "plan": "premium",
+   "studentLimit": 40,
+   "studentCount": 5,
+   "studentSeq": 5,
+   "isActive": true,
+   "address": {
+    "country": "Rwanda",
+    "province": "Southern",
+    "district": "Huye",
+    "sector": "Ngoma",
+    "cell": "Butare",
+    "village": "Kabutare"
+   },
+   "phone": "0788100200",
+   "email": "info@gstb.example.com",
+   "headTeacherName": "Uwase Claudine",
+   "createdAt": "2026-11-22T14:34:57.751Z",
+   "updatedAt": "2026-11-22T15:10:58.535Z",
+   "__v": 1,
+   "admin": {
+    "_id": "6b02fd93113b675c8a975a46",
+    "fullName": "Uwase Claudine",
+    "email": "headteacher.gstb@example.com",
+    "phone": "+250788300400",
+    "isActive": true
+   },
+   "id": "6b02fd91113b675c8a975a43",
+   "teacherCount": 2,
+   "classCount": 4,
+   "subscription": {
+    "status": "active",
+    "hasAccess": true,
+    "studentLimit": 40,
+    "daysLeft": 25,
+    "graceEndsAt": null,
+    "currentTerm": {
+     "id": "6b02fe2f113b675c8a975a88",
+     "academicYear": "2026",
+     "term": 3,
+     "label": "2026 Term 3",
+     "startDate": "2026-09-06T22:00:00.000Z",
+     "endDate": "2026-12-17T22:00:00.000Z",
+     "billing": {
+      "pricePerStudent": 3000,
+      "studentsPaid": 40,
+      "amount": 120000,
+      "status": "paid",
+      "method": "mobile_money",
+      "notes": "",
+      "paidAt": "2026-11-22T15:09:39.269Z",
+      "recordedBy": "6b02aef5c7873d51265fe80f",
+      "reference": "MOMO-TEST-0001"
+     }
+    },
+    "coveringTerm": {
+     "id": "6b02fe2f113b675c8a975a88",
+     "academicYear": "2026",
+     "term": 3,
+     "label": "2026 Term 3",
+     "startDate": "2026-09-06T22:00:00.000Z",
+     "endDate": "2026-12-17T22:00:00.000Z",
+     "billing": {
+      "pricePerStudent": 3000,
+      "studentsPaid": 40,
+      "amount": 120000,
+      "status": "paid",
+      "method": "mobile_money",
+      "notes": "",
+      "paidAt": "2026-11-22T15:09:39.269Z",
+      "recordedBy": "6b02aef5c7873d51265fe80f",
+      "reference": "MOMO-TEST-0001"
+     }
+    }
+   }
+  }
+ }
+}

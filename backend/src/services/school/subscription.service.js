@@ -61,10 +61,28 @@ async function subscriptionStatus(schoolOrId, now = new Date()) {
 }
 
 /** True when the learner belongs to a school whose subscription currently gives course access. */
-async function hasSchoolCourseAccess(userId) {
+/** True when `course` is one the school offers to `classroom` (marked for its level, or a class syllabus). */
+async function courseFitsClass(course, classroom) {
+  if (!course || !classroom) return false;
+  const sa = course.schoolAccess || {};
+  if (sa.enabled && (sa.levels || []).map((l) => String(l).toUpperCase()).includes(String(classroom.level).toUpperCase())) return true;
+  const ClassSubject = require('../../models/ClassSubject');
+  return !!(await ClassSubject.exists({ classroomId: classroom._id, courseId: course._id, isActive: true }));
+}
+
+/**
+ * A school student gets `course` free while the school's term is paid (or in
+ * grace), but only courses meant for their class: the ones the super admin
+ * marked for their level and the syllabus courses of their class subjects.
+ */
+async function hasSchoolCourseAccess(userId, course) {
   try {
-    const user = await User.findById(userId).select('schoolId role isActive').lean();
-    if (!user || !user.schoolId || user.role !== 'student') return false;
+    if (!course) return false;
+    const user = await User.findById(userId).select('schoolId role isActive classroomId').lean();
+    if (!user || !user.schoolId || user.role !== 'student' || !user.classroomId) return false;
+    const Classroom = require('../../models/Classroom');
+    const classroom = await Classroom.findById(user.classroomId).select('_id level').lean();
+    if (!(await courseFitsClass(course, classroom))) return false;
     const school = await School.findById(user.schoolId).lean();
     if (!school) return false;
     return (await subscriptionStatus(school)).hasAccess;
@@ -72,6 +90,18 @@ async function hasSchoolCourseAccess(userId) {
     console.error('hasSchoolCourseAccess failed:', error.message);
     return false;
   }
+}
+
+/** Courses a class gets for free (marked for its level + its syllabus courses), published only. */
+async function coursesForClass(classroom) {
+  if (!classroom) return [];
+  const Course = require('../../models/Course');
+  const ClassSubject = require('../../models/ClassSubject');
+  const syllabusIds = await ClassSubject.find({ classroomId: classroom._id, isActive: true, courseId: { $ne: null } }).distinct('courseId');
+  return Course.find({
+    isPublished: true,
+    $or: [{ 'schoolAccess.enabled': true, 'schoolAccess.levels': String(classroom.level).toUpperCase() }, { _id: { $in: syllabusIds } }],
+  }).select('title description thumbnail level schoolAccess duration durationUnit').sort({ title: 1 }).limit(60).lean();
 }
 
 async function activeStudentCount(schoolId) {
@@ -85,4 +115,4 @@ async function seatsLeft(school) {
   return { left: Math.max(0, sub.studentLimit - used), used, limit: sub.studentLimit, subscription: sub };
 }
 
-module.exports = { subscriptionStatus, hasSchoolCourseAccess, activeStudentCount, seatsLeft };
+module.exports = { subscriptionStatus, hasSchoolCourseAccess, courseFitsClass, coursesForClass, activeStudentCount, seatsLeft };

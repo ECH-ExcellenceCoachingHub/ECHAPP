@@ -1,0 +1,35 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "terms": [
+   {
+    "id": "6b02fe2f113b675c8a975a88",
+    "academicYear": "2026",
+    "term": 3,
+    "label": "2026 Term 3",
+    "startDate": "2026-09-06T22:00:00.000Z",
+    "endDate": "2026-12-17T22:00:00.000Z",
+    "billing": {
+     "pricePerStudent": 3000,
+     "studentsPaid": 40,
+     "amount": 120000,
+     "status": "paid",
+     "method": "mobile_money",
+     "notes": "",
+     "paidAt": "2026-11-22T15:09:39.269Z",
+     "recordedBy": "6b02aef5c7873d51265fe80f",
+     "reference": "MOMO-TEST-0001"
+    }
+   }
+  ],
+  "subscription": {
+   "status": "active",
+   "studentLimit": 40,
+   "daysLeft": 25,
+   "hasAccess": true
+  },
+  "pricePerStudentPerTerm": 3000,
+  "currency": "RWF"
+ }
+}

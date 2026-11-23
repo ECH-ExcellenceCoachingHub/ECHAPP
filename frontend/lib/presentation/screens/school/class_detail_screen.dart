@@ -86,6 +86,9 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
       return Scaffold(appBar: AppBar(title: const T('Class')), body: _error == null ? const Center(child: CircularProgressIndicator()) : ErrorRetry(message: _error!, onRetry: _load));
     }
     final ct = _class['classTeacher'] as Map?;
+    final students = SchoolService.list(_d!['students']);
+    final subjects = SchoolService.list(_d!['subjects']);
+    final narrow = MediaQuery.sizeOf(context).width < 600;
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -93,11 +96,10 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
         appBar: AppBar(
           title: T('${_class['name']}'),
           actions: [
-            TextButton.icon(
-              onPressed: () => context.push('/school/code?classId=${_class['id']}'),
-              icon: const Icon(Icons.pin_outlined),
-              label: const T('Class code'),
-            ),
+            if (narrow)
+              IconButton(tooltip: trSchool(context, 'Class code'), onPressed: () => context.push('/school/code?classId=${_class['id']}'), icon: const Icon(Icons.pin_outlined))
+            else
+              TextButton.icon(onPressed: () => context.push('/school/code?classId=${_class['id']}'), icon: const Icon(Icons.pin_outlined), label: const T('Class code')),
             if (_isAdmin)
               PopupMenuButton<String>(
                 onSelected: (v) async {
@@ -118,28 +120,30 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
                 ],
               ),
           ],
-          bottom: TabBar(tabs: [
-            Tab(text: 'Students (${(_d!['students'] as List).length})'),
-            Tab(text: 'Subjects (${(_d!['subjects'] as List).length})'),
-          ]),
         ),
         body: Column(children: [
+          // Class header: year, size, class teacher (tap to change).
           Container(
             width: double.infinity,
-            color: AppTheme.getCardColor(context),
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-            child: Wrap(spacing: 16, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-              T('Academic year ${_class['academicYear']}', style: TextStyle(color: AppTheme.getSecondaryTextColor(context))),
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+            decoration: const BoxDecoration(gradient: LinearGradient(colors: [AppTheme.primary, AppTheme.primaryDark], begin: Alignment.topLeft, end: Alignment.bottomRight)),
+            child: Wrap(spacing: 8, runSpacing: 8, children: [
+              HeroChip(plural(students.length, 'student'), icon: Icons.groups_outlined),
+              HeroChip(plural(subjects.length, 'subject'), icon: Icons.menu_book_outlined),
+              HeroChip('Year ${_class['academicYear']}', icon: Icons.event_outlined),
               InkWell(
+                borderRadius: BorderRadius.circular(20),
                 onTap: _isAdmin ? _setClassTeacher : null,
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  const Icon(Icons.person_pin_outlined, size: 18),
-                  const SizedBox(width: 4),
-                  Text(ct != null ? 'Class teacher: ${ct['fullName']}' : 'No class teacher', style: const TextStyle(fontWeight: FontWeight.w500)),
-                  if (_isAdmin) const Padding(padding: EdgeInsets.only(left: 4), child: Icon(Icons.edit_outlined, size: 15)),
-                ]),
+                child: HeroChip(ct != null ? '${ct['fullName']}' : 'No class teacher', icon: _isAdmin ? Icons.edit_outlined : Icons.person_pin_outlined),
               ),
-              if (_access['isClassTeacher'] == true) const StatusPill('You are the class teacher', tone: Tone.good),
+              if (_access['isClassTeacher'] == true) const HeroChip('You are the class teacher', icon: Icons.star_outline),
+            ]),
+          ),
+          Material(
+            color: AppTheme.getCardColor(context),
+            child: TabBar(tabs: [
+              Tab(text: trSchool(context, 'Students (${students.length})')),
+              Tab(text: trSchool(context, 'Subjects (${subjects.length})')),
             ]),
           ),
           Expanded(child: TabBarView(children: [_studentsTab(), _subjectsTab()])),
@@ -148,39 +152,52 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
     );
   }
 
+  String _search = '';
+
   Widget _studentsTab() {
-    final students = SchoolService.list(_d!['students']);
+    final all = SchoolService.list(_d!['students']);
+    final q = _search.trim().toLowerCase();
+    final students = q.isEmpty ? all : all.where((s) => '${s['fullName']} ${s['studentCode']}'.toLowerCase().contains(q)).toList();
     return SchoolPage(onRefresh: _load, children: [
       if (_canRoster)
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          FilledButton.icon(onPressed: _addStudent, icon: const Icon(Icons.person_add_alt_1_outlined), label: const T('Register student')),
-          OutlinedButton.icon(onPressed: _addExisting, icon: const Icon(Icons.person_search_outlined), label: const T('Add existing student')),
-          OutlinedButton.icon(onPressed: _import, icon: const Icon(Icons.playlist_add_outlined), label: const T('Import a list')),
-          if ((_d!['students'] as List).isNotEmpty)
-            OutlinedButton.icon(
-              onPressed: () => printClassLoginCards(context, _svc, classId: '${_class['id']}', className: '${_class['name']}'),
-              icon: const Icon(Icons.badge_outlined),
-              label: const T('Print login cards'),
-            ),
-        ])
+        ActionBar(
+          primary: BarAction('Register student', Icons.person_add_alt_1_outlined, _addStudent),
+          more: [
+            BarAction('Add existing student', Icons.person_search_outlined, _addExisting),
+            BarAction('Import a list', Icons.playlist_add_outlined, _import),
+            BarAction('Print login cards', Icons.badge_outlined, all.isEmpty ? null : () => printClassLoginCards(context, _svc, classId: '${_class['id']}', className: '${_class['name']}')),
+          ],
+        )
       else
-        T('Only the class teacher or the school office can add students to this class.', style: TextStyle(color: AppTheme.getSecondaryTextColor(context))),
-      if (students.isEmpty)
-        const EmptyState(icon: Icons.groups_outlined, title: 'No students in this class yet')
+        const InfoBanner(text: 'Only the class teacher or the school office can add students to this class.'),
+      if (all.length > 8)
+        TextField(
+          decoration: InputDecoration(prefixIcon: const Icon(Icons.search), hintText: trSchool(context, 'Search by name or code'), isDense: true),
+          onChanged: (v) => setState(() => _search = v),
+        ),
+      if (all.isEmpty)
+        EmptyState(
+          icon: Icons.groups_outlined,
+          title: 'No students in this class yet',
+          message: _canRoster ? 'Register students one by one, or import the whole class list at once.' : null,
+        )
       else
         SectionCard(
-          padding: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
           child: Column(children: [
-            for (final s in students)
-              ListTile(
-                leading: CircleAvatar(child: Text(initialsOf(s['fullName']))),
-                title: T('${s['fullName']}'),
-                subtitle: Text([
-                  '${s['studentCode'] ?? ''}',
-                  if ((s['guardians'] as List?)?.isNotEmpty == true) 'Parent: ${(s['guardians'] as List).first['name']} ${(s['guardians'] as List).first['phone'] ?? ''}',
-                ].where((e) => e.trim().isNotEmpty).join(' · ')),
-                trailing: _canRoster ? _studentMenu(s) : null,
+            for (var i = 0; i < students.length; i++) ...[
+              if (i > 0) const RowDivider(),
+              EntityTile(
+                leading: InitialsAvatar('${students[i]['fullName']}'),
+                title: '${students[i]['fullName']}',
+                subtitle: '${students[i]['studentCode'] ?? ''}',
+                pills: [
+                  if ((students[i]['guardians'] as List?)?.isNotEmpty == true)
+                    StatusPill('Parent: ${(students[i]['guardians'] as List).first['name'] ?? (students[i]['guardians'] as List).first['phone'] ?? ''}', tone: Tone.neutral, icon: Icons.family_restroom_outlined),
+                ],
+                trailing: _canRoster ? _studentMenu(students[i]) : null,
               ),
+            ],
           ]),
         ),
     ]);
@@ -234,78 +251,84 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
         ],
       );
 
+  Future<void> _addSubject(List<Map<String, dynamic>> subjects) async {
+    final name = await pickSubjectName(context, exclude: subjects.map((s) => '${s['subject']}').toList());
+    if (name == null || name.isEmpty || !mounted) return;
+    final t = await pickTeacher(context, _svc, _schoolId, title: 'Who teaches $name in ${_class['name']}?');
+    try {
+      await _svc.addSubjects('${_class['id']}', [{'subject': name, if (t?['id'] != null) 'teacherId': t!['id']}]);
+      _load();
+    } catch (e) {
+      if (mounted) showSnack(context, e.toString(), error: true);
+    }
+  }
+
   Widget _subjectsTab() {
     final subjects = SchoolService.list(_d!['subjects']);
     final mine = ((_access['mySubjects'] as List?) ?? const []).map((e) => '$e').toSet();
     return SchoolPage(onRefresh: _load, children: [
-      if (_isAdmin)
-        Align(
-          alignment: Alignment.centerLeft,
-          child: FilledButton.icon(
-            icon: const Icon(Icons.add),
-            label: const T('Add subject'),
-            onPressed: () async {
-              final name = await pickSubjectName(context, exclude: subjects.map((s) => '${s['subject']}').toList());
-              if (name == null || name.isEmpty || !mounted) return;
-              final t = await pickTeacher(context, _svc, _schoolId, title: 'Who teaches $name in ${_class['name']}?');
-              try {
-                await _svc.addSubjects('${_class['id']}', [{'subject': name, if (t?['id'] != null) 'teacherId': t!['id']}]);
-                _load();
-              } catch (e) {
-                if (mounted) showSnack(context, e.toString(), error: true);
-              }
-            },
-          ),
-        ),
+      if (_isAdmin) ActionBar(primary: BarAction('Add subject', Icons.add, () => _addSubject(subjects))),
       if (subjects.isEmpty)
         const EmptyState(icon: Icons.menu_book_outlined, title: 'No subjects yet', message: 'Add the subjects taught in this class and who teaches each one.')
       else
         SectionCard(
-          padding: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
           child: Column(children: [
-            for (final s in subjects)
-              ListTile(
-                leading: const Icon(Icons.menu_book_outlined),
-                title: T('${s['subject']}'),
-                subtitle: Text([
-                  s['teacher'] != null ? '${s['teacher']['fullName']}' : 'No teacher assigned',
-                  if (s['course'] != null) 'Syllabus: ${s['course']['title']}',
-                ].join(' · ')),
-                trailing: _isAdmin
-                    ? PopupMenuButton<String>(
-                        onSelected: (v) async {
-                          try {
-                            if (v == 'teacher') {
-                              final t = await pickTeacher(context, _svc, _schoolId, title: '${s['subject']} teacher');
-                              if (t == null) return;
-                              await _svc.updateSubject('${s['id']}', {'teacherId': t['id']});
-                            } else if (v == 'course') {
-                              final c = await pickCourse(context, _svc);
-                              if (c == null) return;
-                              await _svc.updateSubject('${s['id']}', {'courseId': c['id'] ?? c['_id']});
-                            } else if (v == 'remove') {
-                              if (!await confirm(context, title: 'Remove ${s['subject']}?', message: 'Lessons and homework already recorded are kept.', confirmLabel: 'Remove', destructive: true)) return;
-                              await _svc.removeSubject('${s['id']}');
-                            }
-                            _load();
-                          } catch (e) {
-                            if (mounted) showSnack(context, e.toString(), error: true);
-                          }
-                        },
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(value: 'teacher', child: T('Change teacher')),
-                          PopupMenuItem(value: 'course', child: T('Link ECH course (syllabus)')),
-                          PopupMenuItem(value: 'remove', child: T('Remove subject')),
-                        ],
-                      )
-                    : mine.contains('${s['id']}')
-                        ? const Icon(Icons.chevron_right)
-                        : null,
-                onTap: mine.contains('${s['id']}') ? () => context.push('/teacher/class-subject/${s['id']}') : null,
-              ),
+            for (var i = 0; i < subjects.length; i++) ...[
+              if (i > 0) const RowDivider(),
+              _subjectRow(subjects[i], mine),
+            ],
           ]),
         ),
     ]);
+  }
+
+  Widget _subjectRow(Map<String, dynamic> s, Set<String> mine) {
+    final isMine = mine.contains('${s['id']}');
+    return EntityTile(
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(color: AppTheme.primary.withValues(alpha: 0.10), borderRadius: BorderRadius.circular(11)),
+        child: const Icon(Icons.menu_book_outlined, color: AppTheme.primary, size: 21),
+      ),
+      title: '${s['subject']}',
+      subtitle: s['teacher'] != null ? '${s['teacher']['fullName']}' : null,
+      pills: [
+        if (s['teacher'] == null) const StatusPill('No teacher assigned', tone: Tone.warn),
+        if (s['course'] != null) StatusPill('Syllabus: ${s['course']['title']}', tone: Tone.info, icon: Icons.link),
+        if (isMine) const StatusPill('You teach this', tone: Tone.good),
+      ],
+      trailing: _isAdmin
+          ? PopupMenuButton<String>(
+              onSelected: (v) async {
+                try {
+                  if (v == 'teacher') {
+                    final t = await pickTeacher(context, _svc, _schoolId, title: '${s['subject']} teacher');
+                    if (t == null) return;
+                    await _svc.updateSubject('${s['id']}', {'teacherId': t['id']});
+                  } else if (v == 'course') {
+                    final c = await pickCourse(context, _svc);
+                    if (c == null) return;
+                    await _svc.updateSubject('${s['id']}', {'courseId': c['id'] ?? c['_id']});
+                  } else if (v == 'remove') {
+                    if (!await confirm(context, title: 'Remove ${s['subject']}?', message: 'Lessons and homework already recorded are kept.', confirmLabel: 'Remove', destructive: true)) return;
+                    await _svc.removeSubject('${s['id']}');
+                  }
+                  _load();
+                } catch (e) {
+                  if (mounted) showSnack(context, e.toString(), error: true);
+                }
+              },
+              itemBuilder: (_) => const [
+                PopupMenuItem(value: 'teacher', child: T('Change teacher')),
+                PopupMenuItem(value: 'course', child: T('Link ECH course (syllabus)')),
+                PopupMenuItem(value: 'remove', child: T('Remove subject')),
+              ],
+            )
+          : null,
+      onTap: isMine ? () => context.push('/teacher/class-subject/${s['id']}') : null,
+    );
   }
 }
 

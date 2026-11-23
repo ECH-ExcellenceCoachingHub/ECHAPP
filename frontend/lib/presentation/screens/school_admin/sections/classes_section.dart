@@ -35,25 +35,25 @@ class _ClassesSectionState extends State<ClassesSection> {
           byLevel.putIfAbsent('${cl['level']}', () => []).add(cl);
         }
         final levels = byLevel.keys.toList()..sort((a, b) => _levelOrder(a).compareTo(_levelOrder(b)));
+        final studentTotal = classes.fold<int>(0, (n, c) => n + ((c['studentCount'] as num?)?.toInt() ?? 0));
+        final needTeachers = classes.where((c) => SchoolService.list(c['subjects']).any((s) => s['teacherId'] == null) || c['classTeacher'] == null).length;
+        Future<void> promote() async {
+          final done = await context.push<bool>('/school-admin/promotion?school=${widget.c.schoolId}');
+          if (done == true) reload();
+        }
+
         return SchoolPage(onRefresh: reload, children: [
-          Row(children: [
-            Expanded(
-              child: T('${classes.length} class${classes.length == 1 ? '' : 'es'} · ${classes.fold<int>(0, (n, c) => n + ((c['studentCount'] as num?)?.toInt() ?? 0))} students',
-                  style: TextStyle(color: AppTheme.getSecondaryTextColor(context))),
-            ),
-            OutlinedButton.icon(
-              onPressed: classes.isEmpty
-                  ? null
-                  : () async {
-                      final done = await context.push<bool>('/school-admin/promotion?school=${widget.c.schoolId}');
-                      if (done == true) reload();
-                    },
-              icon: const Icon(Icons.upgrade),
-              label: const T('Year-end promotion'),
-            ),
-            const SizedBox(width: 8),
-            FilledButton.icon(onPressed: _add, icon: const Icon(Icons.add), label: const T('Add classes')),
-          ]),
+          if (classes.isNotEmpty)
+            MiniStats(items: [
+              MiniStat('${classes.length}', 'Classes'),
+              MiniStat('$studentTotal', 'Students', tone: Tone.info),
+              MiniStat('${levels.length}', 'Levels'),
+              MiniStat('$needTeachers', 'Need teachers', tone: needTeachers > 0 ? Tone.warn : Tone.good),
+            ]),
+          ActionBar(
+            primary: BarAction('Add classes', Icons.add, _add),
+            more: [BarAction('Year-end promotion', Icons.upgrade, classes.isEmpty ? null : promote)],
+          ),
           if (classes.isEmpty)
             EmptyState(
               icon: Icons.meeting_room_outlined,
@@ -63,39 +63,21 @@ class _ClassesSectionState extends State<ClassesSection> {
             ),
           for (final level in levels)
             SectionCard(
+              icon: Icons.layers_outlined,
               title: level,
-              subtitle: '${byLevel[level]!.length} stream(s)',
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Column(children: [for (final cl in byLevel[level]!) _classTile(context, cl, reload)]),
+              subtitle: '${plural(byLevel[level]!.length, 'class', 'classes')} · ${plural(byLevel[level]!.fold<int>(0, (n, c) => n + ((c['studentCount'] as num?)?.toInt() ?? 0)), 'student')}',
+              child: LayoutBuilder(builder: (context, box) {
+                final cols = box.maxWidth >= 760 ? 3 : box.maxWidth >= 480 ? 2 : 1;
+                final w = (box.maxWidth - (cols - 1) * 12) / cols;
+                return Wrap(spacing: 12, runSpacing: 12, children: [
+                  for (final cl in byLevel[level]!) SizedBox(width: w, child: _ClassCard(cl: cl, onOpen: () async {
+                    await context.push('/school/class/${cl['id']}');
+                    reload();
+                  })),
+                ]);
+              }),
             ),
         ]);
-      },
-    );
-  }
-
-  Widget _classTile(BuildContext context, Map<String, dynamic> cl, Future<void> Function() reload) {
-    final subjects = SchoolService.list(cl['subjects']);
-    final noTeacher = subjects.where((s) => s['teacherId'] == null).length;
-    final ct = cl['classTeacher'] as Map?;
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        backgroundColor: AppTheme.primary.withValues(alpha: 0.12),
-        child: T('${cl['stream'] == '' ? cl['level'] : cl['stream']}', style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.primaryDark, fontSize: 13)),
-      ),
-      title: T('${cl['name']}', style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text([
-        '${cl['studentCount']} students',
-        '${subjects.length} subjects',
-        ct != null ? 'Class teacher: ${ct['fullName']}' : 'No class teacher',
-      ].join(' · ')),
-      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-        if (noTeacher > 0) const Padding(padding: EdgeInsets.only(right: 6), child: StatusPill('Needs teachers', tone: Tone.warn)),
-        const Icon(Icons.chevron_right),
-      ]),
-      onTap: () async {
-        await context.push('/school/class/${cl['id']}');
-        reload();
       },
     );
   }
@@ -103,6 +85,81 @@ class _ClassesSectionState extends State<ClassesSection> {
   static int _levelOrder(String l) {
     final i = schoolLevels.indexOf(l);
     return i < 0 ? 999 : i;
+  }
+}
+
+/// One class as a card: stream badge, name, students, class teacher, warnings.
+class _ClassCard extends StatelessWidget {
+  const _ClassCard({required this.cl, required this.onOpen});
+  final Map<String, dynamic> cl;
+  final VoidCallback onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final subjects = SchoolService.list(cl['subjects']);
+    final noTeacher = subjects.where((s) => s['teacherId'] == null).length;
+    final ct = cl['classTeacher'] as Map?;
+    final muted = AppTheme.getSecondaryTextColor(context);
+    final badge = '${cl['stream'] == '' || cl['stream'] == null ? cl['level'] : cl['stream']}';
+    return Semantics(
+      container: true,
+      button: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onOpen,
+          child: Ink(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppTheme.getBackgroundColor(context).withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppTheme.getBorderColor(context).withValues(alpha: 0.5)),
+            ),
+            child: Row(children: [
+              Container(
+                width: 46,
+                height: 46,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [AppTheme.primary, AppTheme.primaryDark], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(badge, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('${cl['name']}', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5, color: AppTheme.getTextColor(context))),
+                  const SizedBox(height: 2),
+                  Wrap(spacing: 10, runSpacing: 2, children: [
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.groups_outlined, size: 15, color: muted),
+                      const SizedBox(width: 4),
+                      T(plural(cl['studentCount'] as num?, 'student'), style: TextStyle(fontSize: 12.5, color: muted)),
+                    ]),
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.menu_book_outlined, size: 15, color: muted),
+                      const SizedBox(width: 4),
+                      T(plural(subjects.length, 'subject'), style: TextStyle(fontSize: 12.5, color: muted)),
+                    ]),
+                  ]),
+                  const SizedBox(height: 6),
+                  Wrap(spacing: 6, runSpacing: 4, children: [
+                    if (ct != null)
+                      StatusPill('${ct['fullName']}', tone: Tone.neutral, icon: Icons.person_pin_outlined)
+                    else
+                      const StatusPill('No class teacher', tone: Tone.warn, icon: Icons.person_off_outlined),
+                    if (noTeacher > 0) StatusPill('$noTeacher subject${noTeacher == 1 ? '' : 's'} without teacher', tone: Tone.warn),
+                  ]),
+                ]),
+              ),
+              Icon(Icons.chevron_right, color: muted),
+            ]),
+          ),
+        ),
+      ),
+    );
   }
 }
 

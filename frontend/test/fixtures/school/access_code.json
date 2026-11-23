@@ -1,0 +1,15 @@
+{
+ "success": true,
+ "message": "OK",
+ "data": {
+  "code": "045333",
+  "expiresAt": "2026-11-23T09:49:31.828Z",
+  "scope": "class",
+  "className": "P2 A",
+  "schoolName": "Groupe Scolaire Test Butare",
+  "mode": "code",
+  "codeMinutes": 60,
+  "pinless": true,
+  "signIns": []
+ }
+}

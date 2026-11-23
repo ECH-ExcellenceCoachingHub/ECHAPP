@@ -106,6 +106,7 @@ class _HomeworkFormScreenState extends State<HomeworkFormScreen> {
         key: _form,
         child: SchoolPage(maxWidth: 720, children: [
           SegmentedButton<String>(
+            style: schoolSegmentStyle(context),
             segments: const [
               ButtonSegment(value: 'homework', label: T('Homework'), icon: Icon(Icons.assignment_outlined)),
               ButtonSegment(value: 'quiz', label: T('Quiz'), icon: Icon(Icons.quiz_outlined)),
@@ -212,40 +213,78 @@ class _HomeworkDetailScreenState extends State<HomeworkDetailScreen> {
 
   Future<void> _grade(Map<String, dynamic> a, Map<String, dynamic> st) async {
     final sub = Map<String, dynamic>.from(st['submission'] as Map);
+    final max = (a['maxScore'] as num?) ?? 10;
     final score = TextEditingController(text: sub['score'] != null ? '${sub['score']}' : '');
     final feedback = TextEditingController(text: '${sub['feedback'] ?? ''}');
-    final ok = await showDialog<bool>(
+    // A bottom sheet (not a small dialog) so photos and the keyboard fit on phones.
+    final ok = await showModalBottomSheet<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: T('${st['fullName']}'),
-        content: SizedBox(
-          width: 520,
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (ctx) {
+        final muted = AppTheme.getSecondaryTextColor(ctx);
+        return Padding(
+          padding: EdgeInsets.fromLTRB(20, 0, 20, 16 + MediaQuery.viewInsetsOf(ctx).bottom),
           child: SingleChildScrollView(
-            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-              T('Handed in ${fmtDateTime(sub['submittedAt'])}${sub['isLate'] == true ? ' (late)' : ''}', style: TextStyle(color: AppTheme.getSecondaryTextColor(ctx))),
-              const SizedBox(height: 10),
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                InitialsAvatar('${st['fullName']}'),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    T('${st['fullName']}', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17)),
+                    T('Handed in ${fmtDateTime(sub['submittedAt'])}', style: TextStyle(color: muted, fontSize: 13)),
+                  ]),
+                ),
+              ]),
+              const SizedBox(height: 8),
+              Wrap(spacing: 6, runSpacing: 4, children: [
+                if (sub['isLate'] == true) const StatusPill('Late', tone: Tone.warn),
+                if (sub['submittedVia'] == 'parent') const StatusPill('From parent account', tone: Tone.neutral, icon: Icons.family_restroom_outlined),
+              ]),
+              const SizedBox(height: 12),
               if ((sub['text'] ?? '').toString().isNotEmpty) ...[
                 Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: AppTheme.getBorderColor(ctx).withValues(alpha: 0.2), borderRadius: BorderRadius.circular(10)),
-                  child: SelectableText('${sub['text']}'),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(color: AppTheme.getBackgroundColor(ctx), borderRadius: BorderRadius.circular(12)),
+                  child: SelectableText('${sub['text']}', style: const TextStyle(height: 1.45)),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
               ],
-              AttachmentStrip(items: SchoolService.list(sub['attachments']), size: 110),
-              const SizedBox(height: 14),
-              TextField(controller: score, autofocus: true, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'Score (out of ${a['maxScore']})')),
-              const SizedBox(height: 10),
-              TextField(controller: feedback, minLines: 2, maxLines: 4, decoration: const InputDecoration(labelText: 'Feedback for the student')),
+              AttachmentStrip(items: SchoolService.list(sub['attachments']), size: 120),
+              const SizedBox(height: 16),
+              T('Score out of $max', style: TextStyle(color: muted, fontSize: 13)),
+              const SizedBox(height: 6),
+              StatefulBuilder(builder: (ctx, set) {
+                final quick = <num>{max, max * 3 / 4, max / 2, max / 4, 0}.map((v) => v == v.roundToDouble() ? v.round() : double.parse(v.toStringAsFixed(1))).toSet();
+                return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Wrap(spacing: 8, runSpacing: 8, children: [
+                    for (final q in quick)
+                      ChoiceChip(label: Text('$q'), selected: score.text == '$q', showCheckmark: false, onSelected: (_) => set(() => score.text = '$q')),
+                  ]),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: score,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(labelText: trSchool(ctx, 'Score'), suffixText: '/ $max'),
+                    onChanged: (_) => set(() {}),
+                  ),
+                ]);
+              }),
+              const SizedBox(height: 12),
+              TextField(controller: feedback, minLines: 2, maxLines: 4, decoration: InputDecoration(labelText: trSchool(ctx, 'Feedback for the student'))),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+                onPressed: () => Navigator.pop(ctx, true),
+                icon: const Icon(Icons.check),
+                label: const T('Save mark'),
+              ),
             ]),
           ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const T('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const T('Save mark')),
-        ],
-      ),
+        );
+      },
     );
     if (ok != true) return;
     final v = num.tryParse(score.text.trim());
@@ -275,9 +314,18 @@ class _HomeworkDetailScreenState extends State<HomeworkDetailScreen> {
           final shown = switch (_filter) { 'tomark' => toMark, 'missing' => missing, _ => students };
           final muted = AppTheme.getSecondaryTextColor(context);
           return SchoolPage(onRefresh: reload, children: [
-            SectionCard(
+            PageHero(
               title: '${a['title']}',
-              subtitle: '${a['subject']} · ${a['className'] ?? ''} · due ${fmtDateTime(a['dueAt'])} · out of ${a['maxScore']}',
+              subtitle: '${a['subject']} · ${a['className'] ?? ''}',
+              chips: [
+                HeroChip('Due ${fmtDateTime(a['dueAt'])}', icon: Icons.event_outlined),
+                HeroChip('Out of ${a['maxScore']}', icon: Icons.grade_outlined),
+                if (a['status'] == 'closed') const HeroChip('Closed', icon: Icons.lock_outline),
+              ],
+            ),
+            SectionCard(
+              icon: Icons.description_outlined,
+              title: 'Instructions',
               trailing: PopupMenuButton<String>(
                 onSelected: (v) async {
                   try {
@@ -299,44 +347,53 @@ class _HomeworkDetailScreenState extends State<HomeworkDetailScreen> {
                 ],
               ),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                if ('${a['instructions']}'.isNotEmpty) T('${a['instructions']}'),
+                if ('${a['instructions']}'.isNotEmpty) T('${a['instructions']}') else T('No instructions.', style: TextStyle(color: muted)),
                 const SizedBox(height: 8),
                 AttachmentStrip(items: SchoolService.list(a['attachments'])),
               ]),
             ),
-            StatGrid(children: [
-              StatTile(label: 'Handed in', value: '${handed.length}/${students.length}', icon: Icons.upload_file_outlined, tone: Tone.info),
-              StatTile(label: 'To mark', value: '${toMark.length}', icon: Icons.pending_actions_outlined, tone: toMark.isEmpty ? Tone.good : Tone.warn),
-              StatTile(label: 'Missing', value: '${missing.length}', icon: Icons.person_off_outlined, tone: missing.isEmpty ? Tone.good : Tone.bad),
+            MiniStats(items: [
+              MiniStat('${handed.length}/${students.length}', 'Handed in', tone: Tone.info, onTap: () => setState(() => _filter = 'all')),
+              MiniStat('${toMark.length}', 'To mark', tone: toMark.isEmpty ? Tone.good : Tone.warn, onTap: () => setState(() => _filter = 'tomark')),
+              MiniStat('${missing.length}', 'Missing', tone: missing.isEmpty ? Tone.good : Tone.bad, onTap: () => setState(() => _filter = 'missing')),
             ]),
-            SegmentedButton<String>(
-              segments: const [ButtonSegment(value: 'all', label: T('All')), ButtonSegment(value: 'tomark', label: T('To mark')), ButtonSegment(value: 'missing', label: T('Missing'))],
-              selected: {_filter},
-              onSelectionChanged: (v) => setState(() => _filter = v.first),
-            ),
+            Wrap(spacing: 8, children: [
+              for (final (k, l) in const [('all', 'All'), ('tomark', 'To mark'), ('missing', 'Missing')])
+                PillChoice(label: l, selected: _filter == k, onTap: () => setState(() => _filter = k)),
+            ]),
             SectionCard(
-              padding: const EdgeInsets.symmetric(vertical: 4),
+              padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
               child: shown.isEmpty
                   ? const Padding(padding: EdgeInsets.all(16), child: T('Nobody here.'))
                   : Column(children: [
-                      for (final st in shown)
-                        ListTile(
-                          leading: Icon(
-                            st['submission'] == null ? Icons.radio_button_unchecked : st['submission']['status'] == 'graded' ? Icons.check_circle : Icons.inbox_outlined,
-                            color: st['submission'] == null ? muted : st['submission']['status'] == 'graded' ? AppTheme.successColor : AppTheme.warningColor,
-                          ),
-                          title: T('${st['fullName']}'),
-                          subtitle: Text(st['submission'] == null
-                              ? 'Not handed in'
-                              : '${st['submission']['status'] == 'graded' ? 'Marked ${st['submission']['score']}/${a['maxScore']}' : 'Handed in ${fmtDateTime(st['submission']['submittedAt'])}'}${st['submission']['isLate'] == true ? ' · late' : ''}'),
-                          trailing: st['submission'] == null ? null : const Icon(Icons.chevron_right),
-                          onTap: st['submission'] == null ? null : () => _grade(a, st),
-                        ),
+                      for (var i = 0; i < shown.length; i++) ...[
+                        if (i > 0) const RowDivider(),
+                        _studentRow(a, shown[i]),
+                      ],
                     ]),
             ),
           ]);
         },
       ),
+    );
+  }
+
+  Widget _studentRow(Map<String, dynamic> a, Map<String, dynamic> st) {
+    final sub = st['submission'] as Map?;
+    final graded = sub?['status'] == 'graded';
+    final tone = sub == null ? Tone.bad : graded ? Tone.good : Tone.warn;
+    return EntityTile(
+      leading: InitialsAvatar('${st['fullName']}', tone: tone),
+      title: '${st['fullName']}',
+      subtitle: sub == null ? 'Not handed in' : 'Handed in ${fmtDateTime(sub['submittedAt'])}',
+      pills: [
+        if (graded) StatusPill('${sub!['score']}/${a['maxScore']}', tone: Tone.good, icon: Icons.check_circle_outline),
+        if (sub != null && !graded) const StatusPill('To mark', tone: Tone.warn),
+        if (sub?['isLate'] == true) const StatusPill('Late', tone: Tone.warn),
+        if (sub?['submittedVia'] == 'parent') const StatusPill('From parent account', tone: Tone.neutral),
+        if (sub?['submittedVia'] == 'eexams') const StatusPill('eexams', tone: Tone.info),
+      ],
+      onTap: sub == null ? null : () => _grade(a, st),
     );
   }
 }
