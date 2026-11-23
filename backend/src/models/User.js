@@ -212,6 +212,21 @@ const userSchema = new mongoose.Schema({
     reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     reviewedAt: Date,
     reason: { type: String, maxlength: 1000 }
+  },
+  // Super admins only. Not restricted = full access (see adminLimits.service).
+  adminLimits: {
+    restricted: { type: Boolean, default: false },
+    areas: {
+      users: { type: String, enum: ['full', 'view', 'none'], default: 'full' },
+      courses: { type: String, enum: ['full', 'view', 'none'], default: 'full' },
+      schools: { type: String, enum: ['full', 'view', 'none'], default: 'full' },
+      payments: { type: String, enum: ['full', 'view', 'none'], default: 'full' },
+      communication: { type: String, enum: ['full', 'view', 'none'], default: 'full' },
+      settings: { type: String, enum: ['full', 'view', 'none'], default: 'full' },
+      admins: { type: String, enum: ['full', 'view', 'none'], default: 'full' }
+    },
+    updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    updatedAt: { type: Date, default: null }
   }
 }, {
   timestamps: true

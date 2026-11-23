@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../config/app_theme.dart';
 import '../../../services/api/school_service.dart';
 import '../../../widgets/school/school_ui.dart';
+import '../../../widgets/school/combinations.dart';
 
 /// Year-end promotion: every class of the closing year goes to its next class
 /// (S3 A → S4 A), graduates, or is skipped; repeaters stay at their level and
@@ -195,7 +196,8 @@ class _PromotionScreenState extends State<PromotionScreen> {
   @override
   Widget build(BuildContext context) {
     final muted = AppTheme.getSecondaryTextColor(context);
-    final combos = {...((_d?['combinations'] as List?) ?? const []).map((e) => '$e'), ...commonCombinations}.toList();
+    // The school's own combinations first, then the new REB streams.
+    final combos = {...((_d?['combinations'] as List?) ?? const []).map((e) => '$e'), 'MS-PURE', 'MS-APPLIED', 'ARTS-HUM', 'LANGUAGES'}.toList();
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
       appBar: AppBar(title: const T('Year-end promotion')),
@@ -275,7 +277,7 @@ class _PromotionScreenState extends State<PromotionScreen> {
                               initialValue: ['', ...combos].contains(p.toCombination) ? p.toCombination : '',
                               isDense: true,
                               decoration: const InputDecoration(labelText: 'Combination', isDense: true),
-                              items: [const DropdownMenuItem(value: '', child: T('None')), for (final c in combos) DropdownMenuItem(value: c, child: Text(c))],
+                              items: [const DropdownMenuItem(value: '', child: T('None')), for (final c in combos) DropdownMenuItem(value: c, child: Text(combinationName(c) != null ? '$c · ${combinationName(c)}' : c, overflow: TextOverflow.ellipsis))],
                               onChanged: (v) => setState(() => p.toCombination = v ?? ''),
                             ),
                           ),

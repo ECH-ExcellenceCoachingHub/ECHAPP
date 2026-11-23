@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../config/app_theme.dart';
 import '../../../../services/api/school_service.dart';
 import '../../../../widgets/school/pickers.dart';
+import '../../../../widgets/school/combinations.dart';
 import '../../../../widgets/school/school_ui.dart';
 import '../school_admin_dashboard_screen.dart';
 
@@ -131,6 +132,8 @@ class _ClassCard extends StatelessWidget {
               Expanded(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('${cl['name']}', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5, color: AppTheme.getTextColor(context))),
+                  if (combinationName('${cl['combination'] ?? ''}') != null)
+                    Text(trSchool(context, combinationName('${cl['combination']}')!), maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 12, color: AppTheme.primaryDark, fontWeight: FontWeight.w600)),
                   const SizedBox(height: 2),
                   Wrap(spacing: 10, runSpacing: 2, children: [
                     Row(mainAxisSize: MainAxisSize.min, children: [
@@ -214,7 +217,7 @@ class _AddClassesDialogState extends State<_AddClassesDialog> {
   Widget build(BuildContext context) {
     final schoolLevelsOffered = ((widget.c.school['levels'] as List?) ?? const []).map((e) => '$e').toList();
     final levels = schoolLevelsOffered.isNotEmpty ? [...schoolLevelsOffered, ...schoolLevels.where((l) => !schoolLevelsOffered.contains(l))] : schoolLevels;
-    final combos = {...((widget.c.school['combinations'] as List?) ?? const []).map((e) => '$e'), ...commonCombinations}.toList();
+    final schoolCombos = ((widget.c.school['combinations'] as List?) ?? const []).map((e) => '$e').toList();
     final preview = (_streams.toList()..sort()).map((s) => [_level ?? '…', _combination, s == '—' ? '' : s].where((p) => p.isNotEmpty).join(' ')).join(', ');
 
     return AlertDialog(
@@ -237,25 +240,15 @@ class _AddClassesDialogState extends State<_AddClassesDialog> {
             ]),
             if (_aLevel) ...[
               const SizedBox(height: 14),
-              T('Combination / trade (optional)', style: TextStyle(fontSize: 13, color: AppTheme.getSecondaryTextColor(context))),
+              T('Combination or trade (optional)', style: TextStyle(fontSize: 13, color: AppTheme.getSecondaryTextColor(context))),
               const SizedBox(height: 6),
-              Wrap(spacing: 6, runSpacing: 6, children: [
-                ChoiceChip(label: const T('None'), selected: _combination.isEmpty, onSelected: (_) => setState(() => _combination = '')),
-                for (final c in combos) ChoiceChip(label: Text(c), selected: _combination == c, onSelected: (_) => setState(() => _combination = c)),
-                ActionChip(
-                  avatar: const Icon(Icons.add, size: 16),
-                  label: const T('Other'),
-                  onPressed: () async {
-                    final t = TextEditingController();
-                    final v = await showDialog<String>(context: context, builder: (ctx) => AlertDialog(
-                      title: const T('Combination'),
-                      content: TextField(controller: t, autofocus: true, textCapitalization: TextCapitalization.characters),
-                      actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const T('Cancel')), FilledButton(onPressed: () => Navigator.pop(ctx, t.text), child: const T('Use'))],
-                    ));
-                    if (v != null && v.trim().isNotEmpty) setState(() => _combination = v.trim().toUpperCase());
-                  },
-                ),
-              ]),
+              CombinationField(
+                multi: false,
+                level: _level,
+                extra: schoolCombos,
+                selected: {if (_combination.isNotEmpty) _combination},
+                onChanged: (v) => setState(() => _combination = v.isEmpty ? '' : v.first),
+              ),
             ],
             const SizedBox(height: 14),
             T('Streams', style: TextStyle(fontSize: 13, color: AppTheme.getSecondaryTextColor(context))),

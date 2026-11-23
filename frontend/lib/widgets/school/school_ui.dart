@@ -978,7 +978,8 @@ const rwandaDistricts = <String, List<String>>{
 const schoolLevels = ['N1', 'N2', 'N3', 'P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'L3', 'L4', 'L5'];
 
 /// Common A-level combinations.
-const commonCombinations = ['MPC', 'MCB', 'PCB', 'MEG', 'MPG', 'HEG', 'HGL', 'HEL', 'LKF', 'MCE', 'BCG', 'PCM', 'ACC', 'SWD', 'NIT'];
+/// Short list kept for older callers; the full grouped catalog is in combinations.dart.
+const commonCombinations = ['MS-PURE', 'MS-APPLIED', 'ARTS-HUM', 'LANGUAGES', 'MPC', 'MCB', 'PCB', 'MEG', 'MPG', 'HEG', 'HGL', 'HEL', 'LKF', 'MCE', 'BCG', 'PCM', 'ACC', 'SWD', 'SOD', 'NIT'];
 
 /// Common subjects.
 const commonSubjects = [

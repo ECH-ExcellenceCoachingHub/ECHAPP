@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../../../../config/app_theme.dart';
+import '../../../../services/api/checkout_service.dart';
 import '../../../../services/api/school_service.dart';
+import '../../../../widgets/payments/checkout_sheet.dart';
 import '../../../../widgets/school/school_ui.dart';
 import '../school_admin_dashboard_screen.dart';
 
 /// School terms (calendar) and what was paid for each: per student per term.
-/// The school defines its terms; only ECH (super admin) records payments.
+/// The school defines its terms and pays online (MoMo / Airtel / card through
+/// iTechPay); ECH (super admin) can also record payments made another way.
 class BillingSection extends StatefulWidget {
   const BillingSection({super.key, required this.c});
   final SchoolCtx c;
@@ -158,6 +161,77 @@ class _BillingSectionState extends State<BillingSection> {
     }
   }
 
+  /// A term the school can still pay for: not ended, not waived by ECH.
+  bool _payable(Map<String, dynamic> t) {
+    final st = (t['billing'] as Map?)?['status'];
+    final end = parseDate(t['endDate']);
+    return st != 'waived' && (end == null || !end.isBefore(DateTime.now()));
+  }
+
+  /// The school admin pays for student places with mobile money or card.
+  Future<void> _payOnline(Map<String, dynamic> term, num price) async {
+    if (price <= 0) {
+      showSnack(context, 'ECH has not set a price for your school yet. Please contact ECH.', error: true);
+      return;
+    }
+    final b = Map<String, dynamic>.from(term['billing'] as Map? ?? {});
+    final topUp = b['status'] == 'paid';
+    final paidSeats = (b['studentsPaid'] as num?)?.toInt() ?? 0;
+    final enrolled = (widget.c.school['studentCount'] as num?)?.toInt() ?? 0;
+    final suggested = topUp ? (enrolled - paidSeats).clamp(1, 100000) : (enrolled < 1 ? 1 : enrolled);
+    final students = TextEditingController(text: '$suggested');
+
+    final n = await showDialog<int>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(builder: (ctx, set) {
+        final count = int.tryParse(students.text.trim()) ?? 0;
+        return AlertDialog(
+          title: T(topUp ? 'Add students — ${term['label']}' : 'Pay for ${term['label']}'),
+          content: SizedBox(
+            width: 380,
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+              T(topUp
+                  ? 'You already paid for $paidSeats students this term. You have $enrolled students registered.'
+                  : 'You have $enrolled students registered. Pay for every student who will use ECH this term.'),
+              const SizedBox(height: 12),
+              TextField(
+                controller: students,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(labelText: topUp ? 'Extra students' : 'Number of students'),
+                onChanged: (_) => set(() {}),
+              ),
+              const SizedBox(height: 12),
+              T('${fmtMoney(price)} × $count = ${fmtMoney(price * count)}', style: const TextStyle(fontWeight: FontWeight.w700)),
+            ]),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const T('Cancel')),
+            FilledButton(onPressed: count >= 1 ? () => Navigator.pop(ctx, count) : null, child: const T('Continue to payment')),
+          ],
+        );
+      }),
+    );
+    if (n == null || !mounted) return;
+
+    final admin = widget.c.school['admin'];
+    final result = await showCheckoutSheet(
+      context,
+      item: CheckoutItem.schoolTerm(termId: '${term['id']}', students: n, schoolId: widget.c.schoolId),
+      title: '${term['label']}',
+      subtitle: '${widget.c.school['name'] ?? 'School'} · $n students',
+      amount: price * n,
+      defaultPhone: (admin is Map ? admin['phone'] : null)?.toString() ?? widget.c.school['phone']?.toString(),
+      defaultEmail: (admin is Map ? admin['email'] : null)?.toString() ?? widget.c.school['email']?.toString(),
+    );
+    if (!mounted) return;
+    _key.currentState?.reload();
+    if (result?.isPaid == true) {
+      await widget.c.reloadSchool();
+      if (mounted) showSnack(context, 'Payment received. ${term['label']} is paid.');
+    }
+  }
+
   Future<void> _settings() async {
     final s = widget.c.school;
     final price = TextEditingController(text: '${s['pricePerStudentPerTerm'] ?? 0}');
@@ -218,10 +292,21 @@ class _BillingSectionState extends State<BillingSection> {
             child: Text(
               'Your school pays ECH per student for each term. While a paid term is running, your students get the ECH courses meant for their class for free, and you can register up to the number of students paid for. '
               'After a term ends you have ${widget.c.school['graceDays'] ?? 21} days of grace (school holidays) before course access stops.'
-              '${widget.c.superAdmin ? '' : ' To pay for a term, contact ECH; the payment appears here once recorded.'}',
+              '${widget.c.superAdmin ? '' : ' Pay for a term here with MTN MoMo, Airtel Money or card: it is unlocked as soon as the payment arrives.'}',
               style: TextStyle(color: muted, height: 1.45),
             ),
           ),
+          if (!widget.c.superAdmin && _dueTerm(terms) != null)
+            Builder(builder: (context) {
+              final due = _dueTerm(terms)!;
+              final paid = (due['billing'] as Map?)?['status'] == 'paid';
+              return FilledButton.icon(
+                onPressed: () => _payOnline(due, price),
+                icon: Icon(paid ? Icons.group_add_outlined : Icons.payments_outlined),
+                label: T(paid ? 'Pay for more students — ${due['label']}' : 'Pay for ${due['label']}'),
+                style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+              );
+            }),
           SectionCard(
             icon: Icons.event_note_outlined,
             title: 'Terms',
@@ -235,6 +320,21 @@ class _BillingSectionState extends State<BillingSection> {
         ]);
       },
     );
+  }
+
+  /// The term to offer payment for: the current one, else the next unpaid one.
+  Map<String, dynamic>? _dueTerm(List<Map<String, dynamic>> terms) {
+    final now = DateTime.now();
+    final payable = terms.where(_payable).toList()
+      ..sort((a, b) => (parseDate(a['startDate']) ?? now).compareTo(parseDate(b['startDate']) ?? now));
+    for (final t in payable) {
+      final s = parseDate(t['startDate']);
+      if (s != null && !s.isAfter(now)) return t; // running now
+    }
+    for (final t in payable) {
+      if ((t['billing'] as Map?)?['status'] != 'paid') return t;
+    }
+    return null;
   }
 
   Widget _termTile(Map<String, dynamic> t, num price) {
@@ -263,6 +363,7 @@ class _BillingSectionState extends State<BillingSection> {
       trailing: PopupMenuButton<String>(
         onSelected: (v) async {
           if (v == 'pay') _paymentDialog(t, price);
+          if (v == 'online') _payOnline(t, price);
           if (v == 'dates') _termDialog(term: t);
           if (v == 'delete') {
             if (!await confirm(context, title: 'Remove ${t['label']}?', message: 'This removes the term dates.', confirmLabel: 'Remove', destructive: true)) return;
@@ -276,6 +377,8 @@ class _BillingSectionState extends State<BillingSection> {
         },
         itemBuilder: (_) => [
           if (widget.c.superAdmin) const PopupMenuItem(value: 'pay', child: T('Record payment')),
+          if (!widget.c.superAdmin && _payable(t))
+            PopupMenuItem(value: 'online', child: T((t['billing'] as Map?)?['status'] == 'paid' ? 'Pay for more students' : 'Pay online')),
           const PopupMenuItem(value: 'dates', child: T('Change dates')),
           const PopupMenuItem(value: 'delete', child: T('Remove term')),
         ],

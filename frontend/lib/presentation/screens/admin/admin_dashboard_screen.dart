@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:excellencecoachinghub/config/app_theme.dart';
 import 'package:excellencecoachinghub/presentation/providers/admin_dashboard_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/auth_provider.dart';
+import 'package:excellencecoachinghub/presentation/providers/admin_access_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/notification_provider.dart';
 import 'package:excellencecoachinghub/services/admin_service.dart';
 import 'package:excellencecoachinghub/utils/responsive_utils.dart';
@@ -484,7 +485,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     );
   }
 
+  /// Limited admins don't see areas they have no access to.
+  bool _routeHidden(String route) {
+    final access = ref.watch(myAdminAccessProvider).valueOrNull;
+    return access != null && !adminCanOpenRoute(access, route);
+  }
+
   Widget _buildDesktopNavItem(BuildContext context, String title, IconData icon, String route, bool isActive, bool isCollapsed) {
+    if (_routeHidden(route)) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Material(
@@ -1030,6 +1038,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   }
   
   Widget _buildMobileNavItem(BuildContext context, String title, IconData icon, String route, bool isSelected) {
+    if (_routeHidden(route)) return const SizedBox.shrink();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return Padding(

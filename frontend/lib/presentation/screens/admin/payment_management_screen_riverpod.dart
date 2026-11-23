@@ -7,6 +7,7 @@ import '../../../presentation/providers/payment_riverpod_provider.dart';
 import '../../../models/payment.dart';
 import '../../../models/payment_status.dart';
 import '../../../services/api/payment_api_service.dart';
+import '../../../services/api/checkout_service.dart';
 
 class PaymentManagementScreen extends ConsumerStatefulWidget {
   const PaymentManagementScreen({super.key});
@@ -385,10 +386,23 @@ class _PaymentManagementScreenState extends ConsumerState<PaymentManagementScree
                           decoration: BoxDecoration(color: const Color(0xFF3B82F6).withOpacity(0.12), borderRadius: BorderRadius.circular(20)),
                           child: const Text("TEACHER'S GUIDE REQUEST", style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFF3B82F6))),
                         ),
+                      if (payment.isSchoolTerm || payment.isOnline)
+                        Wrap(spacing: 6, children: [
+                          if (payment.isSchoolTerm) _tag('SCHOOL TERM', const Color(0xFF7C3AED)),
+                          if (payment.isOnline) _tag('ONLINE · iTechPay', const Color(0xFF059669)),
+                        ]),
                       Text(
-                        payment.course?.title ?? 'Unknown Course',
+                        payment.isSchoolTerm
+                            ? '${payment.schoolName ?? 'School'}${payment.seats != null ? ' · ${payment.seats} students' : ''}'
+                            : payment.course?.title ?? 'Unknown Course',
                         style: const TextStyle(fontWeight: FontWeight.w500),
                       ),
+                      if (payment.isOnline && payment.gatewayReference != null)
+                        Text(
+                          'Ref ${payment.gatewayReference} · iTechPay: ${payment.gatewayStatus ?? '—'}'
+                          '${payment.failureReason != null ? ' · ${payment.failureReason}' : ''}',
+                          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                        ),
                       const SizedBox(height: 4),
                       Text(
                         '${payment.amount} ${payment.currency}',
@@ -436,9 +450,18 @@ class _PaymentManagementScreenState extends ConsumerState<PaymentManagementScree
             const SizedBox(height: 12),
             
             // Action Buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            Wrap(
+              alignment: WrapAlignment.end,
+              runSpacing: 8,
               children: [
+                if (payment.isOnline && payment.status != PaymentStatus.completed && payment.status != PaymentStatus.approved) ...[
+                  OutlinedButton.icon(
+                    onPressed: state.isProcessing ? null : () => _recheckOnline(context, payment, notifier),
+                    icon: const Icon(Icons.sync, size: 16),
+                    label: const Text('Check with iTechPay'),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 if (payment.canBeApproved) ...[
                   OutlinedButton(
                     onPressed: state.isProcessing ? null : () => _showApproveDialog(context, payment, notifier, state.isProcessing),
@@ -523,6 +546,28 @@ class _PaymentManagementScreenState extends ConsumerState<PaymentManagementScree
         return Colors.red;
       case PaymentStatus.cancelled:
         return Colors.grey;
+    }
+  }
+
+  Widget _tag(String text, Color color) => Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(20)),
+        child: Text(text, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: color)),
+      );
+
+  /// Online payment: ask iTechPay now; if it was paid, access is granted on the spot.
+  Future<void> _recheckOnline(BuildContext context, Payment payment, PaymentStateNotifier notifier) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final s = await CheckoutService().recheck(payment.id);
+      messenger.showSnackBar(SnackBar(
+        content: Text(s.isPaid ? 'Paid — access granted.' : 'iTechPay says: ${s.message ?? s.status}'),
+        backgroundColor: s.isPaid ? Colors.green : null,
+      ));
+      await notifier.loadPayments();
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.toString()), backgroundColor: Colors.red));
     }
   }
 

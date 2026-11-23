@@ -10,6 +10,7 @@ const ChatMessage = require('../models/ChatMessage');
 const { sendSuccess, sendError } = require('../utils/response.utils');
 const { getStudentCourseProgress } = require('../utils/studentProgress.utils');
 const admin = require('../config/firebase');
+const { describe: describeAdminLimits } = require('../services/adminLimits.service');
 
 // Helper function to escape special regex characters
 const escapeRegex = (string) => {
@@ -307,7 +308,7 @@ const getAdmins = async (req, res) => {
         const total = await User.countDocuments(filter);
         
         sendSuccess(res, {
-          admins: admins.map(u => ({ ...u.toObject(), id: u._id, disabled: u.isActive === false })),
+          admins: admins.map(u => ({ ...u.toObject(), id: u._id, disabled: u.isActive === false, adminLimits: describeAdminLimits(u) })),
           totalPages: Math.ceil(total / limit),
           currentPage: Number(page),
           total,
@@ -332,7 +333,7 @@ const getAdmins = async (req, res) => {
       const total = await User.countDocuments(filter);
       
       sendSuccess(res, {
-        admins: admins.map(u => ({ ...u.toObject(), id: u._id, disabled: u.isActive === false })),
+        admins: admins.map(u => ({ ...u.toObject(), id: u._id, disabled: u.isActive === false, adminLimits: describeAdminLimits(u) })),
         totalPages: Math.ceil(total / limit),
         currentPage: Number(page),
         total,

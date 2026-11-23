@@ -5,11 +5,13 @@ import 'package:excellencecoachinghub/models/course.dart';
 import 'package:excellencecoachinghub/presentation/providers/course_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/enrollment_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/course_payment_providers.dart';
-import 'package:excellencecoachinghub/presentation/providers/payment_riverpod_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/wishlist_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/course_stats_provider.dart';
 import 'package:excellencecoachinghub/widgets/network_image_widget.dart';
 import 'package:excellencecoachinghub/widgets/countdown_timer.dart';
+import 'package:excellencecoachinghub/widgets/payments/checkout_sheet.dart';
+import 'package:excellencecoachinghub/services/api/checkout_service.dart';
+import 'package:excellencecoachinghub/presentation/providers/auth_provider.dart';
 import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -243,53 +245,25 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen>
   }
 
   void _handlePayment(WidgetRef ref, Course course) async {
-    setState(() => _isPaymentLoading = true);
-    ref.read(courseContentProvider(course.id).future);
-    
-    final paymentNotifier = ref.read(paymentProvider.notifier);
-    
-    try {
-      final paymentResponse = await paymentNotifier.initiatePayment(
-        courseId: course.id,
-        paymentMethod: 'mtn_momo',
-        contactInfo: 'Student initiated payment for ${course.title}',
-      );
-          
-      if (ref.context.mounted) {
-        ScaffoldMessenger.of(ref.context).showSnackBar(
-          SnackBar(
-            content: Text('Payment initiated successfully!'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        
-        await Future.delayed(const Duration(milliseconds: 500));
-        ref.invalidate(hasPendingPaymentProvider(course.id));
-        await Future.delayed(const Duration(milliseconds: 1000));
-        
-        if (ref.context.mounted) {
-          ref.context.go('/payment/pending', extra: {
-            'course': course,
-            'transactionId': paymentResponse.transactionId,
-            'amount': paymentResponse.amount,
-          });
-        }
-      }
-    } catch (e) {
-      if (ref.context.mounted) {
-        ScaffoldMessenger.of(ref.context).showSnackBar(
-          SnackBar(
-            content: Text('Payment initiation failed: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isPaymentLoading = false);
-      }
+    final user = ref.read(authProvider).user;
+    final result = await showCheckoutSheet(
+      context,
+      item: CheckoutItem.course(course.id),
+      title: course.title,
+      subtitle: 'Course access',
+      amount: course.price ?? 0,
+      defaultPhone: user?.phone,
+      defaultEmail: user?.email,
+    );
+    if (!mounted) return;
+    // Paid, waiting or failed: the enrollment and pending state changed server-side.
+    ref.invalidate(hasPendingPaymentProvider(course.id));
+    ref.invalidate(isEnrolledInCourseProvider(course.id));
+    ref.invalidate(enrollmentStatusProvider(course.id));
+    if (result?.isPaid == true && !_hasRedirected) {
+      setState(() => _hasRedirected = true);
+      ref.read(courseContentProvider(course.id).future);
+      context.push('/learning/${course.id}');
     }
   }
 

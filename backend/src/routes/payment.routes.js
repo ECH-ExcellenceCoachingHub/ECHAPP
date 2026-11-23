@@ -3,12 +3,7 @@ const router = express.Router();
 
 // Add logging for all requests to this router
 router.use((req, res, next) => {
-  console.log('=== PAYMENT ROUTER REQUEST ===');
-  console.log('Method:', req.method);
-  console.log('URL:', req.url);
-  console.log('Full URL:', req.originalUrl);
-  console.log('Params:', req.params);
-  console.log('Query:', req.query);
+  console.log(`[payments] ${req.method} ${req.originalUrl}`);
   next();
 });
 const { 
@@ -26,6 +21,16 @@ const { getAdminPaymentsSimple } = require('../controllers/admin_payment_debug.c
 const { generateInvoice } = require('../controllers/invoice.controller');
 const { protect } = require('../middleware/auth.middleware');
 const { authorize } = require('../middleware/role.middleware');
+
+// Automatic payments (iTechPay). Webhook is public: it only names a reference,
+// and the payment's status is always confirmed with iTechPay itself.
+const checkout = require('../controllers/checkout.controller');
+router.post('/itecpay/callback', checkout.callback);
+router.get('/itecpay/callback', checkout.callback);
+router.get('/checkout/methods', protect, checkout.methods);
+router.post('/checkout', protect, checkout.start);
+router.get('/checkout/:reference', protect, checkout.status);
+router.post('/:id/recheck', protect, authorize('admin'), checkout.recheck);
 
 // Student routes
 router.post('/initiate', protect, initiatePayment);

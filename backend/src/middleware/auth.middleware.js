@@ -5,6 +5,7 @@ const admin = require('../config/firebase');
 const { canLinkByEmail, sendVerificationIfNeeded, notVerifiedMessage } = require('../utils/firebaseAccountLink');
 const { sessionProblem } = require('../services/school/session.service');
 const { clientIp } = require('../utils/clientIp');
+const { checkRequest } = require('../services/adminLimits.service');
 
 // Never log tokens or the Authorization header: anyone who can read the
 // server logs could reuse them to act as the user.
@@ -62,6 +63,9 @@ const protect = async (req, res, next) => {
         return res.status(401).json(sessionIssue);
       }
 
+      const limited = checkRequest(req.user, req);
+      if (limited) return res.status(403).json({ success: false, ...limited });
+
       return next();
     } catch (firebaseError) {
       // Not a Firebase ID token (or expired) — try the legacy ECH JWT.
@@ -81,6 +85,9 @@ const protect = async (req, res, next) => {
         if (sessionIssue) {
           return res.status(401).json(sessionIssue);
         }
+
+        const limited = checkRequest(user, req);
+        if (limited) return res.status(403).json({ success: false, ...limited });
 
         req.user = user;
         return next();

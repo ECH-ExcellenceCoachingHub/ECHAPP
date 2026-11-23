@@ -191,6 +191,9 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
     const CommunitySessionScheduler = require('./src/services/community-session-scheduler.service');
     CommunitySessionScheduler.schedule(5);
 
+    // Automatic payments: confirm iTechPay payments whose webhook never arrived
+    require('./src/services/payments/checkout.service').schedule(2);
+
     // Schedule database backups (daily at 2am server time, low-traffic hour)
     const BackupService = require('./src/services/backup.service');
     BackupService.schedule(parseInt(process.env.BACKUP_HOUR || '2', 10));

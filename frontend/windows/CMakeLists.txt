@@ -57,6 +57,12 @@ add_subdirectory(${FLUTTER_MANAGED_DIR})
 # Application build; see runner/CMakeLists.txt.
 add_subdirectory("runner")
 
+# Use a vendored copy of sentry-native (0.8.4, matching sentry_flutter) instead
+# of cloning it from GitHub at build time — that clone fails on flaky networks.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/sentry-native/CMakeLists.txt")
+  set(FETCHCONTENT_SOURCE_DIR_SENTRY-NATIVE
+      "${CMAKE_CURRENT_SOURCE_DIR}/third_party/sentry-native" CACHE PATH "" FORCE)
+endif()
 
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.

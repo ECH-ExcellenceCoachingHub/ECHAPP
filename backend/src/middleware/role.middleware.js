@@ -1,6 +1,5 @@
 const { sendForbidden } = require('../utils/response.utils');
 const { blockReason } = require('../services/teacherAccess.service');
-
 const authorize = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {
@@ -16,6 +15,8 @@ const authorize = (...roles) => {
       console.error('CRITICAL: next is not a function in authorize middleware');
       return sendForbidden(res, 'Internal Server Error: Middleware chain broken');
     }
+
+    // Super admin limits are checked in protect() (auth.middleware).
 
     // Self-registered teachers must be approved and hold a course before any
     // instructor feature works. Admin-created teachers (no teacherStatus) are unaffected.

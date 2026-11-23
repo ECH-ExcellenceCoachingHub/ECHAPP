@@ -8,6 +8,7 @@ import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/presentation/providers/auth_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/sidebar_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/notification_provider.dart';
+import 'package:excellencecoachinghub/presentation/providers/admin_access_provider.dart';
 import 'package:excellencecoachinghub/widgets/modern_dialog.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
 
@@ -369,7 +370,20 @@ class ResponsiveNavigationDrawer extends ConsumerWidget {
     final bool useSidebarStyle = isDesktop ||
         (isPlatformDesktop && MediaQuery.of(context).size.width >= 600);
 
-    final menu = _menuFor(role, l10n, desktop: useSidebarStyle);
+    var menu = _menuFor(role, l10n, desktop: useSidebarStyle);
+    if (role == _MenuRole.admin) {
+      // Limited admins: hide the areas they have no access to.
+      final access = ref.watch(myAdminAccessProvider).valueOrNull;
+      if (access != null && access.restricted) {
+        menu = _Menu(
+          [
+            for (final s in menu.sections)
+              _NavSection(s.label, s.items.where((i) => adminCanOpenRoute(access, i.route)).toList()),
+          ].where((s) => s.items.isNotEmpty).toList(),
+          menu.footerCards,
+        );
+      }
+    }
     return useSidebarStyle
         ? _buildDesktopSidebar(context, ref, menu, role, isCollapsed)
         : _buildMobileDrawer(context, ref, menu, role, user);

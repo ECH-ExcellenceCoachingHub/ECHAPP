@@ -11,7 +11,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   open_file_linux
   record_linux
   rive_native
-  sentry_flutter
   url_launcher_linux
 )
 

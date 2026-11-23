@@ -13,6 +13,14 @@ class Payment {
   /// 'course' (student enrollment) or 'teacher_guide' (teacher access to a course's guide).
   final String purpose;
   bool get isTeacherGuide => purpose == 'teacher_guide';
+  bool get isSchoolTerm => purpose == 'school_term';
+  /// Paid online through iTechPay (confirmed automatically), not by admin approval.
+  final bool isOnline;
+  final String? gatewayReference;
+  final String? gatewayStatus;
+  final String? failureReason;
+  final String? schoolName;
+  final int? seats;
   final DateTime? paymentDate;
   final PaymentAdminApproval? adminApproval;
   final DateTime createdAt;
@@ -33,6 +41,12 @@ class Payment {
     required this.status,
     required this.contactInfo,
     this.purpose = 'course',
+    this.isOnline = false,
+    this.gatewayReference,
+    this.gatewayStatus,
+    this.failureReason,
+    this.schoolName,
+    this.seats,
     this.paymentDate,
     this.adminApproval,
     required this.createdAt,
@@ -73,6 +87,12 @@ class Payment {
       status: _parsePaymentStatus(json['status']),
       contactInfo: json['contactInfo'] as String? ?? '',
       purpose: json['purpose'] as String? ?? 'course',
+      isOnline: (json['gateway'] is Map) && json['gateway']['provider'] == 'itecpay',
+      gatewayReference: json['gateway'] is Map ? json['gateway']['reference']?.toString() : null,
+      gatewayStatus: json['gateway'] is Map ? json['gateway']['lastStatus']?.toString() : null,
+      failureReason: json['gateway'] is Map ? json['gateway']['failureReason']?.toString() : null,
+      schoolName: json['schoolId'] is Map ? json['schoolId']['name']?.toString() : null,
+      seats: (json['seats'] as num?)?.toInt(),
       paymentDate: json['paymentDate'] != null 
           ? DateTime.parse(json['paymentDate'].toString()) 
           : null,

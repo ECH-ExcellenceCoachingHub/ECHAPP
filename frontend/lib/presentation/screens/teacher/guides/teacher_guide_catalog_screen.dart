@@ -10,6 +10,9 @@ import '../../../../config/app_theme.dart';
 import '../../../../services/api/teacher_access_service.dart';
 import '../../../../widgets/network_image_widget.dart';
 import '../../../providers/teacher_access_provider.dart';
+import '../../../providers/auth_provider.dart';
+import '../../../../services/api/checkout_service.dart';
+import '../../../../widgets/payments/checkout_sheet.dart';
 import '../onboarding/teacher_journey_widgets.dart';
 import '../../../widgets/smart_back_button.dart';
 
@@ -78,6 +81,7 @@ class _TeacherGuideCatalogScreenState extends ConsumerState<TeacherGuideCatalogS
   }
 
   Future<void> _request(TeacherGuideSummary g) async {
+    if (!g.isFree) return _payOnline(g);
     final result = await showDialog<GuideRequestResult>(
       context: context,
       builder: (_) => _RequestDialog(guide: g, service: _svc),
@@ -102,6 +106,26 @@ class _TeacherGuideCatalogScreenState extends ConsumerState<TeacherGuideCatalogS
         actions: [FilledButton(onPressed: () => Navigator.pop(c), child: const Text('OK'))],
       ),
     );
+    _load();
+  }
+
+  /// Paid guides: pay with MoMo / Airtel / card; the course unlocks as soon as the money arrives.
+  Future<void> _payOnline(TeacherGuideSummary g) async {
+    final user = ref.read(authProvider).user;
+    final result = await showCheckoutSheet(
+      context,
+      item: CheckoutItem.teacherGuide(g.courseId),
+      title: g.title,
+      subtitle: "Teacher's guide and teaching tools",
+      amount: g.price,
+      defaultPhone: user?.phone,
+      defaultEmail: user?.email,
+    );
+    if (!mounted) return;
+    if (result?.isPaid == true) {
+      ref.invalidate(teacherAccessProvider);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('"${g.title}" is unlocked.')));
+    }
     _load();
   }
 

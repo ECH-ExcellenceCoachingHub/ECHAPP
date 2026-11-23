@@ -5,7 +5,7 @@ const User = require('../models/User');
 const { hasSchoolCourseAccess } = require('../services/school/subscription.service');
 const { sendSuccess, sendError, sendNotFound, sendForbidden } = require('../utils/response.utils');
 const emailService = require('../services/email.service');
-const notificationController = require('./notification.controller');
+const { fulfillPayment, revokePayment } = require('../services/payments/fulfillment.service');
 
 // Admin-initiated payment for a student
 const adminInitiatePayment = async (req, res) => {
@@ -275,94 +275,14 @@ const verifyPayment = async (req, res) => {
       
       console.log('Admin approval object created:', payment.adminApproval);
 
-      if (status === 'approved' && payment.purpose === 'teacher_guide') {
-        // A teacher's-guide request: give the teacher the course (guide + tools),
-        // never a student enrollment.
-        payment.paymentDate = new Date();
-        const TeacherAssignment = require('../models/TeacherAssignment');
-        await TeacherAssignment.findOneAndUpdate(
-          { teacherId: userIdInfo.id, courseId: courseIdInfo.id },
-          {
-            $set: { isActive: true, paymentId: payment._id, assignedAt: new Date() },
-            // An existing admin assignment keeps its source (and its student access).
-            $setOnInsert: { assignedBy: adminId, source: 'guide_purchase' },
-          },
-          { upsert: true, new: true }
-        );
-        try {
-          const { notify } = require('./teacherAccess.controller');
-          await notify([userIdInfo.id], 'Your course is unlocked',
-            `Your request for "${courseIdInfo.title}" was approved. Open your teacher dashboard to start teaching with the guide.`,
-            { type: 'teacher_guide_approved', courseId: String(courseIdInfo.id) });
-        } catch (notificationError) {
-          console.error('Error creating teacher guide notification:', notificationError);
-        }
-      } else if (payment.purpose === 'teacher_guide' && ['failed', 'cancelled'].includes(status)) {
-        // Reversing an approval takes the guide course away again.
-        await require('../models/TeacherAssignment').updateOne(
-          { paymentId: payment._id, source: 'guide_purchase' },
-          { $set: { isActive: false } }
-        );
-      } else if (status === 'approved') {
-        payment.paymentDate = new Date();
-        
-        console.log('Checking for existing enrollment for user:', userIdInfo.id, 'course:', courseIdInfo.id);
-        
-        // Check if enrollment already exists for this user and course
-        // Include unenrolled/suspended records: a learner may buy a course again
-        // after leaving it, and (userId, courseId) is unique.
-        const existingEnrollment = await Enrollment.findOne({
-          userId: userIdInfo.id,
-          courseId: courseIdInfo.id,
-          status: Enrollment.ANY_STATUS
-        });
-        
-        if (!existingEnrollment) {
-          console.log('Creating new enrollment for user:', userIdInfo.id, 'course:', courseIdInfo.id);
-          
-          // Create enrollment for the user
-          await Enrollment.create({
-            userId: userIdInfo.id,
-            courseId: courseIdInfo.id,
-            completionStatus: 'in-progress',
-            paymentId: payment._id
-          });
-          
-          console.log('Enrollment created successfully');
-        } else if (existingEnrollment.status === 'unenrolled') {
-          // Learner bought the course again after leaving it: reactivate the
-          // same record so their earlier progress comes back.
-          existingEnrollment.setStatus('active', {
-            changedBy: req.user?.id || null,
-            reason: 'Re-enrolled after payment approval'
-          });
-          existingEnrollment.unenrolledAt = null;
-          existingEnrollment.paymentId = payment._id;
-          if (existingEnrollment.accessExpirationDate && new Date() > existingEnrollment.accessExpirationDate) {
-            // Match new paid enrollments created above, which carry no expiry
-            existingEnrollment.accessExpirationDate = null;
-          }
-          await existingEnrollment.save();
-          await Course.findByIdAndUpdate(courseIdInfo.id, { $inc: { enrollmentCount: 1 } });
-          console.log('Reactivated unenrolled enrollment after payment approval');
-        } else {
-          console.log('Enrollment already exists for user:', userIdInfo.id, 'course:', courseIdInfo.id);
-
-          // Update existing enrollment with the new payment ID if it doesn't have one
-          if (!existingEnrollment.paymentId) {
-            existingEnrollment.paymentId = payment._id;
-            await existingEnrollment.save();
-            console.log('Updated existing enrollment with payment ID');
-          }
-        }
-
-        // Send payment notification to user
-        try {
-          const NotificationController = notificationController.NotificationController;
-          await NotificationController.createPaymentNotification(userIdInfo.id, payment.amount, courseIdInfo.id);
-        } catch (notificationError) {
-          console.error('Error creating payment notification:', notificationError);
-        }
+      if (status === 'approved' || status === 'completed') {
+        // Same fulfilment the automatic (iTechPay) path uses: course enrollment,
+        // teacher's-guide access or school-term seats, depending on the purpose.
+        payment.paymentDate = payment.paymentDate || new Date();
+        await fulfillPayment(payment, { actorId: adminId });
+      } else if (['failed', 'cancelled'].includes(status)) {
+        // Reversing an approval takes a guide course away again.
+        await revokePayment(payment);
       }
 
       // Save the updated payment to the database
@@ -427,6 +347,16 @@ const getMyPayments = async (req, res) => {
     const filter = { userId };
     if (status) {
       filter.status = status;
+    }
+
+    // Online payments still waiting: ask iTechPay now (throttled per payment),
+    // so screens polling this list see the purchase unlock straight away.
+    try {
+      const { refresh } = require('../services/payments/checkout.service');
+      const inFlight = await Payment.find({ userId, status: 'pending', 'gateway.provider': 'itecpay' }).limit(5);
+      await Promise.all(inFlight.map((p) => refresh(p, { via: 'poll' }).catch(() => null)));
+    } catch (e) {
+      console.warn('getMyPayments: refresh of online payments failed:', e.message);
     }
 
     console.log('Filter being used:', filter);
@@ -500,12 +430,13 @@ const getAllPayments = async (req, res) => {
     if (status) filter.status = status;
     if (courseId) filter.courseId = courseId;
     if (userId) filter.userId = userId;
-    if (req.query.purpose === 'teacher_guide') filter.purpose = 'teacher_guide';
-    else if (req.query.purpose === 'course') filter.purpose = { $ne: 'teacher_guide' };
+    if (['teacher_guide', 'school_term'].includes(req.query.purpose)) filter.purpose = req.query.purpose;
+    else if (req.query.purpose === 'course') filter.purpose = { $nin: ['teacher_guide', 'school_term'] };
 
     const payments = await Payment.find(filter)
       .populate('userId', 'fullName email')
       .populate('courseId', 'title price')
+      .populate('schoolId', 'name')
       .populate('adminApproval.approvedBy', 'fullName')
       .limit(finalLimit)
       .skip((page - 1) * finalLimit)

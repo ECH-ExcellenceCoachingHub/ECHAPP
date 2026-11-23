@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../config/app_theme.dart';
 import '../../../../widgets/school/school_ui.dart';
+import '../../../../widgets/school/combinations.dart';
 import '../school_admin_dashboard_screen.dart';
 
 /// School details ECH needs: names, contacts, address, levels, combinations.
@@ -100,9 +101,10 @@ class _ProfileSectionState extends State<ProfileSection> {
         SectionCard(title: 'Address', child: AddressFields(value: _address, onChanged: (v) => _address = v)),
         SectionCard(title: 'Levels taught', child: ChipPicker(options: schoolLevels, selected: _levels, onChanged: (v) => setState(() => _levels = v))),
         SectionCard(
-          title: 'Combinations / trades',
-          subtitle: 'For A-level and TVET classes (e.g. MPC, PCB, SWD).',
-          child: ChipPicker(options: commonCombinations, selected: _combos, allowCustom: true, customLabel: 'Other', onChanged: (v) => setState(() => _combos = v)),
+          icon: Icons.category_outlined,
+          title: 'Combinations and trades',
+          subtitle: 'Upper secondary streams (new REB curriculum and previous combinations) and TVET trades your school offers.',
+          child: CombinationField(selected: _combos, extra: _combos.toList(), onChanged: (v) => setState(() => _combos = v)),
         ),
         if (widget.c.superAdmin)
           SectionCard(
