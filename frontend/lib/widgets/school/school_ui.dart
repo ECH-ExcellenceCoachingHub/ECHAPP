@@ -180,7 +180,9 @@ class SectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    // Own semantics node, so a tappable row inside a card does not absorb
+    // the whole page into one "button" for screen readers.
+    return Semantics(container: true, explicitChildNodes: true, child: Container(
       decoration: BoxDecoration(
         color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(14),
@@ -194,22 +196,22 @@ class SectionCard extends StatelessWidget {
           if (title != null) ...[
             Row(children: [
               Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                child: Semantics(container: true, header: true, child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(trSchool(context, title!), style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.getTextColor(context))),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
                     Text(trSchool(context, subtitle!), style: TextStyle(fontSize: 13, color: AppTheme.getSecondaryTextColor(context))),
                   ],
-                ]),
+                ])),
               ),
               if (trailing != null) trailing!,
             ]),
             const SizedBox(height: 12),
           ],
-          child,
+          Semantics(container: true, child: child),
         ],
       ),
-    );
+    ));
   }
 }
 

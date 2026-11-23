@@ -101,7 +101,8 @@ class ConnectivityService extends ChangeNotifier {
   void reportServerReachable() {
     if (!_serverUnreachable) return;
     _serverUnreachable = false;
-    _blockedLocation = null;
+    // Keep _blockedLocation: the router sends the user back there now that
+    // the connection is back (see takeBlockedLocation).
     _syncRecoveryTimer();
     _notifySoon();
   }
@@ -116,13 +117,24 @@ class ConnectivityService extends ChangeNotifier {
     _blockedLocation = location;
   }
 
+  /// The page to return to after an outage, consumed once. Null when the
+  /// user opened Downloads on their own.
+  String? takeBlockedLocation() {
+    final l = _blockedLocation;
+    _blockedLocation = null;
+    return l;
+  }
+
+  /// The user moved on by themselves: never pull them back later.
+  void forgetBlockedLocation() {
+    _blockedLocation = null;
+  }
+
   void _onTransportChanged(bool down) {
     if (down == _transportDown) return;
     _transportDown = down;
 
-    if (down) {
-      _blockedLocation = null;
-    } else {
+    if (!down) {
       // The interface came back, but that says nothing about whether the
       // backend is actually reachable — verify before declaring recovery.
       unawaited(_probe());

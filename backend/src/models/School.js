@@ -81,6 +81,8 @@ const schoolSchema = new mongoose.Schema({
     mode: { type: String, enum: ['anywhere', 'code', 'network'], default: 'anywhere' },
     codeMinutes: { type: Number, enum: [30, 45, 60, 90], default: 60 },
     // School sessions end at this local time (Africa/Kigali) or after maxSessionHours.
+    // Students may sign in only between these local times (Africa/Kigali).
+    dayStartsAt: { type: String, match: /^([01]\d|2[0-3]):[0-5]\d$/, default: '06:00' },
     dayEndsAt: { type: String, match: /^([01]\d|2[0-3]):[0-5]\d$/, default: '17:00' },
     maxSessionHours: { type: Number, min: 1, max: 16, default: 9 },
     // School public IP addresses (IPv4/IPv6, IPv4 CIDR like 41.186.0.0/24).

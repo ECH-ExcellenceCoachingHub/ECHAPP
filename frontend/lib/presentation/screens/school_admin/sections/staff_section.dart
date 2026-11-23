@@ -78,7 +78,7 @@ class _StaffSectionState extends State<StaffSection> {
       if (teaches.isEmpty && classOf.isEmpty && t['role'] == 'instructor') 'Not teaching any class yet',
       [t['email'], t['phone']].where((e) => e != null).join(' · '),
     ];
-    return ListTile(
+    return Semantics(container: true, child: ListTile(
       contentPadding: EdgeInsets.zero,
       leading: CircleAvatar(child: Text(initialsOf(t['fullName']))),
       title: Row(children: [
@@ -122,7 +122,7 @@ class _StaffSectionState extends State<StaffSection> {
           PopupMenuItem(value: 'toggle', child: Text(t['isActive'] == false ? 'Reactivate' : 'Remove from school')),
         ],
       ),
-    );
+    ));
   }
 }
 

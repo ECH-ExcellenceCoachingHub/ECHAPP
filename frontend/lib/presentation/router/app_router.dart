@@ -1084,6 +1084,16 @@ class AppRouter {
             connectivity.recordBlockedLocation(state.uri.toString());
             return OfflineRoutePolicy.offlineFallbackRoute;
           }
+          // Back online on the Downloads screen we were forced to: return to
+          // the page the user was on before the connection dropped.
+          if (connectivity.isOnline) {
+            if (state.matchedLocation == OfflineRoutePolicy.offlineFallbackRoute) {
+              final back = connectivity.takeBlockedLocation();
+              if (back != null) return back;
+            } else if (connectivity.blockedLocation != null) {
+              connectivity.forgetBlockedLocation();
+            }
+          }
 
           // Auth guard: prevent landing on auth selection when a valid session exists.
           if (state.matchedLocation == '/auth-selection') {

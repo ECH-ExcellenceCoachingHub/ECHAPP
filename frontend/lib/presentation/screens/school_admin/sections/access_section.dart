@@ -50,6 +50,7 @@ class _AccessSectionState extends State<AccessSection> {
         'studentAccess': {
           'mode': _mode,
           'codeMinutes': _p['codeMinutes'] ?? 60,
+          'dayStartsAt': _p['dayStartsAt'] ?? '06:00',
           'dayEndsAt': _p['dayEndsAt'] ?? '17:00',
           'maxSessionHours': _p['maxSessionHours'] ?? 9,
           'allowedIps': _ips,
@@ -72,6 +73,16 @@ class _AccessSectionState extends State<AccessSection> {
     setState(() => _ips.add(v));
     _ipInput.clear();
   }
+
+  Widget _timeButton(String key, String fallback, String label, IconData icon) => OutlinedButton.icon(
+        icon: Icon(icon),
+        label: T('$label ${_p[key] ?? fallback}'),
+        onPressed: () async {
+          final parts = '${_p[key] ?? fallback}'.split(':');
+          final t = await showTimePicker(context: context, initialTime: TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1])));
+          if (t != null) setState(() => _p[key] = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}');
+        },
+      );
 
   Widget _modeCard(String value, IconData icon, String title, String text) {
     final selected = _mode == value;
@@ -127,17 +138,10 @@ class _AccessSectionState extends State<AccessSection> {
       if (schoolOnly)
         SectionCard(
           title: 'School day',
-          subtitle: 'Student sessions end automatically, so nothing stays open at home.',
+          subtitle: 'Students can only sign in during these hours, and their sessions end automatically. Boarding schools with evening prep: set a later end time.',
           child: Wrap(spacing: 12, runSpacing: 12, crossAxisAlignment: WrapCrossAlignment.center, children: [
-            OutlinedButton.icon(
-              icon: const Icon(Icons.schedule),
-              label: T('Sessions end at ${_p['dayEndsAt'] ?? '17:00'}'),
-              onPressed: () async {
-                final parts = '${_p['dayEndsAt'] ?? '17:00'}'.split(':');
-                final t = await showTimePicker(context: context, initialTime: TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1])));
-                if (t != null) setState(() => _p['dayEndsAt'] = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}');
-              },
-            ),
+            _timeButton('dayStartsAt', '06:00', 'Students can sign in from', Icons.wb_twilight),
+            _timeButton('dayEndsAt', '17:00', 'Sessions end at', Icons.schedule),
             SizedBox(
               width: 220,
               child: DropdownButtonFormField<int>(

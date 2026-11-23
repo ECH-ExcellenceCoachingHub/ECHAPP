@@ -29,6 +29,10 @@ function applyStudentAccess(school, sa) {
     if (![30, 45, 60, 90].includes(n)) throw new HttpError('Code duration must be 30, 45, 60 or 90 minutes');
     cur.codeMinutes = n;
   }
+  if (sa.dayStartsAt !== undefined) {
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(sa.dayStartsAt))) throw new HttpError('Start of school day must look like 06:30');
+    cur.dayStartsAt = String(sa.dayStartsAt);
+  }
   if (sa.dayEndsAt !== undefined) {
     if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(sa.dayEndsAt))) throw new HttpError('End of school day must look like 17:00');
     cur.dayEndsAt = String(sa.dayEndsAt);
@@ -48,6 +52,10 @@ function applyStudentAccess(school, sa) {
   if (sa.pinlessLevels !== undefined) {
     if (!Array.isArray(sa.pinlessLevels)) throw new HttpError('pinlessLevels must be a list');
     cur.pinlessLevels = [...new Set(sa.pinlessLevels.map((x) => String(x).trim().toUpperCase()).filter(Boolean))];
+  }
+  const mins = (t) => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
+  if (mins(cur.dayStartsAt || '06:00') >= mins(cur.dayEndsAt || '17:00')) {
+    throw new HttpError('The school day must start before it ends.');
   }
   if (cur.mode === 'network' && !cur.allowedIps.length) {
     throw new HttpError("Add the school's internet address first, otherwise no student could sign in.");

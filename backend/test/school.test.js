@@ -370,7 +370,7 @@ test('school-only (code): class code required, scoped to the class, spoofed IP r
   const kid = await addStudent(s.head, s.schoolId, { fullName: 'Aline Mukamana', classroomId: s.s3a.id });
   const { studentCode, pin } = kid.body.data.credentials;
 
-  const setMode = await call(schools.updateSchool, { user: s.head, params: { schoolId: s.schoolId }, body: { studentAccess: { mode: 'code', allowedIps: ['41.186.10.0/24'], dayEndsAt: '17:00' } } });
+  const setMode = await call(schools.updateSchool, { user: s.head, params: { schoolId: s.schoolId }, body: { studentAccess: { mode: 'code', allowedIps: ['41.186.10.0/24'], dayStartsAt: '00:00', dayEndsAt: '23:59' } } });
   assert.equal(setMode.status, 200, JSON.stringify(setMode.body));
   const noIps = await call(schools.updateSchool, { user: s.head, params: { schoolId: s.schoolId }, body: { studentAccess: { mode: 'network', allowedIps: [] } } });
   assert.equal(noIps.status, 400);
@@ -431,7 +431,7 @@ test('school-only (network): sign-in and every request must come from the school
   const s = await setupSchool();
   const kid = await addStudent(s.head, s.schoolId, { fullName: 'Aline Mukamana', classroomId: s.s3a.id });
   const { studentCode, pin } = kid.body.data.credentials;
-  await call(schools.updateSchool, { user: s.head, params: { schoolId: s.schoolId }, body: { studentAccess: { mode: 'network', allowedIps: ['41.186.10.77'] } } });
+  await call(schools.updateSchool, { user: s.head, params: { schoolId: s.schoolId }, body: { studentAccess: { mode: 'network', allowedIps: ['41.186.10.77'], dayStartsAt: '00:00', dayEndsAt: '23:59' } } });
 
   const fromHome = await call(pinAuth.pinLogin, { headers: { 'x-forwarded-for': '102.22.1.5' }, body: { identifier: studentCode, pin } });
   assert.equal(fromHome.body.code, 'SCHOOL_NETWORK_REQUIRED');
@@ -447,7 +447,7 @@ test('young pupils: class code shows the class list, tapping a name signs in (no
   const p2 = await call(classes.createClasses, { user: s.head, params: { schoolId: s.schoolId }, body: { level: 'P2', stream: 'A', academicYear: '2026' } });
   const p2a = p2.body.data.classes[0];
   const kid = await addStudent(s.head, s.schoolId, { fullName: 'Keza Uwase', classroomId: p2a.id });
-  await call(schools.updateSchool, { user: s.head, params: { schoolId: s.schoolId }, body: { studentAccess: { mode: 'code' } } });
+  await call(schools.updateSchool, { user: s.head, params: { schoolId: s.schoolId }, body: { studentAccess: { mode: 'code', dayStartsAt: '00:00', dayEndsAt: '23:59' } } });
 
   const code = await call(accessCtl.currentAccessCode, { user: s.head, query: { classId: p2a.id } });
   assert.equal(code.body.data.pinless, true);
@@ -471,8 +471,35 @@ test('school day end is computed in Kigali time', () => {
   assert.equal(accessSvc.sessionExpiry(policy, new Date('2026-11-23T08:00:00Z')).toISOString(), '2026-11-23T15:00:00.000Z');
   // 07:00 Kigali: the 9-hour limit (16:00) comes before 17:00.
   assert.equal(accessSvc.sessionExpiry(policy, new Date('2026-11-23T05:00:00Z')).toISOString(), '2026-11-23T14:00:00.000Z');
-  // Evening prep at 19:00 Kigali: the hours limit applies.
-  assert.equal(accessSvc.sessionExpiry(policy, new Date('2026-11-23T17:00:00Z')).toISOString(), '2026-11-24T02:00:00.000Z');
+  // 19:00 Kigali is outside the default school day (06:00-17:00): sign-in is refused.
+  const evening = new Date('2026-11-23T17:00:00Z');
+  assert.equal(accessSvc.withinSchoolHours({ ...policy, mode: 'code' }, evening), false);
+  assert.equal(accessSvc.outsideHoursRefusal({ ...policy, mode: 'code' }, evening).code, 'OUTSIDE_SCHOOL_HOURS');
+  // Boarding school with evening prep until 21:00: allowed, session ends at 21:00.
+  const boarding = { ...policy, mode: 'code', dayEndsAt: '21:00' };
+  assert.equal(accessSvc.outsideHoursRefusal(boarding, evening), null);
+  assert.equal(accessSvc.sessionExpiry(boarding, evening).toISOString(), '2026-11-23T19:00:00.000Z');
+  // Anywhere mode never limits hours.
+  assert.equal(accessSvc.outsideHoursRefusal({ ...policy, mode: 'anywhere' }, evening), null);
+});
+
+test('school only: students cannot sign in outside school hours', async () => {
+  const s = await setupSchool();
+  const kid = await addStudent(s.head, s.schoolId, { fullName: 'Aline Mukamana', classroomId: s.s3a.id });
+  // A window that has certainly closed: the minute before now (Kigali time).
+  const k = new Date(Date.now() + 120 * 60000);
+  const pad = (n) => String(n).padStart(2, '0');
+  const end = `${pad(k.getUTCHours())}:${pad(k.getUTCMinutes())}`;
+  const start = k.getUTCHours() === 0 && k.getUTCMinutes() === 0 ? null : '00:00';
+  if (!start || end === '00:00') return; // exactly midnight in Kigali: nothing to test
+  const res = await call(schools.updateSchool, { user: s.head, params: { schoolId: s.schoolId }, body: { studentAccess: { mode: 'code', dayStartsAt: start, dayEndsAt: end } } });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  const login = await call(pinAuth.pinLogin, { body: { identifier: kid.body.data.credentials.studentCode, pin: kid.body.data.credentials.pin, accessCode: '000000' } });
+  assert.equal(login.status, 403);
+  assert.equal(login.body.code, 'OUTSIDE_SCHOOL_HOURS');
+  // Start must be before end.
+  const bad = await call(schools.updateSchool, { user: s.head, params: { schoolId: s.schoolId }, body: { studentAccess: { dayStartsAt: '18:00', dayEndsAt: '17:00' } } });
+  assert.equal(bad.status, 400);
 });
 
 // ── Class groups (school community) and onboarding skip ────────────────────

@@ -218,6 +218,8 @@ async function pinlessLogin(req, res) {
   if (!school || school.isActive === false || !classroom || !access.isPinlessLevel(policy, classroom.level)) {
     return res.status(403).json({ success: false, code: 'PIN_REQUIRED', message: 'This class signs in with student code and PIN.' });
   }
+  const closed = access.outsideHoursRefusal(policy);
+  if (closed) return res.status(closed.status).json({ success: false, code: closed.code, message: closed.message });
   if (!require('mongoose').Types.ObjectId.isValid(String(req.body.studentId))) {
     return res.status(400).json({ success: false, message: 'Choose your name from the list.' });
   }

@@ -8,7 +8,8 @@
  *   network  — only from the school's internet (allowedIps); checked on every
  *              request, so a session cannot be carried home.
  *
- * In both school-only modes a session ends at dayEndsAt (Kigali time) or after
+ * In both school-only modes students sign in only between dayStartsAt and
+ * dayEndsAt (Kigali time); a session ends at dayEndsAt or after
  * maxSessionHours, whichever comes first.
  * Young pupils (pinlessLevels) sign in with the class code + their name.
  */
@@ -24,6 +25,7 @@ const CODE_LENGTH = 6;
 const DEFAULTS = {
   mode: 'anywhere',
   codeMinutes: 60,
+  dayStartsAt: '06:00',
   dayEndsAt: '17:00',
   maxSessionHours: 9,
   allowedIps: [],
@@ -54,16 +56,45 @@ function invalidatePolicy(schoolId) {
   cache.delete(String(schoolId));
 }
 
-/** When a school-only session started now must end. */
+/** Minutes since midnight in Kigali for a Date. */
+function kigaliMinutes(now) {
+  const k = new Date(now.getTime() + KIGALI_OFFSET_MIN * 60000);
+  return k.getUTCHours() * 60 + k.getUTCMinutes();
+}
+
+function toMinutes(hhmm, fallback) {
+  const [h, m] = String(hhmm || fallback).split(':').map(Number);
+  return h * 60 + m;
+}
+
+/** True when `now` is inside the school day (dayStartsAt–dayEndsAt, Kigali time). */
+function withinSchoolHours(policy, now = new Date()) {
+  const t = kigaliMinutes(now);
+  return t >= toMinutes(policy.dayStartsAt, '06:00') && t < toMinutes(policy.dayEndsAt, '17:00');
+}
+
+/**
+ * When a school-only session started now must end: today's dayEndsAt (Kigali),
+ * or maxSessionHours after sign-in if that comes first. Sign-in outside school
+ * hours is refused beforehand (see checkStudentSignIn), so nothing stays open
+ * overnight.
+ */
 function sessionExpiry(policy, now = new Date()) {
   const byHours = new Date(now.getTime() + policy.maxSessionHours * 3600 * 1000);
-  const [h, m] = String(policy.dayEndsAt || '17:00').split(':').map(Number);
-  // Today's dayEndsAt in Kigali, expressed in UTC.
-  const kigaliNow = new Date(now.getTime() + KIGALI_OFFSET_MIN * 60000);
-  const endUtc = Date.UTC(kigaliNow.getUTCFullYear(), kigaliNow.getUTCMonth(), kigaliNow.getUTCDate(), h, m) - KIGALI_OFFSET_MIN * 60000;
-  const dayEnd = new Date(endUtc);
-  // Signing in after the school day ended (evening prep) still gets the hours limit.
-  return dayEnd > now && dayEnd < byHours ? dayEnd : byHours;
+  const minutesLeft = toMinutes(policy.dayEndsAt, '17:00') - kigaliMinutes(now);
+  const dayEnd = new Date(now.getTime() + Math.max(0, minutesLeft) * 60000 - (now.getUTCSeconds() * 1000 + now.getUTCMilliseconds()));
+  return dayEnd < byHours ? dayEnd : byHours;
+}
+
+/** Refusal for a sign-in outside the school day, or null. */
+function outsideHoursRefusal(policy, now = new Date()) {
+  if (policy.mode === 'anywhere' || withinSchoolHours(policy, now)) return null;
+  return {
+    ok: false,
+    status: 403,
+    code: 'OUTSIDE_SCHOOL_HOURS',
+    message: `Your school opens ECH for students from ${policy.dayStartsAt || '06:00'} to ${policy.dayEndsAt || '17:00'}. Try again during school hours.`,
+  };
 }
 
 function randomCode() {
@@ -124,6 +155,8 @@ async function findActiveCode(code) {
 async function checkStudentSignIn(student, school, { ip, accessCode, now = new Date() }) {
   const policy = policyOf(school);
   if (policy.mode === 'anywhere') return { ok: true, policy, expiresAt: null };
+  const closed = outsideHoursRefusal(policy, now);
+  if (closed) return closed;
   const onNetwork = ipAllowed(ip, policy.allowedIps);
   if (policy.mode === 'network') {
     if (!onNetwork) {
@@ -154,6 +187,8 @@ module.exports = {
   cachedPolicy,
   invalidatePolicy,
   sessionExpiry,
+  withinSchoolHours,
+  outsideHoursRefusal,
   currentCode,
   findValidCodeForStudent,
   findActiveCode,
