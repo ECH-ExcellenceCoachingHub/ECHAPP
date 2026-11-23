@@ -647,3 +647,14 @@ test('year-end promotion: promote, repeat, leave, graduate, copy subjects, archi
   assert.equal(yearCtl.nextLevel('P6', ['P1', 'P2', 'P3', 'P4', 'P5', 'P6']), null);
   assert.equal(yearCtl.nextLevel('P6', []), 'S1');
 });
+
+
+test('class teacher can manage the roster from the class page (populated class teacher)', async () => {
+  const s = await setupSchool();
+  const page = await call(classes.getClass, { user: s.classTeacher, params: { classId: s.s3a.id } });
+  assert.equal(page.status, 200, JSON.stringify(page.body));
+  assert.equal(page.body.data.access.isClassTeacher, true);
+  assert.equal(page.body.data.access.canManageRoster, true);
+  const subjectTeacher = await call(classes.getClass, { user: s.mathsTeacher, params: { classId: s.s3a.id } });
+  assert.equal(subjectTeacher.body.data.access.canManageRoster, false);
+});

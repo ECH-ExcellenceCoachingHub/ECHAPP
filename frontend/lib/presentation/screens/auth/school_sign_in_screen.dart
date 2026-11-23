@@ -34,6 +34,16 @@ class _SchoolSignInScreenState extends ConsumerState<SchoolSignInScreen> {
   Map<String, dynamic>? _classInfo;
 
   @override
+  void initState() {
+    super.initState();
+    // Arrived here because the server ended the session: say why.
+    final s = ref.read(authProvider);
+    if (s.user == null && s.error != null && (s.error!.toLowerCase().contains('signed out') || s.error!.toLowerCase().contains('session'))) {
+      _error = s.error;
+    }
+  }
+
+  @override
   void dispose() {
     _id.dispose();
     _pin.dispose();
@@ -163,11 +173,20 @@ class _SchoolSignInScreenState extends ConsumerState<SchoolSignInScreen> {
                   const SizedBox(height: 6),
                   T(subtitle, textAlign: TextAlign.center, style: TextStyle(color: muted)),
                   const SizedBox(height: 20),
+                  // Narrow phones: no icons, so the labels (longer in Kinyarwanda) fit on one line.
                   SegmentedButton<_Who>(
-                    segments: const [
-                      ButtonSegment(value: _Who.student, label: T('Student'), icon: Icon(Icons.person_outline)),
-                      ButtonSegment(value: _Who.young, label: T('Young pupil'), icon: Icon(Icons.child_care_outlined)),
-                      ButtonSegment(value: _Who.parent, label: T('Parent'), icon: Icon(Icons.family_restroom_outlined)),
+                    showSelectedIcon: MediaQuery.of(context).size.width >= 420,
+                    segments: [
+                      for (final (w, label, icon) in const [
+                        (_Who.student, 'Student', Icons.person_outline),
+                        (_Who.young, 'Young pupil', Icons.child_care_outlined),
+                        (_Who.parent, 'Parent', Icons.family_restroom_outlined),
+                      ])
+                        ButtonSegment(
+                          value: w,
+                          icon: MediaQuery.of(context).size.width >= 420 ? Icon(icon) : null,
+                          label: FittedBox(fit: BoxFit.scaleDown, child: T(label, maxLines: 1, softWrap: false)),
+                        ),
                     ],
                     selected: {_who},
                     onSelectionChanged: (v) => _switch(v.first),
@@ -187,7 +206,7 @@ class _SchoolSignInScreenState extends ConsumerState<SchoolSignInScreen> {
                     ),
                   ],
                   const SizedBox(height: 16),
-                  Text(
+                  T(
                     _who == _Who.parent
                         ? 'Forgot your PIN? Ask the school office for a new one.'
                         : 'Forgot your PIN? Ask your class teacher. Only one device can use a student account at a time.',
@@ -225,7 +244,7 @@ class _SchoolSignInScreenState extends ConsumerState<SchoolSignInScreen> {
         controller: _pin,
         textInputAction: _needClassCode && !parent ? TextInputAction.next : TextInputAction.done,
         onSubmitted: (_) => _needClassCode && !parent ? _classCodeFocus.requestFocus() : _submit(),
-        validator: (v) => (v == null || v.length != 6) ? 'The PIN has 6 digits' : null,
+        validator: (v) => (v == null || v.length != 6) ? trSchool(context, 'The PIN has 6 digits') : null,
       ),
       if (!parent) ...[
         const SizedBox(height: 14),

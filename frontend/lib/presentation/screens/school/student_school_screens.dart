@@ -110,7 +110,7 @@ class StudentOverviewView extends StatelessWidget {
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Icon(icon, size: 18, color: muted),
             const SizedBox(width: 8),
-            SizedBox(width: 110, child: Text(label, style: TextStyle(color: muted, fontSize: 13))),
+            SizedBox(width: 110, child: T(label, style: TextStyle(color: muted, fontSize: 13))),
             Expanded(child: Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5))),
           ]),
         );
@@ -128,14 +128,14 @@ class StudentOverviewView extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(forParent ? '${student['fullName']}' : 'Hello, ${'${student['fullName']}'.split(' ').first}',
+                T(forParent ? '${student['fullName']}' : 'Hello, ${'${student['fullName']}'.split(' ').first}',
                     style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: AppTheme.getTextColor(context))),
                 T('${school['name'] ?? ''}', style: TextStyle(color: muted)),
               ]),
             ),
           ]),
           const SizedBox(height: 14),
-          detail(Icons.meeting_room_outlined, 'Class', '${classroom?['name'] ?? 'Not in a class yet'}'),
+          detail(Icons.meeting_room_outlined, 'Class', classroom?['name'] != null ? '${classroom!['name']}' : trSchool(context, 'Not in a class yet')),
           if (classroom?['academicYear'] != null) detail(Icons.event_outlined, 'Academic year', '${classroom!['academicYear']}'),
           detail(Icons.badge_outlined, 'Student code', '${student['studentCode'] ?? '—'}'),
           if (classroom?['classTeacher'] != null)
@@ -248,9 +248,16 @@ class _AssessmentTile extends StatelessWidget {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: Icon(a['type'] == 'homework' ? Icons.assignment_outlined : Icons.quiz_outlined),
-      title: T('${a['title']}'),
-      subtitle: T('${a['subject']} · due ${fmtDay(a['dueAt'])}'),
-      trailing: StatusPill(label, tone: tone),
+      title: Text('${a['title']}'),
+      // Status under the subject, not beside the title, so narrow phones keep the title on one line.
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+          Text('${a['subject']} · ${fmtDay(a['dueAt'])}'),
+          StatusPill(label, tone: tone),
+        ]),
+      ),
+      trailing: onTap == null ? null : const Icon(Icons.chevron_right),
       onTap: onTap == null ? null : () => onTap!(a),
     );
   }

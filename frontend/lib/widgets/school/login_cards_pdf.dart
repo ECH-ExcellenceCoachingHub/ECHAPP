@@ -24,7 +24,7 @@ Future<Uint8List> buildLoginCardsPdf({
   String mode = 'anywhere',
   bool pinless = false,
 }) async {
-  final doc = pw.Document(title: 'ECH login cards — $className', author: 'Excellence Coaching Hub');
+  final doc = pw.Document(title: 'ECH login cards - $className', author: 'Excellence Coaching Hub');
   const green = PdfColor.fromInt(0xFF047857);
   const grey = PdfColor.fromInt(0xFF6B7280);
 
@@ -85,18 +85,21 @@ Future<Uint8List> buildLoginCardsPdf({
       margin: const pw.EdgeInsets.all(24),
       build: (_) => pw.Column(children: [
         pw.Row(children: [
-          pw.Expanded(child: pw.Text('$schoolName — $className — login cards', style: pw.TextStyle(fontSize: 9, color: grey))),
+          // Plain separators: the built-in PDF font has no long dash.
+          pw.Expanded(child: pw.Text([if (schoolName.isNotEmpty) schoolName, className, 'login cards'].join('  |  '), style: pw.TextStyle(fontSize: 9, color: grey))),
           pw.Text('Page ${i ~/ perPage + 1} of ${(cards.length / perPage).ceil()}', style: pw.TextStyle(fontSize: 9, color: grey)),
         ]),
         pw.SizedBox(height: 8),
-        pw.Expanded(
-          child: pw.GridView(
-            crossAxisCount: 2,
-            childAspectRatio: 0.62,
-            crossAxisSpacing: 0,
-            mainAxisSpacing: 0,
-            children: [for (final c in page) card(c)],
-          ),
+        // Fixed-size cards from the top-left (2 columns x 5 rows on A4).
+        pw.Wrap(
+          children: [
+            for (final c in page)
+              pw.SizedBox(
+                width: (PdfPageFormat.a4.width - 48) / 2,
+                height: (PdfPageFormat.a4.height - 48 - 24) / 5,
+                child: card(c),
+              ),
+          ],
         ),
       ]),
     ));

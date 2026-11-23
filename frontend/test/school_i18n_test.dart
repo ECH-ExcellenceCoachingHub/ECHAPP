@@ -14,6 +14,13 @@ void main() {
     expect(find.text('Igihe ntarengwa: ejo'), findsOneWidget); // pattern + translated part
     expect(find.text('Something not translated'), findsOneWidget); // falls back to English
 
+    // Patterns never swallow a whole composite line.
+    const line = 'Jean Bosco Habimana · 4 lessons taught, last 2 days ago';
+    await tester.pumpWidget(_inLocale('rw', const T(line)));
+    expect(find.text(line), findsOneWidget);
+    await tester.pumpWidget(_inLocale('rw', const T('2 days ago')));
+    expect(find.text('hashize iminsi 2'), findsOneWidget);
+
     await tester.pumpWidget(_inLocale('en', const T('Homework & work to do')));
     expect(find.text('Homework & work to do'), findsOneWidget);
   });

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -372,9 +373,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   Future<void> _newer() async {
-    if (_messages.isEmpty || !mounted) return;
+    if (!mounted) return;
     try {
-      final r = await _svc.groupMessages(widget.groupId, after: '${_messages.last['createdAt']}');
+      // An empty chat asks for everything, so the first message still arrives.
+      final r = await _svc.groupMessages(widget.groupId, after: _messages.isEmpty ? null : '${_messages.last['createdAt']}');
       if (!mounted) return;
       final before = _messages.length;
       setState(() => _apply(r));
@@ -517,13 +519,17 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     },
                   ),
                   Expanded(
-                    child: TextField(
+                    // Enter sends (keyboards on computers); Shift+Enter adds a new line.
+                    child: CallbackShortcuts(
+                      bindings: {const SingleActivator(LogicalKeyboardKey.enter): () { if (!_sending) _send(); }},
+                      child: TextField(
                       controller: _text,
                       minLines: 1,
                       maxLines: 5,
                       textCapitalization: TextCapitalization.sentences,
                       decoration: InputDecoration(hintText: trSchool(context, 'Write a message'), isDense: true),
                       onSubmitted: (_) => _send(),
+                    ),
                     ),
                   ),
                   IconButton(onPressed: _sending ? null : _send, icon: const Icon(Icons.send), color: AppTheme.primary),

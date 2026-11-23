@@ -1,4 +1,5 @@
 import 'dart:math' show pi, sin, cos, Random;
+import 'package:excellencecoachinghub/widgets/school/school_i18n.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -432,7 +433,7 @@ class _MinimalAuthCard extends StatelessWidget {
         // School students (student code) and parents (phone) sign in with a PIN.
         _ModernAuthButton(
           icon: Icons.badge_outlined,
-          label: 'School code & PIN',
+          label: trSchool(context, 'School code & PIN'),
           isLoading: false,
           onPressed: isLoading ? null : () => context.push('/school-sign-in'),
           isDark: isDark,

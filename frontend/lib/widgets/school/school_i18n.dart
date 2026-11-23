@@ -70,7 +70,10 @@ _Pattern _compile(String en, String rw) {
   var last = 0;
   for (final m in re.allMatches(en)) {
     buf.write(RegExp.escape(en.substring(last, m.start)));
-    buf.write('(.+?)');
+    // {n} is a number; other placeholders are short single pieces (a name, a
+    // date) — never a whole sentence joined with " · " or line breaks, so a
+    // pattern like "{n} days ago" cannot swallow "Jean · 4 lessons, last 2 days ago".
+    buf.write(m.group(1) == 'n' ? r'(\d+)' : r'([^·|\n]{1,40}?)');
     names.add(m.group(1)!);
     last = m.end;
   }

@@ -11,7 +11,10 @@
 const Classroom = require('../../models/Classroom');
 const ClassSubject = require('../../models/ClassSubject');
 
-const same = (a, b) => a && b && String(a) === String(b);
+// Compares ids that may be ObjectIds, strings or populated documents
+// (e.g. classroom.classTeacherId after .populate()).
+const idOf = (x) => (x && typeof x === 'object' && x._id ? x._id : x);
+const same = (a, b) => !!(a && b) && String(idOf(a)) === String(idOf(b));
 
 function isSuperAdmin(user) {
   return user?.role === 'admin';

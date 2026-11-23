@@ -261,10 +261,17 @@ Future<String?> saveAndOpenDocument(Uint8List bytes, String fileName) async {
   if (kIsWeb) {
     final blob = html.Blob([bytes]);
     final url = html.Url.createObjectUrlFromBlob(blob);
-    html.AnchorElement(href: url)
+    final anchor = html.AnchorElement(href: url)
       ..setAttribute('download', safe)
-      ..click();
-    html.Url.revokeObjectUrl(url);
+      ..style.display = 'none';
+    html.document.body?.append(anchor);
+    anchor.click();
+    // The browser starts the download asynchronously: revoking the blob URL
+    // right away can cancel it. Clean up a little later.
+    Future.delayed(const Duration(seconds: 30), () {
+      anchor.remove();
+      html.Url.revokeObjectUrl(url);
+    });
     return null;
   }
   Directory? dir;

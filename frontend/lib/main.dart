@@ -11,6 +11,7 @@ import 'package:excellencecoachinghub/services/firebase_auth_service.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
 import 'package:excellencecoachinghub/l10n/kinyarwanda_material_localizations.dart';
+import 'package:excellencecoachinghub/presentation/providers/auth_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/localization_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/notification_provider.dart';
 import 'package:excellencecoachinghub/services/download_service.dart';
@@ -20,7 +21,6 @@ import 'package:excellencecoachinghub/services/session_tracking_service.dart';
 import 'package:excellencecoachinghub/services/connectivity_service.dart';
 import 'package:excellencecoachinghub/presentation/screens/settings/settings_screen.dart';
 import 'package:media_kit/media_kit.dart';
-import 'package:sentry_flutter/sentry_flutter.dart';
 
 /// Error tracking: off unless the build passes --dart-define=SENTRY_DSN=...
 const _sentryDsn = String.fromEnvironment('SENTRY_DSN');
@@ -54,17 +54,7 @@ Future<void> main() async {
   }
 
   if (_sentryDsn.isNotEmpty) {
-    await SentryFlutter.init((o) {
-      o.dsn = _sentryDsn;
-      o.environment = kReleaseMode ? 'production' : 'development';
-      o.sendDefaultPii = false; // no IPs, emails or user names
-      o.tracesSampleRate = 0.1;
-    });
-    final previous = FlutterError.onError;
-    FlutterError.onError = (details) {
-      Sentry.captureException(details.exception, stackTrace: details.stack);
-      previous?.call(details);
-    };
+    // Sentry disabled: sentry_flutter dependency removed to allow Windows/MSIX builds.
   }
 
   // Use runZonedGuarded to catch any unhandled errors that might crash the app
@@ -104,7 +94,6 @@ Future<void> main() async {
   }, (error, stack) {
     debugPrint('UNHANDLED ERROR: $error');
     debugPrint('Stack trace: $stack');
-    if (_sentryDsn.isNotEmpty) Sentry.captureException(error, stackTrace: stack);
   }, zoneSpecification: ZoneSpecification(
     // Silence print() in release builds (see debugPrint above).
     print: (self, parent, zone, line) {
@@ -184,6 +173,16 @@ class ExcellenceCoachingHubApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
     final locale = ref.watch(localeProvider);
+
+    // Signed out while using the app (session ended on the server, e.g. a school
+    // student signed in on another device or the school day ended): leave the
+    // current screen for the sign-in screen, which shows the reason.
+    ref.listen(authProvider, (prev, next) {
+      final was = prev?.user;
+      if (was == null || next.user != null || next.isLoading) return;
+      final schoolAccount = was.isSchoolStudent || was.role == 'parent';
+      AppRouter.routerInstance.go(schoolAccount ? '/school-sign-in' : '/auth-selection');
+    });
 
     // Wire static services so local notifications are also saved to the
     // backend and appear on the Notifications page.
