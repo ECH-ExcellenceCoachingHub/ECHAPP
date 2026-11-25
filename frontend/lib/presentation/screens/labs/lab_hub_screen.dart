@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../models/lab_scenario.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/lab_provider.dart';
 import '../../widgets/labs/lab_rooms.dart';
 import '../../widgets/labs/lab_widgets.dart';
@@ -29,6 +30,25 @@ class LabHubScreen extends ConsumerWidget {
           await ref.read(labScenariosProvider.future);
         },
         child: CustomScrollView(slivers: [
+          SliverAppBar(
+            pinned: true,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            surfaceTintColor: Colors.transparent,
+            leading: IconButton(
+              tooltip: 'Back',
+              icon: const Icon(Icons.arrow_back_rounded),
+              onPressed: () {
+                final router = GoRouter.of(context);
+                if (router.canPop()) {
+                  router.pop();
+                } else {
+                  final user = ref.read(authProvider).user;
+                  router.go(user?.isSchoolStudent == true ? '/school/home?tab=2' : '/dashboard');
+                }
+              },
+            ),
+            title: const Text('Virtual laboratory', style: TextStyle(fontWeight: FontWeight.w700)),
+          ),
           SliverToBoxAdapter(child: _Hero(summary: summary, onHeadset: () => showConnectHeadsetDialog(context, ref))),
           if (summary.continueItems.isNotEmpty)
             SliverToBoxAdapter(

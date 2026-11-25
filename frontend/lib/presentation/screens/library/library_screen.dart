@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:excellencecoachinghub/config/app_theme.dart';
 import 'package:excellencecoachinghub/data/services/gutenberg_service.dart';
 import 'package:excellencecoachinghub/models/download.dart';
+import 'package:excellencecoachinghub/presentation/providers/auth_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/download_provider.dart';
 import 'package:excellencecoachinghub/presentation/widgets/downloaded_material_viewer.dart';
 import 'package:excellencecoachinghub/services/book_service.dart';
@@ -67,18 +68,34 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'My Library',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w800,
-                      color: AppTheme.getTextColor(context),
-                      letterSpacing: -0.5,
+                  Row(children: [
+                    IconButton(
+                      tooltip: 'Back',
+                      icon: Icon(Icons.arrow_back_rounded, color: AppTheme.getTextColor(context)),
+                      onPressed: () {
+                        final router = GoRouter.of(context);
+                        if (router.canPop()) {
+                          router.pop();
+                        } else {
+                          final user = ref.read(authProvider).user;
+                          router.go(user?.isSchoolStudent == true ? '/school/home?tab=2' : '/dashboard');
+                        }
+                      },
                     ),
-                  ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'My Library',
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        color: AppTheme.getTextColor(context),
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ]),
                   const SizedBox(height: 4),
                   Text(
-                    'Browse all available courses',
+                    'Books and study materials',
                     style: TextStyle(
                       fontSize: 14,
                       color: AppTheme.getSecondaryTextColor(context),

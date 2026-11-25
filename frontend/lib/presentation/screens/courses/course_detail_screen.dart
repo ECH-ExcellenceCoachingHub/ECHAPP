@@ -32,6 +32,8 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   // State variables
   bool _hasRedirected = false;
+  /// Came back from the lessons with nothing to go back to: show the course.
+  bool _backFromLearning = false;
   bool _isPaymentLoading = false;
   bool _isEnrollmentLoading = false;
 
@@ -299,11 +301,22 @@ class _CourseDetailScreenState extends ConsumerState<CourseDetailScreen>
 
     // Auto-redirect if enrolled
     isEnrolledAsync.whenData((isEnrolled) {
-      if (isEnrolled && context.mounted && !_hasRedirected) {
+      if (isEnrolled && context.mounted && !_hasRedirected && !_backFromLearning) {
         setState(() => _hasRedirected = true);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (context.mounted) {
-            context.push('/learning/${widget.courseId}');
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!context.mounted) return;
+          final router = GoRouter.of(context);
+          await router.push('/learning/${widget.courseId}');
+          // Back from the lessons: leave this "redirecting" page too, so the
+          // learner returns where they came from instead of a spinner.
+          if (!mounted) return;
+          if (router.canPop()) {
+            router.pop();
+          } else {
+            setState(() {
+              _backFromLearning = true;
+              _hasRedirected = false;
+            });
           }
         });
       }
