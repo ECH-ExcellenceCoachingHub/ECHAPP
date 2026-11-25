@@ -11,7 +11,7 @@
     "sync:users": "node scripts/syncFirebaseUsers.js",
     "test:python": "cd python && python -m unittest discover -s tests",
     "worker": "node --max-old-space-size=768 src/workers/media.worker.js",
-    "test:ci": "node --test --test-concurrency=1 test/school.test.js test/teacher-access.test.js test/admin-limits.test.js test/payments-itecpay.test.js test/unit.test.js test/enrollment-status.test.js test/labs.test.js test/queue.test.js test/demo.test.js test/builder-video.test.js test/video-jobs-admin.test.js"
+    "test:ci": "node --test --test-concurrency=1 test/school.test.js test/teacher-access.test.js test/admin-limits.test.js test/payments-itecpay.test.js test/unit.test.js test/course-search.test.js test/enrollment-status.test.js test/labs.test.js test/queue.test.js test/demo.test.js test/builder-video.test.js test/video-jobs-admin.test.js"
   },
   "keywords": [],
   "author": "",

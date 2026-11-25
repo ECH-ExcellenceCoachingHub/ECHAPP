@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../config/app_theme.dart';
 import '../../../services/api/school_service.dart';
 import '../../../widgets/school/school_ui.dart';
+import 'package:excellencecoachinghub/widgets/search/search_suggestions.dart';
 
 /// Super admin: which ECH courses school students get for free, by class
 /// level. A student sees the courses marked for their class level (plus the
@@ -80,14 +81,21 @@ class _SchoolCoursesScreenState extends State<SchoolCoursesScreen> {
         ),
         Row(children: [
           Expanded(
-            child: TextField(
+            child: SearchSuggestions(
+              controller: _search,
+              load: (q) => CourseSuggestionsApi.load(q, showUnpublished: true),
+              fillOnSelect: true,
+              onSelected: (_) => _load(),
+              onSearchAll: (_) => _load(),
+              child: 
+TextField(
               controller: _search,
               decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Search courses', isDense: true),
               onChanged: (_) {
                 _debounce?.cancel();
                 _debounce = Timer(const Duration(milliseconds: 350), _load);
               },
-            ),
+            )),
           ),
           const SizedBox(width: 10),
           FilterChip(label: const T('Marked only'), selected: _onlyMarked, onSelected: (v) { setState(() => _onlyMarked = v); _load(); }),

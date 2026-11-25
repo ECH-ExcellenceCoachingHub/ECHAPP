@@ -15,6 +15,7 @@ import '../../../../services/api/checkout_service.dart';
 import '../../../../widgets/payments/checkout_sheet.dart';
 import '../onboarding/teacher_journey_widgets.dart';
 import '../../../widgets/smart_back_button.dart';
+import 'package:excellencecoachinghub/widgets/search/search_suggestions.dart';
 
 final _money = NumberFormat.decimalPattern();
 
@@ -33,6 +34,8 @@ class _TeacherGuideCatalogScreenState extends ConsumerState<TeacherGuideCatalogS
   final _search = TextEditingController();
   Timer? _debounce;
   List<TeacherGuideSummary>? _guides;
+  /// The unfiltered catalogue, for search suggestions.
+  List<TeacherGuideSummary>? _allGuides;
   String? _error;
   bool _loading = true;
   bool _showAll = false;
@@ -62,6 +65,7 @@ class _TeacherGuideCatalogScreenState extends ConsumerState<TeacherGuideCatalogS
       if (!mounted) return;
       setState(() {
         _guides = g;
+        if (_search.text.trim().isEmpty) _allGuides = g;
         _loading = false;
       });
       // In the journey, an approved course means the teacher may continue.
@@ -199,7 +203,17 @@ class _TeacherGuideCatalogScreenState extends ConsumerState<TeacherGuideCatalogS
                     text: 'Your course is approved!',
                     action: TextButton(onPressed: () => context.go('/teacher/dashboard'), child: const Text('Open dashboard')),
                   ),
-                TextField(
+                SearchSuggestions(
+                  controller: _search,
+                  fillOnSelect: true,
+                  load: (q) async => [
+                    for (final g in rankByQuery(_allGuides ?? _guides ?? const <TeacherGuideSummary>[], q, (g) => g.title, extra: (g) => '${g.subject} ${g.category ?? ''} ${g.classLevels.join(' ')}'))
+                      SearchSuggestion(id: g.courseId, title: g.title, thumbnail: g.thumbnail, subtitle: [g.subject, ...g.classLevels].where((x) => x.isNotEmpty).join(' · ')),
+                  ],
+                  onSelected: (_) => _load(),
+                  onSearchAll: (_) => _load(),
+                  child: 
+TextField(
                   controller: _search,
                   onChanged: _onSearch,
                   decoration: InputDecoration(
@@ -208,7 +222,7 @@ class _TeacherGuideCatalogScreenState extends ConsumerState<TeacherGuideCatalogS
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     isDense: true,
                   ),
-                ),
+                )),
                 const SizedBox(height: 12),
                 if (recommended.isNotEmpty && _search.text.trim().isEmpty)
                   SegmentedButton<bool>(

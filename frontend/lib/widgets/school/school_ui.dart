@@ -777,6 +777,10 @@ class CourseCard extends StatelessWidget {
                     Text(trSchool(context, subject).toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: AppTheme.primary)),
                   const SizedBox(height: 2),
                   Text('${course['title']}', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.getTextColor(context), height: 1.25)),
+                  if (course['progress'] != null || ((course['lessons'] as num?) ?? 0) > 0) ...[
+                    const SizedBox(height: 8),
+                    _CourseMeta(course: course),
+                  ],
                 ]),
               ),
             ]),
@@ -784,6 +788,49 @@ class CourseCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Lessons count + the student's progress under a [CourseCard].
+class _CourseMeta extends StatelessWidget {
+  const _CourseMeta({required this.course});
+  final Map<String, dynamic> course;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = AppTheme.getSecondaryTextColor(context);
+    final lessons = (course['lessons'] as num?)?.toInt() ?? 0;
+    final progress = (course['progress'] as num?)?.toInt();
+    final done = course['completed'] == true || (progress ?? 0) >= 100;
+    final status = done
+        ? trSchool(context, 'Completed')
+        : progress == null || progress == 0
+            ? trSchool(context, 'Not started')
+            : '$progress%';
+    final statusColor = done ? AppTheme.successColor : (progress ?? 0) > 0 ? AppTheme.primary : muted;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+      Row(children: [
+        if (lessons > 0) ...[
+          Icon(Icons.play_circle_outline_rounded, size: 15, color: muted),
+          const SizedBox(width: 4),
+          Text(plural(lessons, trSchool(context, 'lesson')), style: TextStyle(fontSize: 12, color: muted)),
+        ],
+        const Spacer(),
+        Text(status, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: statusColor)),
+      ]),
+      if ((progress ?? 0) > 0) ...[
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: (progress!.clamp(0, 100)) / 100,
+            minHeight: 5,
+            backgroundColor: AppTheme.getBorderColor(context).withValues(alpha: 0.4),
+            color: done ? AppTheme.successColor : AppTheme.primary,
+          ),
+        ),
+      ],
+    ]);
   }
 }
 

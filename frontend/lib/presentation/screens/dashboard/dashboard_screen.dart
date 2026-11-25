@@ -34,6 +34,7 @@ import 'package:excellencecoachinghub/widgets/support_floating_button.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:excellencecoachinghub/presentation/widgets/eexams_section.dart';
+import 'package:excellencecoachinghub/widgets/search/search_suggestions.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -2986,7 +2987,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           Icon(Icons.search_rounded, color: _Dx.sub(isDark), size: 22),
           const SizedBox(width: 10),
           Expanded(
-            child: TextField(
+            child: SearchSuggestions(
+              controller: _searchController,
+              load: CourseSuggestionsApi.load,
+              onSelected: (s) => context.push('/course/${s.id}'),
+              onSearchAll: _performSearch,
+              child: 
+TextField(
               controller: _searchController,
               onSubmitted: _performSearch,
               onChanged: (_) {
@@ -3017,7 +3024,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 ),
                 border: InputBorder.none,
               ),
-            ),
+            )),
           ),
           if (_searchController.text.isNotEmpty)
             IconButton(
@@ -4110,7 +4117,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         ),
         // Search Input
         Expanded(
-          child: TextField(
+          child: SearchSuggestions(
+              controller: _searchController,
+              load: CourseSuggestionsApi.load,
+              onSelected: (s) => context.push('/course/${s.id}'),
+              onSearchAll: _performSearch,
+              child: 
+TextField(
             controller: _searchController,
             onSubmitted: _performSearch,
             onChanged: (value) {
@@ -4163,7 +4176,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 vertical: 12,
               ),
             ),
-          ),
+          )),
         ),
       ],
     );

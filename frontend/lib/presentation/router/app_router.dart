@@ -677,7 +677,14 @@ class AppRouter {
           // School students
           GoRoute(
             path: '/school/home',
-            builder: (context, state) => const StudentSchoolHomeScreen(),
+            builder: (context, state) => StudentSchoolHomeScreen(
+              initialTab: int.tryParse(state.uri.queryParameters['tab'] ?? '') ?? 0,
+              tabRequest: state.uri.queryParameters['at'],
+            ),
+          ),
+          GoRoute(
+            path: '/school/courses',
+            builder: (context, state) => const StudentCoursesScreen(),
           ),
           GoRoute(
             path: '/school/homework/:id',

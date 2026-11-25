@@ -8,6 +8,7 @@ import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/utils/navigation_optimizer.dart';
 import 'package:excellencecoachinghub/utils/media_proxy.dart';
 import 'package:excellencecoachinghub/widgets/responsive_navigation_drawer.dart';
+import 'package:excellencecoachinghub/widgets/school/student_nav_bar.dart';
 import 'package:excellencecoachinghub/presentation/providers/auth_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/notification_provider.dart';
 import 'package:excellencecoachinghub/presentation/providers/sidebar_provider.dart';
@@ -128,6 +129,31 @@ class MainLayout extends ConsumerWidget {
     if (currentRoute.contains('/profile')) currentPage = 'profile';
     if (currentRoute.contains('/settings')) currentPage = 'settings';
     if (isAuthRoute) currentPage = 'auth';
+
+    // School accounts never get the private-learner navigation: a school
+    // student keeps the school's Home · Work · Learn · Class bar, parents and
+    // school admins get a way back to their own home.
+    if (!isAuthRoute && user != null) {
+      if (user.isSchoolStudent) {
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: child,
+          bottomNavigationBar: SchoolStudentNavBar(selected: SchoolStudentNavBar.tabForRoute(currentRoute)),
+        );
+      }
+      final schoolHome = user.role == 'parent'
+          ? '/parent'
+          : user.role == 'school_admin'
+              ? '/school-admin/dashboard'
+              : null;
+      if (schoolHome != null) {
+        return Scaffold(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          body: child,
+          bottomNavigationBar: SchoolHomeReturnBar(homeRoute: schoolHome),
+        );
+      }
+    }
 
     if (useSidebarLayout) {
       return Scaffold(

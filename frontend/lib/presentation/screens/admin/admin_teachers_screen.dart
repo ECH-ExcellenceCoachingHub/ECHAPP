@@ -13,6 +13,7 @@ import 'package:excellencecoachinghub/services/infrastructure/api_client.dart';
 import 'package:excellencecoachinghub/models/course.dart';
 import 'package:excellencecoachinghub/models/user.dart';
 import 'package:excellencecoachinghub/utils/media_proxy.dart';
+import 'package:excellencecoachinghub/widgets/search/search_suggestions.dart';
 
 /// Admin Teachers Screen - Manage teachers and course assignments
 class AdminTeachersScreen extends ConsumerStatefulWidget {
@@ -1119,11 +1120,7 @@ class _AssignCoursesDialogState extends State<AssignCoursesDialog> {
     if (_searchQuery.isEmpty) {
       return widget.courses;
     }
-    final query = _searchQuery.toLowerCase();
-    return widget.courses.where((course) {
-      return course.title.toLowerCase().contains(query) ||
-          course.level.toLowerCase().contains(query);
-    }).toList();
+    return widget.courses.where((course) => searchRelevance(_searchQuery, course.title, course.level) > 0).toList();
   }
 
   @override
@@ -1139,7 +1136,16 @@ class _AssignCoursesDialogState extends State<AssignCoursesDialog> {
         child: Column(
           children: [
             // Search field
-            TextField(
+            SearchSuggestions(
+              controller: _searchController,
+              fillOnSelect: true,
+              load: (q) async => [
+                for (final c in rankByQuery(widget.courses, q, (c) => c.title, extra: (c) => c.level))
+                  SearchSuggestion(id: c.id, title: c.title, thumbnail: c.thumbnail, subtitle: c.level),
+              ],
+              onSelected: (s) => setState(() => _searchQuery = s.title),
+              child: 
+TextField(
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search courses...',
@@ -1165,7 +1171,7 @@ class _AssignCoursesDialogState extends State<AssignCoursesDialog> {
                   _searchQuery = value;
                 });
               },
-            ),
+            )),
             const SizedBox(height: 8),
             // Results count
             Text(

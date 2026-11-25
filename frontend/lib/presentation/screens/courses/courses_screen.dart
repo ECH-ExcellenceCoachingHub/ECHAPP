@@ -17,6 +17,7 @@ import 'package:excellencecoachinghub/presentation/providers/auth_provider.dart'
 import 'package:excellencecoachinghub/widgets/enhanced_course_navigation.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
 import 'package:excellencecoachinghub/services/live_session_service.dart';
+import 'package:excellencecoachinghub/widgets/search/search_suggestions.dart';
 
 // Desktop course-grid metrics. The card height is derived from these, so any
 // change to the card's padding or body rows belongs here too.
@@ -464,7 +465,13 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
             children: [
               // Search Bar
               Expanded(
-                child: TextField(
+                child: SearchSuggestions(
+                  controller: _searchController,
+                  load: CourseSuggestionsApi.load,
+                  onSelected: (s) => context.push('/course/${s.id}'),
+                  onSearchAll: (_) {},
+                  child: 
+TextField(
                   controller: _searchController,
                   onChanged: _onSearchChanged,
                   style: TextStyle(
@@ -532,7 +539,7 @@ class _CoursesScreenState extends ConsumerState<CoursesScreen> {
                       vertical: _getResponsiveVerticalPadding(context) * 1.2,
                     ),
                   ),
-                ),
+                )),
               ),
             ],
           ),

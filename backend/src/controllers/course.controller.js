@@ -8,6 +8,7 @@ const { sendSuccess, sendError, sendNotFound } = require('../utils/response.util
 const { transformUrls } = require('../utils/url.utils');
 const emailService = require('../services/email.service');
 const notificationController = require('./notification.controller');
+const { searchFilter, relevance } = require('../utils/courseSearch');
 
 // Helper function to send notifications when a course is published
 const sendCourseNotifications = async (course) => {
@@ -60,12 +61,9 @@ const getCourses = async (req, res) => {
     }
     
     
-    if (search) {
-      filter.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
-      ];
-    }
+    // Partial words in any order ("bio s3" finds "Biology S3"); regex-safe.
+    const searchMatch = search ? searchFilter(search) : null;
+    if (searchMatch) Object.assign(filter, searchMatch);
     
     if (level) {
       filter.level = level;
@@ -612,7 +610,52 @@ const getRecommendedCourses = async (req, res) => {
   }
 };
 
+/**
+ * GET /api/courses/suggest?q=bio&limit=8
+ * Small, ranked list for search-as-you-type. Admins may add
+ * `showUnpublished=true` to include draft courses.
+ */
+const suggestCourses = async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 8, 1), 20);
+    const match = searchFilter(q, ['title', 'description', 'instructorName']);
+    if (!match) return sendSuccess(res, { suggestions: [] }, 'No query');
+
+    const filter = { ...match };
+    const isAdmin = req.user && req.user.role === 'admin';
+    if (!(isAdmin && req.query.showUnpublished === 'true')) filter.isPublished = true;
+
+    const candidates = await Course.find(filter)
+      .select('title description thumbnail level instructorName category isPublished')
+      .populate('category', 'name')
+      .limit(80)
+      .lean();
+
+    const ranked = candidates
+      .map((c) => ({ c, score: relevance(q, c.title, `${c.instructorName || ''} ${c.category?.name || ''} ${c.description || ''}`) }))
+      .filter((r) => r.score > 0)
+      .sort((a, b) => b.score - a.score || String(a.c.title).localeCompare(String(b.c.title)))
+      .slice(0, limit)
+      .map(({ c }) => ({
+        id: String(c._id),
+        title: c.title,
+        thumbnail: c.thumbnail || null,
+        level: c.level || null,
+        category: c.category?.name || null,
+        instructorName: c.instructorName || null,
+        isPublished: !!c.isPublished,
+      }));
+
+    return sendSuccess(res, { suggestions: transformUrls(ranked) }, 'Suggestions');
+  } catch (error) {
+    console.error('suggestCourses error:', error);
+    return sendError(res, 'Could not load suggestions', 500);
+  }
+};
+
 module.exports = {
+  suggestCourses,
   getCourses,
   getCourseById,
   createCourse,

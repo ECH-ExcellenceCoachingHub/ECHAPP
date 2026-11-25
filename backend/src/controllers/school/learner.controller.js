@@ -8,6 +8,7 @@ const Assessment = require('../../models/Assessment');
 const AssessmentSubmission = require('../../models/AssessmentSubmission');
 const LessonCoverage = require('../../models/LessonCoverage');
 const Lesson = require('../../models/Lesson');
+const Enrollment = require('../../models/Enrollment');
 const User = require('../../models/User');
 const flagsSvc = require('../../services/school/coverageFlags.service');
 const { subscriptionStatus, coursesForClass } = require('../../services/school/subscription.service');
@@ -86,13 +87,32 @@ async function studentOverview(student, { forParent = false } = {}) {
 
   const sub = school ? await subscriptionStatus(school._id) : null;
   // ECH courses for this class: free while the school's term is paid.
-  const courses = forParent || !classroom ? [] : (await coursesForClass(classroom)).map((c) => ({
-    id: String(c._id),
-    title: c.title,
-    description: c.description ? String(c.description).slice(0, 160) : '',
-    thumbnail: c.thumbnail || null,
-    subject: c.schoolAccess?.subject || subjects.find((s) => String(s.courseId) === String(c._id))?.subject || '',
-  }));
+  const classCourses = forParent || !classroom ? [] : await coursesForClass(classroom);
+  // Lesson counts and the student's own progress, so the app can show
+  // "continue where you left off".
+  const courseIds = classCourses.map((c) => c._id);
+  const [lessonCounts, enrollments] = courseIds.length
+    ? await Promise.all([
+        Lesson.aggregate([{ $match: { courseId: { $in: courseIds } } }, { $group: { _id: '$courseId', n: { $sum: 1 } } }]),
+        Enrollment.find({ userId: student._id, courseId: { $in: courseIds } }).select('courseId progress completionStatus updatedAt').lean(),
+      ])
+    : [[], []];
+  const lessonsBy = new Map(lessonCounts.map((l) => [String(l._id), l.n]));
+  const enrolledBy = new Map(enrollments.map((e) => [String(e.courseId), e]));
+  const courses = classCourses.map((c) => {
+    const e = enrolledBy.get(String(c._id));
+    return {
+      id: String(c._id),
+      title: c.title,
+      description: c.description ? String(c.description).slice(0, 160) : '',
+      thumbnail: c.thumbnail || null,
+      subject: c.schoolAccess?.subject || subjects.find((s) => String(s.courseId) === String(c._id))?.subject || '',
+      lessons: lessonsBy.get(String(c._id)) || 0,
+      progress: e ? Math.round(e.progress || 0) : null,
+      completed: e?.completionStatus === 'completed',
+      lastOpenedAt: e?.updatedAt || null,
+    };
+  });
   return {
     student: { id: String(student._id), fullName: student.fullName, studentCode: student.studentCode },
     school: school ? { id: String(school._id), name: school.name, logo: school.logo || null, hasCourseAccess: !!sub?.hasAccess } : null,

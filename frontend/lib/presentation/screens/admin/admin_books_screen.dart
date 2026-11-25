@@ -16,6 +16,7 @@ import 'package:excellencecoachinghub/utils/responsive_utils.dart';
 import 'package:excellencecoachinghub/models/course.dart';
 import 'package:excellencecoachinghub/models/user.dart';
 import 'package:excellencecoachinghub/presentation/providers/admin_course_provider.dart';
+import 'package:excellencecoachinghub/widgets/search/search_suggestions.dart';
 
 class AdminBooksScreen extends ConsumerStatefulWidget {
   const AdminBooksScreen({super.key});
@@ -1698,10 +1699,7 @@ class _AddBookDialogState extends ConsumerState<AddBookDialog> {
               final searchQuery = _courseSearchController.text.toLowerCase();
               final filteredCourses = searchQuery.isEmpty
                   ? courseState.courses
-                  : courseState.courses.where((course) {
-                      return course.title.toLowerCase().contains(searchQuery) ||
-                          course.description.toLowerCase().contains(searchQuery);
-                    }).toList();
+                  : courseState.courses.where((course) => searchRelevance(searchQuery, course.title, course.description) > 0).toList();
 
           return Dialog(
             child: Container(
@@ -1743,7 +1741,16 @@ class _AddBookDialogState extends ConsumerState<AddBookDialog> {
                   // Search
                   Padding(
                     padding: const EdgeInsets.all(16),
-                    child: TextField(
+                    child: SearchSuggestions(
+                      controller: _courseSearchController,
+                      fillOnSelect: true,
+                      load: (q) async => [
+                        for (final c in rankByQuery(courseState.courses, q, (c) => c.title, extra: (c) => c.description))
+                          SearchSuggestion(id: c.id, title: c.title, thumbnail: c.thumbnail, subtitle: c.level),
+                      ],
+                      onSelected: (_) => setDialogState(() {}),
+                      child: 
+TextField(
                       controller: _courseSearchController,
                       style: TextStyle(color: textColor),
                       decoration: InputDecoration(
@@ -1769,7 +1776,7 @@ class _AddBookDialogState extends ConsumerState<AddBookDialog> {
                         // Trigger backend search
                         ref.read(adminCourseProvider.notifier).searchCourses(value);
                       },
-                    ),
+                    )),
                   ),
                   // Course List
                   Expanded(

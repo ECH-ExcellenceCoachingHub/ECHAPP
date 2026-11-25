@@ -9,6 +9,7 @@ import 'package:excellencecoachinghub/presentation/providers/notification_provid
 import 'package:excellencecoachinghub/presentation/providers/admin_dashboard_provider.dart';
 import 'package:excellencecoachinghub/models/course.dart';
 import 'package:excellencecoachinghub/widgets/network_image_widget.dart';
+import 'package:excellencecoachinghub/widgets/search/search_suggestions.dart';
 
 class AdminCoursesScreen extends ConsumerStatefulWidget {
   const AdminCoursesScreen({super.key});
@@ -211,7 +212,14 @@ class _AdminCoursesScreenState extends ConsumerState<AdminCoursesScreen> {
                 ),
               ],
             ),
-            child: TextField(
+            child: SearchSuggestions(
+              controller: searchController,
+              load: (q) => CourseSuggestionsApi.load(q, showUnpublished: true),
+              fillOnSelect: true,
+              onSelected: (s) => ref.read(adminCourseProvider.notifier).searchCourses(s.title),
+              onSearchAll: (q) => ref.read(adminCourseProvider.notifier).searchCourses(q),
+              child: 
+TextField(
               controller: searchController,
               decoration: const InputDecoration(
                 hintText: 'Search courses...',
@@ -231,7 +239,7 @@ class _AdminCoursesScreenState extends ConsumerState<AdminCoursesScreen> {
                   ref.read(adminCourseProvider.notifier).loadCourses();
                 }
               },
-            ),
+            )),
           ),
         ),
         const SizedBox(width: 15),

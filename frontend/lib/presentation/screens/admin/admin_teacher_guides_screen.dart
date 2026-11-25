@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../config/app_theme.dart';
 import '../../../services/api/teacher_access_service.dart';
 import 'admin_teacher_approvals_screen.dart' show AdminBackButton;
+import 'package:excellencecoachinghub/widgets/search/search_suggestions.dart';
 
 final _money = NumberFormat.decimalPattern();
 
@@ -84,7 +85,7 @@ class _AdminTeacherGuidesScreenState extends State<AdminTeacherGuidesScreen> {
     final list = _courses.where((c) {
       if (_filter == 'enabled' && !c.enabled) return false;
       if (_filter == 'draft' && c.enabled) return false;
-      return q.isEmpty || c.title.toLowerCase().contains(q) || c.subject.toLowerCase().contains(q) || c.classLevels.any((l) => l.toLowerCase() == q);
+      return q.isEmpty || searchRelevance(q, c.title, '${c.subject} ${c.classLevels.join(' ')}') > 0;
     }).toList();
     final requests = _courses.fold<int>(0, (n, c) => n + c.pendingRequests);
 
@@ -120,11 +121,20 @@ class _AdminTeacherGuidesScreenState extends State<AdminTeacherGuidesScreen> {
           Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
             SizedBox(
               width: 320,
-              child: TextField(
+              child: SearchSuggestions(
+                controller: _search,
+                fillOnSelect: true,
+                load: (q) async => [
+                  for (final c in rankByQuery(_courses, q, (c) => c.title, extra: (c) => '${c.subject} ${c.classLevels.join(' ')}'))
+                    SearchSuggestion(id: c.title, title: c.title, subtitle: [c.subject, ...c.classLevels].where((x) => x.isNotEmpty).join(' · ')),
+                ],
+                onSelected: (_) => setState(() {}),
+                child: 
+TextField(
                 controller: _search,
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(prefixIcon: const Icon(Icons.search), hintText: 'Search course, subject or class', isDense: true, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12))),
-              ),
+              )),
             ),
             for (final f in const [('all', 'All courses'), ('enabled', 'Available to teachers'), ('draft', 'Not available')])
               ChoiceChip(label: Text(f.$2), selected: _filter == f.$1, onSelected: (_) => setState(() => _filter = f.$1)),
