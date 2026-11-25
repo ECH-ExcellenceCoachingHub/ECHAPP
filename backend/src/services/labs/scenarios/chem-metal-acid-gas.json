@@ -1,0 +1,265 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "variables": {},
+  "id": "chem-metal-acid-gas",
+  "title": "Metal + Acid: Test the Gas",
+  "difficulty": 2,
+  "durationMin": 12,
+  "xp": 100,
+  "environment": "ChemLab",
+  "subject": "chemistry",
+  "summary": "Drop magnesium into hydrochloric acid, measure how hot it gets and identify the gas with a lit splint.",
+  "tags": [
+    "reactions",
+    "gas tests",
+    "practice"
+  ],
+  "objectives": [
+    "Observe a metal reacting with an acid",
+    "Measure a temperature change",
+    "Test for hydrogen"
+  ],
+  "equipment": [
+    {
+      "id": "goggles1",
+      "type": "goggles",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "labcoat1",
+      "type": "labcoat",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "tube1",
+      "type": "test_tube",
+      "slot": "benchA.center",
+      "label": "Test tube of HCl",
+      "init": {
+        "solution": "HCl",
+        "conc": 1,
+        "volume": 10
+      }
+    },
+    {
+      "id": "thermo",
+      "type": "thermometer",
+      "slot": "benchA.center"
+    },
+    {
+      "id": "splint1",
+      "type": "splint",
+      "slot": "benchA.left",
+      "label": "Lit splint",
+      "init": {
+        "mode": "lit"
+      }
+    },
+    {
+      "id": "mg",
+      "type": "solid_jar",
+      "slot": "shelf.1",
+      "label": "Magnesium ribbon",
+      "init": {
+        "substance": "Mg"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "ppe1",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your safety goggles.",
+      "expect": {
+        "intent": "Grab",
+        "target": "goggles1"
+      },
+      "focus": "goggles1",
+      "points": 5,
+      "hints": [],
+      "until": "goggles1.worn"
+    },
+    {
+      "id": "ppe2",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your lab coat.",
+      "expect": {
+        "intent": "Grab",
+        "target": "labcoat1"
+      },
+      "focus": "labcoat1",
+      "points": 5,
+      "hints": [],
+      "until": "labcoat1.worn"
+    },
+    {
+      "id": "dip",
+      "kind": "action",
+      "title": "Set up",
+      "instruction": "Put the thermometer into the acid.",
+      "expect": {
+        "intent": "Connect",
+        "target": "thermo",
+        "into": "tube1"
+      },
+      "focus": "thermo",
+      "points": 10,
+      "hints": [],
+      "until": "thermo.in == 'tube1'"
+    },
+    {
+      "id": "t0",
+      "kind": "measure",
+      "title": "Start temperature",
+      "instruction": "Read the starting temperature of the acid.",
+      "record": {
+        "unit": "°C",
+        "key": "t0",
+        "label": "Start temperature",
+        "truth": "thermo.reading",
+        "tolerance": 0.5
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "thermo"
+    },
+    {
+      "id": "add",
+      "kind": "action",
+      "title": "React",
+      "instruction": "Add a piece of magnesium ribbon to the acid.",
+      "expect": {
+        "intent": "Pour",
+        "target": "mg",
+        "into": "tube1"
+      },
+      "focus": "mg",
+      "points": 10,
+      "hints": [],
+      "until": "tube1.fizzing",
+      "say": "Watch closely — what do you see?"
+    },
+    {
+      "id": "watch",
+      "kind": "action",
+      "title": "Observe",
+      "instruction": "Watch the reaction until the tube is clearly warmer (at least 30 °C).",
+      "expect": {
+        "intent": "Inspect",
+        "target": "tube1"
+      },
+      "focus": "tube1",
+      "points": 10,
+      "hints": [
+        "Look for bubbles, and feel… well, read the thermometer!"
+      ],
+      "until": "thermo.reading >= 30"
+    },
+    {
+      "id": "test",
+      "kind": "action",
+      "title": "Test the gas",
+      "instruction": "Hold the lit splint at the mouth of the test tube.",
+      "expect": {
+        "intent": "Grab",
+        "target": "splint1",
+        "into": "tube1"
+      },
+      "focus": "splint1",
+      "points": 10,
+      "hints": [],
+      "until": "splint1.tested"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "The lit splint made a squeaky pop. Which gas was made?",
+          "choices": [
+            "Hydrogen",
+            "Oxygen",
+            "Carbon dioxide",
+            "Chlorine"
+          ],
+          "answerIndex": 0,
+          "explanation": "Hydrogen burns with a squeaky pop: magnesium + hydrochloric acid → magnesium chloride + hydrogen."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "t1",
+      "kind": "measure",
+      "title": "Temperature now",
+      "instruction": "Read the temperature now.",
+      "record": {
+        "unit": "°C",
+        "key": "t1",
+        "label": "Temperature after",
+        "truth": "thermo.reading",
+        "tolerance": 0.5
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "thermo"
+    },
+    {
+      "id": "rise",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "Calculate the temperature rise (after − start).",
+      "record": {
+        "unit": "°C",
+        "key": "rise",
+        "label": "Temperature rise",
+        "truth": "record.t1 - record.t0",
+        "tolerance": 0.2
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "The temperature went up. This reaction is…",
+          "choices": [
+            "Exothermic",
+            "Endothermic",
+            "Neither",
+            "Reversible"
+          ],
+          "answerIndex": 0,
+          "explanation": "It gives out heat to the surroundings, so it is exothermic."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [
+    {
+      "id": "noGoggles",
+      "when": "!goggles1.worn && mg.poured",
+      "message": "Goggles! Acid can spit when metals react.",
+      "severity": "warn",
+      "penalty": 15
+    }
+  ],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 80,
+    "safety": 20
+  }
+}

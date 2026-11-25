@@ -1,0 +1,171 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "id": "code-conditionals",
+  "title": "Decisions: if, elif and else",
+  "difficulty": 3,
+  "durationMin": 15,
+  "xp": 120,
+  "summary": "Write a grading program that decides a letter grade from a mark, and trace which branch runs.",
+  "subject": "coding",
+  "environment": "CodingBench",
+  "tags": [
+    "Python",
+    "conditions",
+    "practice"
+  ],
+  "objectives": [
+    "Use if / elif / else",
+    "Compare values with >=",
+    "Trace which branch runs"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Python workstation",
+      "init": {
+        "os": "Python 3",
+        "commands": [
+          "mark = 72",
+          "if mark >= 80: grade = \"A\"",
+          "elif mark >= 60: grade = \"B\"",
+          "else: grade = \"C\"",
+          "print(grade)"
+        ]
+      }
+    },
+    {
+      "id": "screen",
+      "type": "wall_display",
+      "slot": "wall.screen",
+      "label": "Output"
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "mark",
+      "kind": "action",
+      "title": "Store a mark",
+      "instruction": "Store the mark 72 in a variable.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'mark = 72'"
+    },
+    {
+      "id": "if1",
+      "kind": "action",
+      "title": "First test",
+      "instruction": "Add the first test: 80 or more is an A.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'if mark >= 80: grade = \"A\"'"
+    },
+    {
+      "id": "elif1",
+      "kind": "action",
+      "title": "Second test",
+      "instruction": "Add the next test: 60 or more is a B.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [
+        "elif is only checked if the first test was False."
+      ],
+      "until": "ws.lastCommand == 'elif mark >= 60: grade = \"B\"'"
+    },
+    {
+      "id": "else1",
+      "kind": "action",
+      "title": "Otherwise",
+      "instruction": "Everything else is a C.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'else: grade = \"C\"'"
+    },
+    {
+      "id": "print",
+      "kind": "action",
+      "title": "Run it",
+      "instruction": "Print the grade.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'print(grade)'",
+      "success": "Output: B"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "If mark = 85, which grade is printed?",
+          "choices": [
+            "A",
+            "B",
+            "C",
+            "A and B"
+          ],
+          "answerIndex": 0,
+          "explanation": "The first true test wins: 85 >= 80, so grade = \"A\" and the rest are skipped."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "If mark = 60, which grade is printed?",
+          "choices": [
+            "B",
+            "C",
+            "A",
+            "Nothing"
+          ],
+          "answerIndex": 0,
+          "explanation": "60 >= 60 is True, so the elif branch runs."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 100,
+    "safety": 0
+  }
+}

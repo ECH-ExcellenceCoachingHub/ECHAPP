@@ -150,6 +150,37 @@ namespace ECHLabs.EditorTools
             stream.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             stream.renderQueue = (int)RenderQueue.Transparent;
             EditorUtility.SetDirty(stream);
+            // Bubbles and steam: a soft round sprite (procedural texture saved as an asset).
+            const string texPath = FxDir + "/BubbleSprite.png";
+            if (!System.IO.File.Exists(texPath))
+            {
+                const int n = 64;
+                var tex = new Texture2D(n, n, TextureFormat.RGBA32, false);
+                for (int y = 0; y < n; y++)
+                    for (int x = 0; x < n; x++)
+                    {
+                        float dx = (x + 0.5f) / n * 2 - 1, dy = (y + 0.5f) / n * 2 - 1, r = Mathf.Sqrt(dx * dx + dy * dy);
+                        // Bright rim + faint centre, like a bubble; zero outside the circle.
+                        float a = r > 1 ? 0 : Mathf.Clamp01(Mathf.SmoothStep(0.55f, 0.95f, r) * 0.9f + 0.15f) * Mathf.SmoothStep(1f, 0.92f, r);
+                        tex.SetPixel(x, y, new Color(1, 1, 1, a));
+                    }
+                System.IO.File.WriteAllBytes(texPath, tex.EncodeToPNG());
+                AssetDatabase.ImportAsset(texPath);
+                var imp = (TextureImporter)AssetImporter.GetAtPath(texPath);
+                imp.alphaIsTransparency = true; imp.mipmapEnabled = true; imp.wrapMode = TextureWrapMode.Clamp;
+                imp.SaveAndReimport();
+            }
+            var bubble = LoadOrCreate("Bubble", Shader.Find("Universal Render Pipeline/Particles/Unlit"), FxDir);
+            bubble.SetFloat("_Surface", 1);
+            bubble.SetFloat("_Blend", 0);
+            bubble.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            bubble.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+            bubble.SetFloat("_ZWrite", 0);
+            bubble.SetColor("_BaseColor", Color.white);
+            bubble.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(texPath));
+            bubble.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            bubble.renderQueue = (int)RenderQueue.Transparent + 10;
+            EditorUtility.SetDirty(bubble);
             AssetDatabase.SaveAssets();
         }
 

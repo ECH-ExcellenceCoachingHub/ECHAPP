@@ -8,6 +8,7 @@ import '../../../models/lab_scenario.dart';
 import '../../providers/lab_provider.dart';
 import '../../widgets/labs/lab_rooms.dart';
 import '../../widgets/labs/lab_widgets.dart';
+import 'lab_projects_screen.dart';
 
 /// "Virtual Labs": choose one of the 3D lab rooms, then an activity inside it.
 class LabHubScreen extends ConsumerWidget {
@@ -45,6 +46,7 @@ class LabHubScreen extends ConsumerWidget {
                 ),
               ),
             ),
+          const SliverToBoxAdapter(child: _MyExperimentsBanner()),
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
@@ -344,6 +346,53 @@ class _ContinueTile extends StatelessWidget {
           const Icon(Icons.play_circle_fill_rounded, color: Color(0xFF10B981)),
         ]),
       ),
+    );
+  }
+}
+
+/// Entry to the student's own experiments ("be the scientist").
+class _MyExperimentsBanner extends ConsumerWidget {
+  const _MyExperimentsBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final count = ref.watch(myLabProjectsProvider).valueOrNull?.length ?? 0;
+    final narrow = MediaQuery.sizeOf(context).width < 560;
+    final buttons = Wrap(spacing: 8, runSpacing: 8, children: [
+      FilledButton.icon(
+        onPressed: () => startNewExperiment(context, ref),
+        style: FilledButton.styleFrom(backgroundColor: const Color(0xFF8B5CF6)),
+        icon: const Icon(Icons.add_rounded),
+        label: const Text('Create'),
+      ),
+      OutlinedButton.icon(
+        onPressed: () => context.push('/labs/projects'),
+        icon: const Icon(Icons.folder_open_rounded),
+        label: Text(count == 0 ? 'My experiments' : 'My experiments ($count)'),
+      ),
+    ]);
+    final text = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('Design your own experiment', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+      const SizedBox(height: 2),
+      Text('Pick the equipment, set the values, write your own method — then run it in 3D.', style: TextStyle(color: Theme.of(context).hintColor)),
+    ]);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.5)),
+        gradient: LinearGradient(colors: [const Color(0xFF8B5CF6).withValues(alpha: 0.14), const Color(0xFF3B82F6).withValues(alpha: 0.05)]),
+      ),
+      child: narrow
+          ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [text, const SizedBox(height: 12), buttons])
+          : Row(children: [
+              const Icon(Icons.lightbulb_rounded, color: Color(0xFF8B5CF6), size: 34),
+              const SizedBox(width: 14),
+              Expanded(child: text),
+              const SizedBox(width: 12),
+              buttons,
+            ]),
     );
   }
 }

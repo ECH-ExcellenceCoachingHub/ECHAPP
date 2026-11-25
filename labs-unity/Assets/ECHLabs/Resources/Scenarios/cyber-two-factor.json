@@ -1,0 +1,180 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "id": "cyber-two-factor",
+  "title": "Turn On Two-Factor Authentication",
+  "difficulty": 2,
+  "durationMin": 10,
+  "xp": 90,
+  "summary": "Protect an account with a second factor, save backup codes and spot a fake login prompt.",
+  "subject": "cybersecurity",
+  "environment": "CyberSOC",
+  "tags": [
+    "accounts",
+    "2FA",
+    "practice"
+  ],
+  "objectives": [
+    "Explain what a second factor is",
+    "Enable 2FA on an account",
+    "Recognise MFA-fatigue attacks"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Your laptop",
+      "init": {
+        "os": "ECH Secure Desktop",
+        "commands": [
+          "login",
+          "open security settings",
+          "enable 2fa authenticator",
+          "scan qr code",
+          "enter code 492 817",
+          "save backup codes",
+          "deny unexpected login request"
+        ]
+      }
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "login",
+      "kind": "action",
+      "title": "Log in",
+      "instruction": "Log in to your account.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 5,
+      "hints": [],
+      "until": "ws.lastCommand == 'login'"
+    },
+    {
+      "id": "settings",
+      "kind": "action",
+      "title": "Settings",
+      "instruction": "Open the security settings.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 5,
+      "hints": [],
+      "until": "ws.lastCommand == 'open security settings'"
+    },
+    {
+      "id": "enable",
+      "kind": "action",
+      "title": "Enable 2FA",
+      "instruction": "Turn on two-factor authentication with an authenticator app.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'enable 2fa authenticator'"
+    },
+    {
+      "id": "scan",
+      "kind": "action",
+      "title": "Link the app",
+      "instruction": "Scan the QR code with the authenticator app.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'scan qr code'"
+    },
+    {
+      "id": "code",
+      "kind": "action",
+      "title": "Confirm",
+      "instruction": "Enter the 6-digit code shown in the app.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'enter code 492 817'"
+    },
+    {
+      "id": "backup",
+      "kind": "action",
+      "title": "Backup codes",
+      "instruction": "Save your backup codes somewhere safe (not on the same laptop!).",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'save backup codes'"
+    },
+    {
+      "id": "alert",
+      "kind": "info",
+      "title": "Alert!",
+      "instruction": "At 2 a.m. your phone shows \"Approve sign-in from Lagos?\" — but you are asleep and did not try to log in.",
+      "points": 5,
+      "hints": []
+    },
+    {
+      "id": "deny",
+      "kind": "action",
+      "title": "Respond",
+      "instruction": "Respond safely to the unexpected request.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'deny unexpected login request'",
+      "success": "Request denied. Now change your password — someone knows it."
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Why did the attacker get a 2FA prompt at all?",
+          "choices": [
+            "They already know your password",
+            "Your phone is hacked",
+            "The app is broken",
+            "It is a normal reminder"
+          ],
+          "answerIndex": 0,
+          "explanation": "The second factor stopped them, but the prompt shows your password is known: change it."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 100,
+    "safety": 0
+  }
+}

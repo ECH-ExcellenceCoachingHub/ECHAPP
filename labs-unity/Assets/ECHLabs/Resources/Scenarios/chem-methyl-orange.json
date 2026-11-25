@@ -1,0 +1,343 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "id": "chem-methyl-orange",
+  "title": "Titration with Methyl Orange",
+  "difficulty": 4,
+  "durationMin": 20,
+  "xp": 160,
+  "summary": "Use a different indicator: methyl orange turns from red to yellow. Find the titre and the acid's concentration with fewer hints.",
+  "subject": "chemistry",
+  "environment": "ChemLab",
+  "tags": [
+    "titration",
+    "indicators",
+    "practice"
+  ],
+  "objectives": [
+    "Use methyl orange as an indicator",
+    "Calculate a concentration from a titre",
+    "Compare indicators"
+  ],
+  "equipment": [
+    {
+      "id": "goggles1",
+      "type": "goggles",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "coat1",
+      "type": "labcoat",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "alkali",
+      "type": "reagent_bottle",
+      "slot": "shelf.1",
+      "label": "NaOH 0.1 M",
+      "init": {
+        "solution": "NaOH",
+        "conc": 0.1,
+        "volume": 500
+      }
+    },
+    {
+      "id": "ind",
+      "type": "indicator",
+      "slot": "shelf.2",
+      "label": "Methyl orange",
+      "init": {
+        "name": "methyl_orange"
+      }
+    },
+    {
+      "id": "burette1",
+      "type": "burette",
+      "slot": "benchA.center",
+      "init": {
+        "solution": "NaOH",
+        "conc": 0.1,
+        "volume": 50
+      }
+    },
+    {
+      "id": "funnel1",
+      "type": "funnel",
+      "slot": "benchA.right"
+    },
+    {
+      "id": "tile1",
+      "type": "white_tile",
+      "slot": "benchB.center"
+    },
+    {
+      "id": "flask1",
+      "type": "conical_flask",
+      "slot": "benchB.left",
+      "label": "HCl (unknown)",
+      "init": {
+        "solution": "HCl",
+        "conc": 0.1,
+        "volume": 25
+      }
+    }
+  ],
+  "variables": {
+    "titr": {
+      "model": "chem.titration",
+      "inputs": {
+        "flask": "flask1",
+        "burette": "burette1"
+      },
+      "params": {
+        "indicator": "methyl_orange"
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "ppe1",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your safety goggles.",
+      "expect": {
+        "intent": "Grab",
+        "target": "goggles1"
+      },
+      "focus": "goggles1",
+      "points": 5,
+      "hints": []
+    },
+    {
+      "id": "ppe2",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your lab coat.",
+      "expect": {
+        "intent": "Grab",
+        "target": "coat1"
+      },
+      "focus": "coat1",
+      "points": 5,
+      "hints": []
+    },
+    {
+      "id": "funnel",
+      "kind": "action",
+      "title": "Set up",
+      "instruction": "Place the funnel in the top of the burette.",
+      "expect": {
+        "intent": "Grab",
+        "target": "funnel1"
+      },
+      "focus": "funnel1",
+      "points": 5,
+      "hints": []
+    },
+    {
+      "id": "rinse",
+      "kind": "action",
+      "title": "Rinse the burette",
+      "instruction": "Rinse the burette with a little of the alkali (it drains to waste).",
+      "expect": {
+        "intent": "Pour",
+        "target": "alkali",
+        "into": "burette1"
+      },
+      "focus": "alkali",
+      "points": 5,
+      "hints": [],
+      "until": "burette1.rinsed"
+    },
+    {
+      "id": "fill",
+      "kind": "action",
+      "title": "Fill the burette",
+      "instruction": "Fill the burette with the alkali to about the 0.00 cm³ mark.",
+      "expect": {
+        "intent": "Pour",
+        "target": "alkali",
+        "into": "burette1"
+      },
+      "focus": "alkali",
+      "points": 10,
+      "hints": [],
+      "until": "burette1.filled && burette1.volumeMl >= 49"
+    },
+    {
+      "id": "read0",
+      "kind": "measure",
+      "title": "Initial reading",
+      "instruction": "Read the burette at the bottom of the meniscus and record it.",
+      "record": {
+        "unit": "cm³",
+        "key": "initialReading",
+        "label": "Initial burette reading",
+        "truth": "burette1.reading",
+        "tolerance": 0.05
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "burette1"
+    },
+    {
+      "id": "indicator",
+      "kind": "action",
+      "title": "Add the indicator",
+      "instruction": "Add 2–3 drops of methyl orange to the acid in the conical flask.",
+      "expect": {
+        "intent": "Pour",
+        "target": "ind",
+        "into": "flask1"
+      },
+      "focus": "ind",
+      "points": 10,
+      "hints": [],
+      "until": "flask1.hasIndicator"
+    },
+    {
+      "id": "tile",
+      "kind": "action",
+      "title": "Set up",
+      "instruction": "Place the conical flask on the white tile under the burette.",
+      "expect": {
+        "intent": "Grab",
+        "target": "flask1",
+        "into": "tile1"
+      },
+      "focus": "flask1",
+      "points": 5,
+      "hints": []
+    },
+    {
+      "id": "titrate",
+      "kind": "action",
+      "title": "Titrate",
+      "instruction": "Open the tap and add alkali while swirling. Slow to single drops and stop when the solution turns orange-yellow.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "burette1"
+      },
+      "focus": "burette1",
+      "points": 20,
+      "hints": [],
+      "until": "titr.colorIndex >= 0.35"
+    },
+    {
+      "id": "read1",
+      "kind": "measure",
+      "title": "Final reading",
+      "instruction": "Read and record the final burette reading.",
+      "record": {
+        "unit": "cm³",
+        "key": "finalReading",
+        "label": "Final burette reading",
+        "truth": "burette1.reading",
+        "tolerance": 0.05
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "burette1"
+    },
+    {
+      "id": "titre",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "Calculate the titre: final reading − initial reading.",
+      "record": {
+        "unit": "cm³",
+        "key": "titre",
+        "label": "Titre",
+        "truth": "record.finalReading - record.initialReading",
+        "tolerance": 0.05
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "conc",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "Calculate the concentration of the HCl: c = (0.100 × titre) ÷ 25.0",
+      "record": {
+        "unit": "mol/dm³",
+        "key": "acidConc",
+        "label": "HCl concentration",
+        "truth": "round(record.titre * 0.1 / 25, 4)",
+        "tolerance": 0.002
+      },
+      "points": 15,
+      "hints": []
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Methyl orange changes colour at about pH 3–4.5. Why is it still fine for HCl + NaOH?",
+          "choices": [
+            "The pH jumps through 3–11 in a single drop near the end point",
+            "It works for any reaction",
+            "HCl is weak",
+            "NaOH is acidic"
+          ],
+          "answerIndex": 0,
+          "explanation": "For a strong acid with a strong alkali the pH leaps across that whole range at the end point."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [
+    {
+      "id": "noGoggles",
+      "when": "!goggles1.worn && (burette1.volumeMl > 0 || alkali.poured)",
+      "message": "Stop! You are handling alkali without goggles.",
+      "severity": "warn",
+      "penalty": 15
+    },
+    {
+      "id": "overshoot",
+      "when": "titr.pH > 11.5",
+      "message": "You overshot the end point. A real chemist would repeat the titration.",
+      "severity": "warn",
+      "penalty": 10
+    }
+  ],
+  "results": [
+    {
+      "key": "titre",
+      "label": "Titre",
+      "unit": "cm³",
+      "expected": 25,
+      "expectedExpr": "flask1.conc * 25 / 0.1",
+      "tolerancePct": 2,
+      "source": "record.titre"
+    },
+    {
+      "key": "acidConc",
+      "label": "HCl concentration",
+      "unit": "mol/dm³",
+      "expected": 0.1,
+      "expectedExpr": "flask1.conc",
+      "tolerancePct": 3,
+      "source": "record.acidConc"
+    }
+  ],
+  "scoring": {
+    "accuracy": 45,
+    "procedure": 35,
+    "safety": 20
+  },
+  "randomize": [
+    {
+      "path": "flask1.conc",
+      "min": 0.07,
+      "max": 0.13,
+      "decimals": 3
+    }
+  ]
+}

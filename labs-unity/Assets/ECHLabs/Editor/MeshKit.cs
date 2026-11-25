@@ -197,6 +197,9 @@ namespace ECHLabs.EditorTools
 
         public static Mesh Cylinder(string name, float radius, float height, int segments = 32, float bevel = 0.002f)
         {
+            // Thin rods, strings and probes: a bevel larger than the radius would fold the profile
+            // through the axis (negative radius → NaN normals → black/magenta flicker in bloom).
+            bevel = Mathf.Min(bevel, radius * 0.4f, height * 0.4f);
             var prof = new List<Vector2> { new Vector2(0, 0), new Vector2(radius - bevel, 0), new Vector2(radius, bevel), new Vector2(radius, height - bevel), new Vector2(radius - bevel, height), new Vector2(0, height) };
             return Solid(name, prof, segments);
         }

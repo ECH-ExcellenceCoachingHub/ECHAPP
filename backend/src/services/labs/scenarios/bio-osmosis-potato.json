@@ -1,0 +1,268 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "variables": {},
+  "id": "bio-osmosis-potato",
+  "title": "Osmosis in Potato Cylinders",
+  "difficulty": 3,
+  "durationMin": 18,
+  "xp": 130,
+  "environment": "BioLab",
+  "subject": "biology",
+  "summary": "Put potato cylinders into water and two sugar solutions. Which gain mass, which lose it — and why?",
+  "tags": [
+    "osmosis",
+    "cells",
+    "practice"
+  ],
+  "objectives": [
+    "Set up a fair osmosis experiment",
+    "Calculate percentage change in mass",
+    "Explain results using water potential"
+  ],
+  "equipment": [
+    {
+      "id": "water",
+      "type": "beaker",
+      "slot": "benchA.left",
+      "label": "Distilled water",
+      "init": {
+        "solution": "water",
+        "volume": 100
+      }
+    },
+    {
+      "id": "weak",
+      "type": "beaker",
+      "slot": "benchA.center",
+      "label": "Sucrose 0.3 M",
+      "init": {
+        "solution": "sucrose_sol",
+        "conc": 0.3,
+        "volume": 100
+      }
+    },
+    {
+      "id": "strong",
+      "type": "beaker",
+      "slot": "benchA.right",
+      "label": "Sucrose 0.8 M",
+      "init": {
+        "solution": "sucrose_sol",
+        "conc": 0.8,
+        "volume": 100
+      }
+    },
+    {
+      "id": "p1",
+      "type": "potato_cylinder",
+      "slot": "benchB.left",
+      "label": "Cylinder 1",
+      "init": {
+        "massG": 2.5
+      }
+    },
+    {
+      "id": "p2",
+      "type": "potato_cylinder",
+      "slot": "benchB.left",
+      "label": "Cylinder 2",
+      "init": {
+        "massG": 2.5
+      }
+    },
+    {
+      "id": "p3",
+      "type": "potato_cylinder",
+      "slot": "benchB.left",
+      "label": "Cylinder 3",
+      "init": {
+        "massG": 2.5
+      }
+    },
+    {
+      "id": "bal",
+      "type": "balance",
+      "slot": "benchB.right"
+    }
+  ],
+  "steps": [
+    {
+      "id": "in1",
+      "kind": "action",
+      "title": "Set up",
+      "instruction": "Put cylinder 1 in distilled water.",
+      "expect": {
+        "intent": "Grab",
+        "target": "p1",
+        "into": "water"
+      },
+      "focus": "p1",
+      "points": 10,
+      "hints": [],
+      "until": "p1.placedIn == 'water'"
+    },
+    {
+      "id": "in2",
+      "kind": "action",
+      "title": "Set up",
+      "instruction": "Put cylinder 2 in the 0.3 M sucrose solution.",
+      "expect": {
+        "intent": "Grab",
+        "target": "p2",
+        "into": "weak"
+      },
+      "focus": "p2",
+      "points": 10,
+      "hints": [],
+      "until": "p2.placedIn == 'weak'"
+    },
+    {
+      "id": "in3",
+      "kind": "action",
+      "title": "Set up",
+      "instruction": "Put cylinder 3 in the 0.8 M sucrose solution.",
+      "expect": {
+        "intent": "Grab",
+        "target": "p3",
+        "into": "strong"
+      },
+      "focus": "p3",
+      "points": 10,
+      "hints": [],
+      "until": "p3.placedIn == 'strong'"
+    },
+    {
+      "id": "wait0",
+      "kind": "info",
+      "title": "Time passes",
+      "instruction": "In a real lab you would leave them for several hours. Here, time runs faster — watch the cylinders.",
+      "points": 5,
+      "hints": []
+    },
+    {
+      "id": "wait",
+      "kind": "action",
+      "title": "Wait",
+      "instruction": "Watch cylinder 3 until it has clearly gone floppy (lost mass).",
+      "expect": {
+        "intent": "Inspect",
+        "target": "p3"
+      },
+      "focus": "p3",
+      "points": 10,
+      "hints": [],
+      "until": "p3.changePct <= -15"
+    },
+    {
+      "id": "weigh",
+      "kind": "action",
+      "title": "Weigh",
+      "instruction": "Blot cylinder 1 dry and put it on the balance.",
+      "expect": {
+        "intent": "Grab",
+        "target": "p1",
+        "into": "bal"
+      },
+      "focus": "p1",
+      "points": 10,
+      "hints": [],
+      "until": "p1.placedIn == 'bal'"
+    },
+    {
+      "id": "m1",
+      "kind": "measure",
+      "title": "Weigh",
+      "instruction": "Record the new mass of cylinder 1.",
+      "record": {
+        "unit": "g",
+        "key": "m1",
+        "label": "Mass of cylinder 1 after",
+        "truth": "bal.reading",
+        "tolerance": 0.02
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "bal"
+    },
+    {
+      "id": "pc1",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "Percentage change for cylinder 1 = (new − 2.50) ÷ 2.50 × 100.",
+      "record": {
+        "unit": "%",
+        "key": "pc1",
+        "label": "Change for cylinder 1",
+        "truth": "(record.m1 - 2.5) / 2.5 * 100",
+        "tolerance": 1
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "pc3",
+      "kind": "measure",
+      "title": "Record",
+      "instruction": "Read the percentage change for cylinder 3 from the results card.",
+      "record": {
+        "unit": "%",
+        "key": "pc3",
+        "label": "Change for cylinder 3",
+        "truth": "p3.changePct",
+        "tolerance": 1
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Why did cylinder 3 LOSE mass?",
+          "choices": [
+            "Water moved out of the cells by osmosis into the more concentrated solution",
+            "Sugar moved out of the cells",
+            "The potato was cut too short",
+            "Salt dissolved"
+          ],
+          "answerIndex": 0,
+          "explanation": "Water moves from a dilute solution (high water potential) to a concentrated one (low water potential) across the partially permeable cell membrane."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Cylinder 2 (0.3 M) barely changed. That means…",
+          "choices": [
+            "The solution has about the same concentration as the potato cells",
+            "Osmosis stopped working",
+            "The potato was dead",
+            "The balance is broken"
+          ],
+          "answerIndex": 0,
+          "explanation": "When concentrations are equal (isotonic), there is no net movement of water."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 100,
+    "safety": 0
+  }
+}

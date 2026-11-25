@@ -1,0 +1,211 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "variables": {},
+  "id": "phys-density-block",
+  "title": "Density of a Metal Block",
+  "difficulty": 2,
+  "durationMin": 12,
+  "xp": 100,
+  "environment": "PhysicsLab",
+  "subject": "physics",
+  "summary": "Weigh a metal block, find its volume by displacement in a measuring cylinder and calculate its density.",
+  "tags": [
+    "density",
+    "measurement",
+    "practice"
+  ],
+  "objectives": [
+    "Use a balance",
+    "Measure volume by displacement",
+    "Calculate density = mass ÷ volume"
+  ],
+  "equipment": [
+    {
+      "id": "block",
+      "type": "metal_block",
+      "slot": "benchA.left",
+      "label": "Metal block",
+      "init": {
+        "material": "aluminium",
+        "volumeCm3": 20
+      }
+    },
+    {
+      "id": "bal",
+      "type": "balance",
+      "slot": "benchA.center"
+    },
+    {
+      "id": "cyl",
+      "type": "measuring_cylinder",
+      "slot": "benchA.right",
+      "label": "Measuring cylinder",
+      "init": {
+        "solution": "water",
+        "volume": 50
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "weigh",
+      "kind": "action",
+      "title": "Mass",
+      "instruction": "Put the block on the balance.",
+      "expect": {
+        "intent": "Grab",
+        "target": "block",
+        "into": "bal"
+      },
+      "focus": "block",
+      "points": 10,
+      "hints": [],
+      "until": "block.placedIn == 'bal'"
+    },
+    {
+      "id": "m",
+      "kind": "measure",
+      "title": "Mass",
+      "instruction": "Record the mass.",
+      "record": {
+        "unit": "g",
+        "key": "m",
+        "label": "Mass",
+        "truth": "bal.reading",
+        "tolerance": 0.05
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "bal"
+    },
+    {
+      "id": "v0",
+      "kind": "measure",
+      "title": "Volume",
+      "instruction": "Read the water level in the measuring cylinder.",
+      "record": {
+        "unit": "cm³",
+        "key": "v0",
+        "label": "Water level before",
+        "truth": "cyl.reading",
+        "tolerance": 0.5
+      },
+      "points": 10,
+      "hints": [
+        "Read the bottom of the meniscus at eye level."
+      ],
+      "focus": "cyl"
+    },
+    {
+      "id": "drop",
+      "kind": "action",
+      "title": "Volume",
+      "instruction": "Carefully lower the block into the measuring cylinder.",
+      "expect": {
+        "intent": "Grab",
+        "target": "block",
+        "into": "cyl"
+      },
+      "focus": "block",
+      "points": 10,
+      "hints": [],
+      "until": "block.placedIn == 'cyl'"
+    },
+    {
+      "id": "v1",
+      "kind": "measure",
+      "title": "Volume",
+      "instruction": "Read the new water level.",
+      "record": {
+        "unit": "cm³",
+        "key": "v1",
+        "label": "Water level after",
+        "truth": "cyl.reading",
+        "tolerance": 0.5
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "cyl"
+    },
+    {
+      "id": "vol",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "Volume of the block = after − before.",
+      "record": {
+        "unit": "cm³",
+        "key": "vol",
+        "label": "Volume of block",
+        "truth": "record.v1 - record.v0",
+        "tolerance": 0.2
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "rho",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "Density = mass ÷ volume.",
+      "record": {
+        "unit": "g/cm³",
+        "key": "rho",
+        "label": "Density",
+        "truth": "record.m / record.vol",
+        "tolerance": 0.05
+      },
+      "points": 15,
+      "hints": []
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Your density is about 2.7 g/cm³. The block is most likely…",
+          "choices": [
+            "Aluminium",
+            "Steel",
+            "Lead",
+            "Wood"
+          ],
+          "answerIndex": 0,
+          "explanation": "Aluminium 2.7, steel 7.9, lead 11.3, wood about 0.6 g/cm³."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [
+    {
+      "key": "rho",
+      "label": "Density",
+      "unit": "g/cm³",
+      "expected": 2.7,
+      "tolerancePct": 3,
+      "source": "record.rho"
+    }
+  ],
+  "scoring": {
+    "accuracy": 40,
+    "procedure": 60,
+    "safety": 0
+  },
+  "randomize": [
+    {
+      "path": "block.volumeCm3",
+      "choices": [
+        10,
+        15,
+        20,
+        25,
+        30
+      ]
+    }
+  ]
+}

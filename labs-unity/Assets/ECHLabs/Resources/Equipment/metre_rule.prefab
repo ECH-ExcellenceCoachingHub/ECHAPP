@@ -426,6 +426,10 @@ MonoBehaviour:
   inspectDistance: 0.5
   highlightRenderers: []
   placesSomewhere: 0
+  display: {fileID: 0}
+  glow: {fileID: 0}
+  glowLight: {fileID: 0}
+  bubbles: {fileID: 0}
 --- !u!65 &95356685971834941
 BoxCollider:
   m_ObjectHideFlags: 0

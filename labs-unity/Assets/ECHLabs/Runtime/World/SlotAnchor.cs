@@ -14,8 +14,9 @@ namespace ECHLabs.Runtime.World
         [Tooltip("Camera viewpoint for this station (optional)")] public Transform viewpoint;
         int used;
 
-        public Pose NextPose()
+        public Pose NextPose(float? spacingOverride = null)
         {
+            float spacing = spacingOverride ?? this.spacing;
             int i = used++;
             // 0, +1, -1, +2, -2 … centred around the anchor.
             int k = (i + 1) / 2 * (i % 2 == 0 ? -1 : 1);

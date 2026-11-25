@@ -1,0 +1,234 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "variables": {},
+  "id": "phys-hookes-law",
+  "title": "Hooke's Law: Stretching a Spring",
+  "difficulty": 2,
+  "durationMin": 15,
+  "xp": 110,
+  "environment": "PhysicsLab",
+  "subject": "physics",
+  "summary": "Hang slotted masses on a spring, measure the extension each time and find the spring constant.",
+  "tags": [
+    "forces",
+    "springs",
+    "practice"
+  ],
+  "objectives": [
+    "Measure extension accurately",
+    "Show extension ∝ force",
+    "Calculate a spring constant"
+  ],
+  "equipment": [
+    {
+      "id": "spring1",
+      "type": "spring",
+      "slot": "benchA.center",
+      "label": "Spring",
+      "init": {
+        "springConstant": 25,
+        "naturalLengthCm": 10,
+        "elasticLimitN": 8
+      }
+    },
+    {
+      "id": "rule",
+      "type": "metre_rule",
+      "slot": "benchA.right"
+    }
+  ],
+  "steps": [
+    {
+      "id": "h1",
+      "kind": "action",
+      "title": "Load 1",
+      "instruction": "Hang 100 g on the spring.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "spring1",
+        "value": {
+          "min": 99,
+          "max": 101
+        }
+      },
+      "focus": "spring1",
+      "points": 10,
+      "hints": [],
+      "until": "between(spring1.massG, 99, 101)"
+    },
+    {
+      "id": "e1",
+      "kind": "measure",
+      "title": "Load 1",
+      "instruction": "Measure the extension (stretched length − original length).",
+      "record": {
+        "unit": "cm",
+        "key": "e1",
+        "label": "Extension with 100 g",
+        "truth": "spring1.extensionCm",
+        "tolerance": 0.1
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "rule"
+    },
+    {
+      "id": "h2",
+      "kind": "action",
+      "title": "Load 2",
+      "instruction": "Hang 200 g in total.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "spring1",
+        "value": {
+          "min": 199,
+          "max": 201
+        }
+      },
+      "focus": "spring1",
+      "points": 10,
+      "hints": [],
+      "until": "between(spring1.massG, 199, 201)"
+    },
+    {
+      "id": "e2",
+      "kind": "measure",
+      "title": "Load 2",
+      "instruction": "Measure the extension.",
+      "record": {
+        "unit": "cm",
+        "key": "e2",
+        "label": "Extension with 200 g",
+        "truth": "spring1.extensionCm",
+        "tolerance": 0.1
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "rule"
+    },
+    {
+      "id": "h3",
+      "kind": "action",
+      "title": "Load 3",
+      "instruction": "Hang 300 g in total.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "spring1",
+        "value": {
+          "min": 299,
+          "max": 301
+        }
+      },
+      "focus": "spring1",
+      "points": 10,
+      "hints": [],
+      "until": "between(spring1.massG, 299, 301)"
+    },
+    {
+      "id": "e3",
+      "kind": "measure",
+      "title": "Load 3",
+      "instruction": "Measure the extension.",
+      "record": {
+        "unit": "cm",
+        "key": "e3",
+        "label": "Extension with 300 g",
+        "truth": "spring1.extensionCm",
+        "tolerance": 0.1
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "rule"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "When the mass doubled from 100 g to 200 g, the extension…",
+          "choices": [
+            "Doubled",
+            "Halved",
+            "Stayed the same",
+            "Quadrupled"
+          ],
+          "answerIndex": 0,
+          "explanation": "Hooke's law: extension is proportional to force (until the elastic limit)."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "k",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "The weight of 300 g is 2.94 N. Calculate k = F ÷ extension (extension in metres).",
+      "record": {
+        "unit": "N/m",
+        "key": "k",
+        "label": "Spring constant k",
+        "truth": "2.942 / (record.e3 / 100)",
+        "tolerance": 0.5
+      },
+      "points": 15,
+      "hints": [
+        "Change cm to m: divide by 100."
+      ]
+    },
+    {
+      "id": "off",
+      "kind": "action",
+      "title": "Finish",
+      "instruction": "Take the masses off.",
+      "expect": {
+        "intent": "Release",
+        "target": "spring1"
+      },
+      "focus": "spring1",
+      "points": 5,
+      "hints": [],
+      "until": "spring1.massG == 0"
+    }
+  ],
+  "hazards": [
+    {
+      "id": "overstretch",
+      "when": "spring1.overstretched",
+      "message": "You stretched the spring past its elastic limit — it is now permanently deformed.",
+      "severity": "warn",
+      "penalty": 10
+    }
+  ],
+  "results": [
+    {
+      "key": "k",
+      "label": "Spring constant",
+      "unit": "N/m",
+      "expected": 25,
+      "expectedExpr": "spring1.springConstant",
+      "tolerancePct": 3,
+      "source": "record.k"
+    }
+  ],
+  "scoring": {
+    "accuracy": 40,
+    "procedure": 50,
+    "safety": 10
+  },
+  "randomize": [
+    {
+      "path": "spring1.springConstant",
+      "choices": [
+        15,
+        20,
+        25,
+        30,
+        40
+      ]
+    }
+  ]
+}

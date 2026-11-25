@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const c = require('../controllers/lab.controller');
+const p = require('../controllers/labProject.controller');
 const { protect } = require('../middleware/auth.middleware');
 const { authorize } = require('../middleware/role.middleware');
 const { labOrUser } = require('../middleware/labAuth.middleware');
@@ -41,6 +42,19 @@ router.post('/scenarios', ...staff, c.createScenario);
 router.put('/scenarios/:id', ...staff, c.updateScenario);
 router.post('/scenarios/:id/status', ...staff, c.setStatus);
 router.put('/lessons/:lessonId/lab', ...staff, c.attachToLesson);
+
+// Student "My experiments": design your own experiment and run it in the 3D lab.
+router.get('/projects/kit', protect, p.kit);
+router.post('/projects/check', protect, p.check);
+router.post('/projects/from-idea', protect, p.fromIdea);
+router.get('/projects/remix/:id', protect, p.remixSpec);
+router.get('/projects', protect, p.mine);
+router.post('/projects', protect, p.create);
+router.get('/projects/:id', protect, p.getOne);
+router.put('/projects/:id', protect, p.update);
+router.patch('/projects/:id/conclusion', protect, p.saveConclusion);
+router.post('/projects/:id/share', protect, p.share);
+router.delete('/projects/:id', protect, p.remove);
 
 // Flutter app → lab token for the Unity engine.
 router.post('/session', protect, c.createSession);

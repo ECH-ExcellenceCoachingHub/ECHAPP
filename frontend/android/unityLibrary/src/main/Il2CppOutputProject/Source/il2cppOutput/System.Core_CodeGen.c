@@ -67,6 +67,8 @@ extern void Error_NotSupported_m7CFF74111E56246CAEA7BFD231BA01F7B097377A (void);
 extern void Enumerable_Range_m4FB9BBBA09BEF5177C13506DB385CF4467C15FD8 (void);
 extern void Enumerable_RangeIterator_mAD9E9F85AF2156C74E78C2EA554F0F32EA0E91C9 (void);
 extern void Enumerable_Sum_m0804E8F6958EBEBCC478DE60FC6053EAFDAF49D5 (void);
+extern void Enumerable_Sum_mB4B29B0D6E567EB810D0B439945F9BC6ACC01284 (void);
+extern void Enumerable_Max_mEAA507123A7B5CB2A4E6FA1E74FD325E2F885AFD (void);
 extern void Enumerable_Average_m5156A99944C8799A69C312C6EE6B765FBED75BB9 (void);
 extern void U3CRangeIteratorU3Ed__115__ctor_m28402F68F863084357F710F6546910CC4417800C (void);
 extern void U3CRangeIteratorU3Ed__115_System_IDisposable_Dispose_mACF95799F65FBE5A805C33ABD0ABBB8D90B865E9 (void);
@@ -2723,7 +2725,7 @@ extern void ReaderWriterLockSlim_get_WaitingWriteCount_m8FE677BDB0E776125691C0A4
 extern void TimeoutTracker__ctor_mBFE73B99C5BBB93D251DF9731B9C5D824F30CDCE (void);
 extern void TimeoutTracker_get_RemainingMilliseconds_mDAA8A0E545F8E28D3688095CA346B0A04337BC23 (void);
 extern void TimeoutTracker_get_IsExpired_m5E08DCC01117EF66ADEBA5472B27833577289813 (void);
-static Il2CppMethodPointer s_methodPointers[3294] = 
+static Il2CppMethodPointer s_methodPointers[3297] = 
 {
 	SR_GetString_m2213C501E26D6A1AE8D0644E9685AF8A4204CA7F,
 	SR_Format_mE1EBCCF33E005BDB2B9D017EBE83F80DE49B5EC4,
@@ -2863,7 +2865,10 @@ static Il2CppMethodPointer s_methodPointers[3294] =
 	NULL,
 	NULL,
 	Enumerable_Sum_m0804E8F6958EBEBCC478DE60FC6053EAFDAF49D5,
+	Enumerable_Sum_mB4B29B0D6E567EB810D0B439945F9BC6ACC01284,
 	NULL,
+	NULL,
+	Enumerable_Max_mEAA507123A7B5CB2A4E6FA1E74FD325E2F885AFD,
 	Enumerable_Average_m5156A99944C8799A69C312C6EE6B765FBED75BB9,
 	NULL,
 	NULL,
@@ -6026,16 +6031,16 @@ extern void LocalDefinition_Equals_mB4B6A7A6A87ABBDC60769E2E9D380DDFD7EBD5CE_Adj
 extern void LocalDefinition_GetHashCode_mE4BD88BAF8229E1D802F7B76F7B9CA57EDC7292D_AdjustorThunk (void);
 static Il2CppTokenAdjustorThunkPair s_adjustorThunks[4] = 
 {
-	{ 0x06000589, RuntimeLabel_ToString_mE968C558DEA884F9D28FF11BF862C340C77E4DD6_AdjustorThunk },
-	{ 0x0600081B, InterpretedFrameInfo_ToString_m7549ABE7B3E50C956A736BECC8A2F541CE09B5ED_AdjustorThunk },
-	{ 0x0600094C, LocalDefinition_Equals_mB4B6A7A6A87ABBDC60769E2E9D380DDFD7EBD5CE_AdjustorThunk },
-	{ 0x0600094D, LocalDefinition_GetHashCode_mE4BD88BAF8229E1D802F7B76F7B9CA57EDC7292D_AdjustorThunk },
+	{ 0x0600058C, RuntimeLabel_ToString_mE968C558DEA884F9D28FF11BF862C340C77E4DD6_AdjustorThunk },
+	{ 0x0600081E, InterpretedFrameInfo_ToString_m7549ABE7B3E50C956A736BECC8A2F541CE09B5ED_AdjustorThunk },
+	{ 0x0600094F, LocalDefinition_Equals_mB4B6A7A6A87ABBDC60769E2E9D380DDFD7EBD5CE_AdjustorThunk },
+	{ 0x06000950, LocalDefinition_GetHashCode_mE4BD88BAF8229E1D802F7B76F7B9CA57EDC7292D_AdjustorThunk },
 };
 IL2CPP_EXTERN_C const Il2CppCodeGenModule g_System_Core_CodeGenModule;
 const Il2CppCodeGenModule g_System_Core_CodeGenModule = 
 {
 	"System.Core.dll",
-	3294,
+	3297,
 	s_methodPointers,
 	4,
 	s_adjustorThunks,

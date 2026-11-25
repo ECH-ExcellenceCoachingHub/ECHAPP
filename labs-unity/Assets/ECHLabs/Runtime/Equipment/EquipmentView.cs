@@ -128,6 +128,46 @@ namespace ECHLabs.Runtime.Equipment
             return t.ToString();
         }
 
+        static readonly Dictionary<string, EquipmentView> byId = new Dictionary<string, EquipmentView>();
+
+        /// <summary>The view of a piece of equipment by its scenario id (placement targets, probes…).</summary>
+        public static EquipmentView FindById(string id)
+        {
+            if (string.IsNullOrEmpty(id)) return null;
+            if (byId.TryGetValue(id, out var v) && v && v.EquipmentId == id) return v;
+            foreach (var x in UnityEngine.Object.FindObjectsByType<EquipmentView>())
+                if (x.EquipmentId == id) { byId[id] = x; return x; }
+            return null;
+        }
+
+        /// <summary>Liquid colour published by the simulation ("r,g,b,a" in the colorRGBA state key).</summary>
+        protected bool TryStateColor(out Color c)
+        {
+            c = default;
+            var s = Str("colorRGBA");
+            if (string.IsNullOrEmpty(s)) return false;
+            var parts = s.Split(',');
+            if (parts.Length != 4) return false;
+            var f = new float[4];
+            for (int i = 0; i < 4; i++) if (!float.TryParse(parts[i], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out f[i])) return false;
+            c = new Color(f[0], f[1], f[2], f[3]);
+            return true;
+        }
+
+        /// <summary>Several items placed on the same thing sit side by side instead of inside each other.</summary>
+        protected Vector3 PlacementOffset(string placedIn, string key = "placedIn")
+        {
+            if (World == null || placedIn == null) return Vector3.zero;
+            int index = 0, count = 0;
+            foreach (var e in World.Definition.Equipment)
+            {
+                if (World.Str(e.Id, key) != placedIn) continue;
+                if (e.Id == EquipmentId) index = count;
+                count++;
+            }
+            return Vector3.right * (index - (count - 1) / 2f) * 0.045f;
+        }
+
         protected double Num(string key, double fallback = 0) => World != null ? World.Num(EquipmentId, key, fallback) : fallback;
         protected bool Bool(string key) => World != null && World.Bool(EquipmentId, key);
         protected string Str(string key) => World?.Str(EquipmentId, key);
@@ -149,6 +189,12 @@ namespace ECHLabs.Runtime.Equipment
             { "workstation", "Workstation" }, { "firewall", "Firewall" }, { "server_rack", "Server rack" },
             { "network_switch", "Network switch" }, { "patch_cable", "Patch cable" }, { "wall_display", "Display" },
         };
-        public static string Title(string type) => titles.TryGetValue(type, out var t) ? t : type;
+        public static string Title(string type)
+        {
+            if (titles.TryGetValue(type, out var t)) return t;
+            // Newer equipment: the bundled catalog has the title ("Test tube", "Hot plate"…).
+            var fromCatalog = (string)ECHLabs.Runtime.World.EquipmentFactory.Catalog["equipment"]?[type]?["title"];
+            return !string.IsNullOrEmpty(fromCatalog) ? System.Text.RegularExpressions.Regex.Replace(fromCatalog, @"\s*\(.*\)$", "") : type.Replace('_', ' ');
+        }
     }
 }

@@ -9,6 +9,8 @@ import 'package:excellencecoachinghub/widgets/school_admin_layout_wrapper.dart';
 import 'package:excellencecoachinghub/presentation/screens/splash/splash_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/labs/lab_hub_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/labs/lab_player_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/labs/lab_project_builder_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/labs/lab_projects_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/labs/lab_room_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/auth/login_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/auth/register_screen.dart';
@@ -1018,6 +1020,23 @@ class AppRouter {
               GoRoute(
                 path: '/labs',
                 builder: (context, state) => const LabHubScreen(),
+              ),
+              // Student "My experiments": design your own lab.
+              GoRoute(
+                path: '/labs/projects',
+                builder: (context, state) => const LabProjectsScreen(),
+              ),
+              GoRoute(
+                path: '/labs/projects/new',
+                builder: (context, state) {
+                  final extra = state.extra is Map ? Map<String, dynamic>.from(state.extra as Map) : const <String, dynamic>{};
+                  final spec = extra['spec'] is Map ? Map<String, dynamic>.from(extra['spec'] as Map) : {'environment': state.uri.queryParameters['room'] ?? 'PhysicsLab'};
+                  return LabProjectBuilderScreen(initialSpec: spec, remixOf: extra['remixOf']?.toString());
+                },
+              ),
+              GoRoute(
+                path: '/labs/projects/:id/edit',
+                builder: (context, state) => LabProjectBuilderScreen(projectId: state.pathParameters['id']),
               ),
               GoRoute(
                 path: '/labs/room/:environment',

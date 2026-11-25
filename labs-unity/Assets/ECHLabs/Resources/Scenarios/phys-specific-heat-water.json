@@ -1,0 +1,213 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "variables": {},
+  "id": "phys-specific-heat-water",
+  "title": "Specific Heat Capacity of Water",
+  "difficulty": 5,
+  "durationMin": 20,
+  "xp": 180,
+  "environment": "PhysicsLab",
+  "subject": "physics",
+  "summary": "Heat 200 g of water with a hot plate, measure the energy supplied and the temperature rise, then calculate c = E ÷ (m ΔT).",
+  "tags": [
+    "energy",
+    "heating",
+    "practice"
+  ],
+  "objectives": [
+    "Measure energy supplied with a joulemeter",
+    "Calculate specific heat capacity",
+    "Explain why the answer is too high"
+  ],
+  "equipment": [
+    {
+      "id": "beaker1",
+      "type": "beaker",
+      "slot": "benchA.center",
+      "label": "200 g water",
+      "init": {
+        "solution": "water",
+        "volume": 200
+      }
+    },
+    {
+      "id": "plate",
+      "type": "hot_plate",
+      "slot": "benchA.left",
+      "init": {
+        "powerW": 200
+      }
+    },
+    {
+      "id": "thermo",
+      "type": "thermometer",
+      "slot": "benchA.right"
+    }
+  ],
+  "steps": [
+    {
+      "id": "place",
+      "kind": "action",
+      "title": "Set up",
+      "instruction": "Put the beaker of water on the hot plate.",
+      "expect": {
+        "intent": "Grab",
+        "target": "beaker1",
+        "into": "plate"
+      },
+      "focus": "beaker1",
+      "points": 10,
+      "hints": [],
+      "until": "beaker1.placedIn == 'plate'"
+    },
+    {
+      "id": "dip",
+      "kind": "action",
+      "title": "Set up",
+      "instruction": "Put the thermometer into the water.",
+      "expect": {
+        "intent": "Connect",
+        "target": "thermo",
+        "into": "beaker1"
+      },
+      "focus": "thermo",
+      "points": 10,
+      "hints": [],
+      "until": "thermo.in == 'beaker1'"
+    },
+    {
+      "id": "t0",
+      "kind": "measure",
+      "title": "Start",
+      "instruction": "Read the starting temperature.",
+      "record": {
+        "unit": "°C",
+        "key": "t0",
+        "label": "Start temperature",
+        "truth": "thermo.reading",
+        "tolerance": 0.5
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "thermo"
+    },
+    {
+      "id": "on",
+      "kind": "action",
+      "title": "Heat",
+      "instruction": "Switch on the hot plate.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "plate"
+      },
+      "focus": "plate",
+      "points": 5,
+      "hints": [],
+      "until": "plate.on"
+    },
+    {
+      "id": "wait",
+      "kind": "action",
+      "title": "Heat",
+      "instruction": "Heat until the water is at least 15 °C warmer.",
+      "expect": {
+        "intent": "Inspect",
+        "target": "beaker1"
+      },
+      "focus": "beaker1",
+      "points": 10,
+      "hints": [],
+      "until": "thermo.reading >= 35"
+    },
+    {
+      "id": "off",
+      "kind": "action",
+      "title": "Stop",
+      "instruction": "Switch off the hot plate.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "plate"
+      },
+      "focus": "plate",
+      "points": 5,
+      "hints": [],
+      "until": "!plate.on"
+    },
+    {
+      "id": "e",
+      "kind": "measure",
+      "title": "Energy",
+      "instruction": "Read the energy supplied from the joulemeter.",
+      "record": {
+        "unit": "J",
+        "key": "e",
+        "label": "Energy supplied",
+        "truth": "plate.energyJ",
+        "tolerance": 300
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "plate"
+    },
+    {
+      "id": "t1",
+      "kind": "measure",
+      "title": "Finish",
+      "instruction": "Read the final temperature.",
+      "record": {
+        "unit": "°C",
+        "key": "t1",
+        "label": "Final temperature",
+        "truth": "thermo.reading",
+        "tolerance": 0.5
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "thermo"
+    },
+    {
+      "id": "c",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "c = E ÷ (m × ΔT) with m = 0.200 kg.",
+      "record": {
+        "unit": "J/(kg °C)",
+        "key": "c",
+        "label": "Specific heat capacity",
+        "truth": "record.e / (0.2 * (record.t1 - record.t0))",
+        "tolerance": 150
+      },
+      "points": 15,
+      "hints": []
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "The accepted value is 4200 J/(kg °C). Why is yours higher?",
+          "choices": [
+            "Some energy heated the beaker and the air, not the water",
+            "The thermometer was too accurate",
+            "Water has no heat capacity",
+            "The hot plate made extra energy"
+          ],
+          "answerIndex": 0,
+          "explanation": "Energy is lost to the surroundings, so the measured E is more than the water really absorbed. Insulation and a lid reduce this."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 100,
+    "safety": 0
+  }
+}

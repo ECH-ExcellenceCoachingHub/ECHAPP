@@ -18,6 +18,7 @@ Object.defineProperty(admin, 'auth', { configurable: true, writable: true, value
 
 const express = require('express');
 const expr = require('../src/services/labs/expression');
+const catalog = require('../src/services/labs/catalog.json');
 const sim = require('../src/services/labs/sim');
 const { validateScenario } = require('../src/services/labs/validator');
 const { scoreAttempt, gradeResult } = require('../src/services/labs/scoring.service');
@@ -133,7 +134,7 @@ test('validator catches broken labs with useful messages', () => {
   const s = titration();
   s.equipment.push({ id: 'burette1', type: 'burette', slot: 'nowhere' });
   s.steps[0].expect = { intent: 'Pour', target: 'goggles1' };
-  s.steps[1].until = "flask1.colour == 'pink'";
+  s.steps[1].until = "flask1.flavour == 'sweet'";
   s.steps[2].until = "done('conc')";
   s.hazards.push({ id: 'h', when: 'burette1.volumeMl >', message: 'x' });
   delete s.randomize;
@@ -146,7 +147,7 @@ test('validator catches broken labs with useful messages', () => {
   has(/duplicate id "burette1"/);
   has(/slot "nowhere" does not exist/);
   has(/goggles does not support Pour/);
-  has(/unknown value "flask1.colour"/);
+  has(/unknown value "flask1.flavour"/);
   has(/done\('conc'\) must refer to an earlier step/);
   has(/hazards.h: Unexpected end/);
   has(/expected 25 but the chemistry gives 20.00/);
@@ -352,4 +353,133 @@ test('HTTP: headset pairing hands over a lab token exactly once', async () => {
   assert.equal(paired.body.data.status, 'paired');
   assert.equal(verifyLabToken(paired.body.data.labToken).sub, String(student._id));
   assert.equal((await api('POST', '/pair/poll', { body: { deviceSecret: secret } })).status, 410);
+});
+
+// ─── Student "My experiments" ─────────────────────────────────────────────────
+
+const projects = require('../src/services/labs/project.service');
+
+const circuitProject = () => ({
+  title: 'Does a bigger resistor mean less current?',
+  environment: 'PhysicsLab',
+  aim: 'Find how resistance affects current',
+  hypothesis: 'More resistance, less current',
+  equipment: [
+    { id: 'psu', type: 'power_supply', init: { maxVoltage: 12 } }, { id: 'board', type: 'breadboard' },
+    { id: 'r1', type: 'resistor', init: { ohms: 100 } }, { id: 'amm', type: 'ammeter' },
+  ],
+  steps: [
+    { kind: 'action', target: 'r1', action: 'connect', into: 'board' },
+    { kind: 'action', target: 'amm', action: 'connect', into: 'board' },
+    { kind: 'action', target: 'psu', action: 'on' },
+    { kind: 'action', target: 'psu', action: 'volts', value: 9 },
+    { kind: 'measure', label: 'Current', unit: 'A', reading: { item: 'amm', key: 'reading' } },
+    { kind: 'calc', label: 'Resistance', unit: 'Ω', a: 9, op: '/', b: 'r5' },
+    { kind: 'checkpoint', prompt: 'Was your hypothesis right?', choices: ['Yes', 'No'], answerIndex: 0 },
+  ],
+});
+
+test('projects: student specs compile into valid labs; every built-in lab can be remixed', () => {
+  const out = projects.compileProject(circuitProject());
+  assert.ok(out.ok, JSON.stringify(out.errors));
+  const def = out.scenario;
+  assert.equal(def.xp, 0);
+  assert.deepEqual(Object.keys(def.variables), ['circ']);
+  assert.ok(def.hazards.some((h) => h.id === 'short'));
+  const volts = def.steps[3];
+  assert.deepEqual(volts.expect, { intent: 'Rotate', target: 'psu', value: { min: 8.9, max: 9.1 } });
+  assert.equal(volts.until, 'between(psu.voltageV, 8.9, 9.1)');
+  assert.equal(def.steps[5].record.truth, '9 / record.r5');
+  // A bench slot holds one large item, or up to 4 small ones (resistor + ammeter share here).
+  const bySlot = {};
+  for (const e of def.equipment) (bySlot[e.slot] = bySlot[e.slot] || []).push(e.type);
+  for (const types of Object.values(bySlot)) {
+    assert.ok(types.length <= 4);
+    if (types.length > 1) assert.ok(types.every((t) => catalog.equipment[t].small), types.join(','));
+  }
+
+  // Code projects: each line becomes a terminal button; quotes are handled.
+  const code = projects.compileProject({ title: 'Hello', environment: 'CodingBench', equipment: [{ id: 'ws', type: 'workstation' }], steps: [{ kind: 'action', target: 'ws', action: 'cmd', command: "print('hi')", output: 'hi' }] });
+  assert.ok(code.ok, JSON.stringify(code.errors));
+  assert.equal(code.scenario.steps[0].until, 'ws.lastCommand == "print(\'hi\')"');
+  assert.deepEqual(code.scenario.equipment[0].init.commands, ["print('hi')"]);
+
+  // Friendly errors, not crashes.
+  const bad = projects.compileProject({ title: 'x', environment: 'PhysicsLab', equipment: [{ type: 'microscope' }], steps: [{ kind: 'calc', label: 'R', a: 'nope', op: '/', b: 2 }] });
+  assert.equal(bad.ok, false);
+  assert.ok(bad.errors.some((e) => /title/.test(e)) && bad.errors.some((e) => /not available/.test(e)) && bad.errors.some((e) => /calculation/.test(e)));
+
+  for (const d of loadSeedDefinitions()) {
+    const r = projects.compileProject(projects.specFromScenario(d));
+    assert.ok(r.ok, `${d.id}: ${(r.errors || []).join('; ')}`);
+    assert.equal(r.scenario.steps.length, d.steps.length, d.id);
+  }
+});
+
+test('HTTP: a student builds, runs, shares and deletes their own experiment', async () => {
+  const s1 = await User.create({ fullName: 'Inventor', email: 'inv@test.rw', password: 'secret123', role: 'student', isActive: true });
+  const s2 = await User.create({ fullName: 'Other', email: 'other@test.rw', password: 'secret123', role: 'student', isActive: true });
+  const adm = await User.create({ fullName: 'Admin', email: 'adm@test.rw', password: 'secret123', role: 'admin', isActive: true });
+  const t1 = generateToken({ id: String(s1._id) });
+  const t2 = generateToken({ id: String(s2._id) });
+  const tA = generateToken({ id: String(adm._id) });
+
+  const kit = await api('GET', '/projects/kit', { token: t1 });
+  assert.equal(kit.status, 200);
+  assert.ok(kit.body.data.rooms.ChemLab.items.some((i) => i.type === 'burette' && i.readings.length));
+  assert.equal(kit.body.data.rooms.PhysicsLab.items[0].actions[0].until, undefined, 'expressions stay on the server');
+
+  const bad = await api('POST', '/projects', { token: t1, body: { spec: { title: 'x', environment: 'PhysicsLab', equipment: [], steps: [] } } });
+  assert.equal(bad.status, 422);
+  const created = await api('POST', '/projects', { token: t1, body: { spec: circuitProject() } });
+  assert.equal(created.status, 201, JSON.stringify(created.body));
+  const id = created.body.data.id;
+
+  // Private: not in the public list, not visible to another student, but the author can run it.
+  const pub = await api('GET', '/scenarios', { token: t2 });
+  assert.ok(!pub.body.data.some((s) => s.id === id));
+  assert.equal((await api('POST', '/session', { token: t2, body: { scenarioId: id } })).status, 404);
+  assert.equal((await api('GET', `/projects/${id}`, { token: t2 })).status, 403);
+  const session = await api('POST', '/session', { token: t1, body: { scenarioId: id } });
+  assert.equal(session.status, 200);
+  const labTok = session.body.data.labToken;
+  const def = (await api('GET', `/scenarios/${id}`, { token: labTok })).body.data.definition;
+  const clientId = '9b6f1c2e-2222-4222-8333-123456789abc';
+  assert.equal((await api('POST', '/attempts', { token: labTok, body: { clientId } })).status, 201);
+  const done = await api('PATCH', `/attempts/${clientId}`, { token: labTok, body: { completedSteps: def.steps.map((s) => s.id), records: { r5: 0.09, r6: 100 }, checkpoints: [{ stepId: 's7', choice: 0 }], complete: true } });
+  assert.equal(done.status, 200);
+  assert.equal(done.body.data.outcome.passed, true);
+  assert.equal(done.body.data.outcome.xpAwarded, 0, 'no XP farming with your own labs');
+  assert.deepEqual(done.body.data.outcome.newBadges, ['lab-inventor']);
+
+  // Edit (recompiles, same slug), list with best score, conclusion.
+  const spec = { ...circuitProject(), title: 'Resistance vs current (v2)' };
+  const upd = await api('PUT', `/projects/${id}`, { token: t1, body: { spec } });
+  assert.equal(upd.status, 200);
+  assert.equal(upd.body.data.version, 2);
+  assert.equal((await api('PATCH', `/projects/${id}/conclusion`, { token: t1, body: { conclusion: 'Current fell as R rose.' } })).status, 200);
+  const mine = await api('GET', '/projects', { token: t1 });
+  assert.equal(mine.body.data.length, 1);
+  assert.equal(mine.body.data[0].best.passed, true);
+  assert.equal(mine.body.data[0].conclusion, 'Current fell as R rose.');
+  assert.equal((await api('GET', '/projects', { token: t2 })).body.data.length, 0);
+
+  // Share → teacher review → published for everyone (with XP for others).
+  assert.equal((await api('POST', `/projects/${id}/share`, { token: t1 })).body.data.status, 'review');
+  assert.equal((await api('POST', `/scenarios/${id}/status`, { token: tA, body: { status: 'published' } })).status, 200);
+  const pub2 = await api('GET', '/scenarios', { token: t2 });
+  const card = pub2.body.data.find((s) => s.id === id);
+  assert.ok(card && card.xp === 60 && card.source === 'student');
+
+  // Remix a built-in lab into a new project.
+  const remix = await api('GET', '/projects/remix/phys-ohms-law', { token: t2 });
+  assert.equal(remix.status, 200);
+  const copy = await api('POST', '/projects', { token: t2, body: { spec: remix.body.data.spec, remixOf: remix.body.data.remixOf } });
+  assert.equal(copy.status, 201, JSON.stringify(copy.body));
+  assert.match(copy.body.data.slug, /^my-my-version-of-ohm/);
+
+  // Delete = archive; it leaves the list.
+  assert.equal((await api('DELETE', `/projects/${copy.body.data.id}`, { token: t1 })).status, 403);
+  assert.equal((await api('DELETE', `/projects/${copy.body.data.id}`, { token: t2 })).status, 200);
+  assert.equal((await api('GET', '/projects', { token: t2 })).body.data.length, 0);
 });

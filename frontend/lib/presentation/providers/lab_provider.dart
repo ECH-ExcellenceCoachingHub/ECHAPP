@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../models/lab_project.dart';
 import '../../models/lab_scenario.dart';
 import '../../services/api/lab_service.dart';
 
@@ -18,3 +19,9 @@ final labSummaryProvider = FutureProvider<LabSummary>((ref) async {
 });
 
 final labScenarioProvider = FutureProvider.family<LabScenario, String>((ref, id) => ref.watch(labServiceProvider).getScenario(id));
+
+/// Student "My experiments": the builder kit (rooms, equipment, actions, readings).
+final labKitProvider = FutureProvider<LabKit>((ref) => ref.watch(labServiceProvider).projectKit());
+
+/// The student's own experiments.
+final myLabProjectsProvider = FutureProvider<List<LabProject>>((ref) => ref.watch(labServiceProvider).myProjects());

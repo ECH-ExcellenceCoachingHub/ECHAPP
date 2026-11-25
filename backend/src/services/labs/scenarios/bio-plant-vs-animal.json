@@ -1,0 +1,286 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "id": "bio-plant-vs-animal",
+  "title": "Plant Cell vs Animal Cell",
+  "difficulty": 3,
+  "durationMin": 18,
+  "xp": 130,
+  "summary": "Look at onion cells and cheek cells under the same microscope and compare what you see.",
+  "subject": "biology",
+  "environment": "BioLab",
+  "tags": [
+    "cells",
+    "compare",
+    "practice"
+  ],
+  "objectives": [
+    "Prepare and view two specimens",
+    "Identify the cell wall and the nucleus",
+    "Compare plant and animal cells"
+  ],
+  "equipment": [
+    {
+      "id": "gloves1",
+      "type": "gloves",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "scope",
+      "type": "microscope",
+      "slot": "scope.station",
+      "init": {
+        "commands": [
+          "4x",
+          "10x",
+          "40x"
+        ]
+      }
+    },
+    {
+      "id": "onion",
+      "type": "slide",
+      "slot": "prep.station",
+      "label": "Onion skin",
+      "init": {
+        "specimen": "onion"
+      }
+    },
+    {
+      "id": "cheek",
+      "type": "slide",
+      "slot": "benchA.left",
+      "label": "Cheek cells",
+      "init": {
+        "specimen": "cheek"
+      }
+    },
+    {
+      "id": "iodine",
+      "type": "stain",
+      "slot": "benchA.center",
+      "label": "Iodine solution",
+      "init": {
+        "name": "iodine"
+      }
+    },
+    {
+      "id": "blue",
+      "type": "stain",
+      "slot": "benchA.right",
+      "label": "Methylene blue",
+      "init": {
+        "name": "methylene_blue"
+      }
+    }
+  ],
+  "variables": {
+    "mic": {
+      "model": "bio.microscope",
+      "inputs": {
+        "microscope": "scope"
+      },
+      "params": {
+        "idealFocus": 0.62
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "ppe",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your gloves.",
+      "expect": {
+        "intent": "Grab",
+        "target": "gloves1"
+      },
+      "focus": "gloves1",
+      "points": 5,
+      "hints": []
+    },
+    {
+      "id": "stainOnion",
+      "kind": "action",
+      "title": "Plant cells",
+      "instruction": "Add iodine to the onion skin.",
+      "expect": {
+        "intent": "Pour",
+        "target": "iodine",
+        "into": "onion"
+      },
+      "focus": "iodine",
+      "points": 10,
+      "hints": [],
+      "until": "onion.stained"
+    },
+    {
+      "id": "stage1",
+      "kind": "action",
+      "title": "Plant cells",
+      "instruction": "Place the onion slide on the stage.",
+      "expect": {
+        "intent": "Grab",
+        "target": "onion",
+        "into": "scope"
+      },
+      "focus": "onion",
+      "points": 10,
+      "hints": [],
+      "until": "onion.onStage"
+    },
+    {
+      "id": "light",
+      "kind": "action",
+      "title": "Plant cells",
+      "instruction": "Switch on the light.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "scope"
+      },
+      "focus": "scope",
+      "points": 5,
+      "hints": [],
+      "until": "scope.lightOn"
+    },
+    {
+      "id": "focus1",
+      "kind": "action",
+      "title": "Plant cells",
+      "instruction": "Focus on the onion cells.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "scope",
+        "value": {
+          "min": 0.61,
+          "max": 0.63
+        }
+      },
+      "focus": "scope",
+      "points": 10,
+      "hints": [],
+      "until": "mic.focusQuality >= 0.8"
+    },
+    {
+      "id": "see1",
+      "kind": "info",
+      "title": "Observe",
+      "instruction": "Look for the box-shaped cells, a thick cell WALL around each one, and a dark nucleus.",
+      "points": 5,
+      "hints": []
+    },
+    {
+      "id": "stainCheek",
+      "kind": "action",
+      "title": "Animal cells",
+      "instruction": "Add methylene blue to the cheek cells.",
+      "expect": {
+        "intent": "Pour",
+        "target": "blue",
+        "into": "cheek"
+      },
+      "focus": "blue",
+      "points": 10,
+      "hints": [],
+      "until": "cheek.stained"
+    },
+    {
+      "id": "stage2",
+      "kind": "action",
+      "title": "Animal cells",
+      "instruction": "Place the cheek-cell slide on the stage.",
+      "expect": {
+        "intent": "Grab",
+        "target": "cheek",
+        "into": "scope"
+      },
+      "focus": "cheek",
+      "points": 10,
+      "hints": [],
+      "until": "cheek.onStage"
+    },
+    {
+      "id": "focus2",
+      "kind": "action",
+      "title": "Animal cells",
+      "instruction": "Refocus on the cheek cells.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "scope",
+        "value": {
+          "min": 0.61,
+          "max": 0.63
+        }
+      },
+      "focus": "scope",
+      "points": 10,
+      "hints": [],
+      "until": "mic.focusQuality >= 0.8"
+    },
+    {
+      "id": "see2",
+      "kind": "info",
+      "title": "Observe",
+      "instruction": "Cheek cells are rounder and irregular, with a thin membrane and a blue-stained nucleus.",
+      "points": 5,
+      "hints": []
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Which structure did you see in the onion cells but NOT in the cheek cells?",
+          "choices": [
+            "Cell wall",
+            "Nucleus",
+            "Cytoplasm",
+            "Cell membrane"
+          ],
+          "answerIndex": 0,
+          "explanation": "Plant cells have a rigid cellulose cell wall; animal cells do not."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Both cells had a nucleus. What does it do?",
+          "choices": [
+            "Controls the cell and holds DNA",
+            "Makes food by photosynthesis",
+            "Stores water",
+            "Gives the cell its shape"
+          ],
+          "answerIndex": 0,
+          "explanation": "The nucleus contains the genetic material that controls the cell."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [
+    {
+      "id": "noGloves",
+      "when": "!gloves1.worn && (iodine.dropsAdded > 0 || blue.dropsAdded > 0)",
+      "message": "Stains mark your skin — wear gloves.",
+      "severity": "warn",
+      "penalty": 10
+    }
+  ],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 80,
+    "safety": 20
+  }
+}

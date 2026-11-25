@@ -33,8 +33,10 @@ async function findScenario(idOrSlug) {
   return LabScenario.findOne({ slug: String(idOrSlug).toLowerCase() });
 }
 
+const isOwner = (user, scenario) => !!user && !!scenario.createdBy && String(scenario.createdBy) === String(user._id);
+
 function canSee(user, scenario) {
-  return scenario.status === 'published' || isStaff(user);
+  return scenario.status === 'published' || isStaff(user) || isOwner(user, scenario);
 }
 
 // ─── Catalog & scenarios ──────────────────────────────────────────────────────
@@ -131,7 +133,12 @@ const setStatus = async (req, res) => {
     const check = validateScenario(scenario.definition);
     if (status === 'published' && !check.ok) return sendError(res, 'The lab has problems', 422, check.errors);
     scenario.status = status;
-    if (status === 'published') { scenario.publishedAt = new Date(); scenario.reviewedBy = req.user._id; }
+    if (status === 'published') {
+      scenario.publishedAt = new Date();
+      scenario.reviewedBy = req.user._id;
+      // A student's experiment published for everyone earns XP for the others who do it (never its author).
+      if (scenario.source === 'student' && !scenario.xp) scenario.xp = 60;
+    }
     await scenario.save();
     return sendSuccess(res, scenario.toCard(), `Lab ${status}`);
   } catch (err) {
@@ -326,6 +333,7 @@ const mySummary = async (req, res) => {
       { $group: { _id: '$scenarioId', best: { $max: '$score.total' } } },
       { $lookup: { from: 'labscenarios', localField: '_id', foreignField: '_id', as: 's' } },
       { $unwind: '$s' },
+      { $match: { 's.source': { $ne: 'student' } } },
       { $group: { _id: '$s.subject', count: { $sum: 1 }, avgBest: { $avg: '$best' } } },
     ]);
     const best = await LabAttempt.aggregate([

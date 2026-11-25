@@ -52,6 +52,10 @@ MonoBehaviour:
   inspectDistance: 0.12
   highlightRenderers: []
   placesSomewhere: 1
+  display: {fileID: 0}
+  glow: {fileID: 0}
+  glowLight: {fileID: 0}
+  bubbles: {fileID: 0}
 --- !u!65 &7580416243909738995
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -72,7 +76,7 @@ BoxCollider:
   m_Enabled: 1
   serializedVersion: 3
   m_Size: {x: 0.08, y: 0.08, z: 0.08}
-  m_Center: {x: 0, y: 0.00135, z: 0}
+  m_Center: {x: 0, y: 0.00075, z: 0}
 --- !u!1 &3762397346598261411
 GameObject:
   m_ObjectHideFlags: 0

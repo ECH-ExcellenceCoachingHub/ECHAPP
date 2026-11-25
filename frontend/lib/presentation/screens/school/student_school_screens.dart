@@ -45,7 +45,9 @@ class _StudentSchoolHomeScreenState extends ConsumerState<StudentSchoolHomeScree
           PopupMenuButton<String>(
             onSelected: (v) async {
               if (v == 'groups') context.push('/school/groups');
-              if (v == 'courses') context.go('/dashboard');
+              if (v == 'labs') context.push('/labs');
+              if (v == 'library') context.push('/library');
+              if (v == 'courses') context.push('/courses');
               if (v == 'pin') showChangePinDialog(context);
               if (v == 'logout') {
                 await ref.read(authProvider.notifier).logout();
@@ -53,6 +55,8 @@ class _StudentSchoolHomeScreenState extends ConsumerState<StudentSchoolHomeScree
               }
             },
             itemBuilder: (_) => const [
+              PopupMenuItem(value: 'labs', child: T('Virtual laboratory')),
+              PopupMenuItem(value: 'library', child: T('Library')),
               PopupMenuItem(value: 'groups', child: T('Class groups')),
               PopupMenuItem(value: 'courses', child: T('ECH courses')),
               PopupMenuItem(value: 'pin', child: T('Change my PIN')),
@@ -112,15 +116,18 @@ class StudentOverviewView extends StatelessWidget {
 
     final ct = classroom?['classTeacher'] as Map?;
     final firstName = '${student['fullName']}'.split(' ').first;
+    final hour = DateTime.now().hour;
+    final greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
     return SchoolPage(onRefresh: onRefresh, maxWidth: 900, children: [
       PageHero(
+        colors: forParent ? null : const [Color(0xFF0E9F6E), Color(0xFF0B6E99)],
         leading: CircleAvatar(
           radius: 27,
           backgroundColor: Colors.white.withValues(alpha: 0.2),
           child: Text(initialsOfName('${student['fullName']}'), style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white, fontSize: 18)),
         ),
-        title: forParent ? '${student['fullName']}' : 'Hello, $firstName',
+        title: forParent ? '${student['fullName']}' : '$greeting, $firstName',
         subtitle: '${school['name'] ?? ''}',
         chips: [
           HeroChip(classroom?['name'] != null ? '${classroom!['name']}' : 'Not in a class yet', icon: Icons.meeting_room_outlined),
@@ -134,6 +141,8 @@ class StudentOverviewView extends StatelessWidget {
         MiniStat('${stats['missed'] ?? 0}', 'Missed', tone: (stats['missed'] ?? 0) > 0 ? Tone.warn : Tone.neutral),
         MiniStat('${stats['submitted'] ?? 0}', 'Handed in', tone: Tone.good),
       ]),
+      // Labs, library and the other learning tools, so students find them.
+      if (!forParent) StudentToolsPanel(unreadGroups: unreadGroups),
       // Work the teachers gave
       SectionCard(
         icon: Icons.assignment_outlined,
@@ -156,6 +165,38 @@ class StudentOverviewView extends StatelessWidget {
                 ],
               ]),
       ),
+      if (!forParent && checks.isNotEmpty)
+        SectionCard(
+          icon: Icons.fact_check_outlined,
+          tone: Tone.warn,
+          title: 'Was this lesson taught?',
+          subtitle: 'Your answer is private and helps the school.',
+          child: Column(children: [
+            for (var i = 0; i < checks.length; i++) ...[
+              if (i > 0) const RowDivider(),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  T('${checks[i]['subject']}: ${checks[i]['topic']}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  T(fmtDay(checks[i]['taughtOn']), style: TextStyle(color: muted, fontSize: 12.5)),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    Expanded(child: OutlinedButton.icon(onPressed: () => onLessonCheck?.call(checks[i], true), icon: const Icon(Icons.check, size: 18), label: const T('Yes, taught'))),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(foregroundColor: AppTheme.errorColor, side: BorderSide(color: AppTheme.errorColor.withValues(alpha: 0.5))),
+                        onPressed: () => onLessonCheck?.call(checks[i], false),
+                        icon: const Icon(Icons.close, size: 18),
+                        label: const T('No'),
+                      ),
+                    ),
+                  ]),
+                ]),
+              ),
+            ],
+          ]),
+        ),
       if (!forParent && courses.isNotEmpty)
         SectionCard(
           icon: Icons.play_lesson_outlined,
@@ -198,38 +239,6 @@ class StudentOverviewView extends StatelessWidget {
               ? Padding(padding: const EdgeInsets.only(bottom: 8), child: T('No groups yet. Your teachers can add you to one.', style: TextStyle(color: muted)))
               : Column(children: [for (final g in groups!.take(4)) GroupTile(g: g, onReturn: onRefresh)]),
         ),
-      if (!forParent && checks.isNotEmpty)
-        SectionCard(
-          icon: Icons.fact_check_outlined,
-          tone: Tone.warn,
-          title: 'Was this lesson taught?',
-          subtitle: 'Your answer is private and helps the school.',
-          child: Column(children: [
-            for (var i = 0; i < checks.length; i++) ...[
-              if (i > 0) const RowDivider(),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  T('${checks[i]['subject']}: ${checks[i]['topic']}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                  T(fmtDay(checks[i]['taughtOn']), style: TextStyle(color: muted, fontSize: 12.5)),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    Expanded(child: OutlinedButton.icon(onPressed: () => onLessonCheck?.call(checks[i], true), icon: const Icon(Icons.check, size: 18), label: const T('Yes, taught'))),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(foregroundColor: AppTheme.errorColor, side: BorderSide(color: AppTheme.errorColor.withValues(alpha: 0.5))),
-                        onPressed: () => onLessonCheck?.call(checks[i], false),
-                        icon: const Icon(Icons.close, size: 18),
-                        label: const T('No'),
-                      ),
-                    ),
-                  ]),
-                ]),
-              ),
-            ],
-          ]),
-        ),
       if (subjects.isNotEmpty)
         SectionCard(
           icon: Icons.menu_book_outlined,
@@ -269,6 +278,235 @@ class StudentOverviewView extends StatelessWidget {
           ]),
         ),
     ]);
+  }
+}
+
+/// "Explore and learn" on the school student home: the virtual lab and the
+/// library as two big cards, then the other tools as a launcher grid.
+class StudentToolsPanel extends StatelessWidget {
+  const StudentToolsPanel({super.key, this.unreadGroups = 0});
+  final int unreadGroups;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = AppTheme.getSecondaryTextColor(context);
+    final labCard = _FeatureToolCard(
+      icon: Icons.science_rounded,
+      tag: '3D · VR',
+      title: 'Virtual laboratory',
+      caption: 'Do real science experiments in 3D and VR — safely, at your own level.',
+      action: 'Open the lab',
+      colors: const [Color(0xFF6D28D9), Color(0xFF2563EB)],
+      onTap: () => context.push('/labs'),
+    );
+    final libraryCard = _FeatureToolCard(
+      icon: Icons.local_library_rounded,
+      tag: 'Books',
+      title: 'Library',
+      caption: 'Read books and study materials for your class.',
+      action: 'Open the library',
+      colors: const [Color(0xFFEA580C), Color(0xFFDB2777)],
+      onTap: () => context.push('/library'),
+    );
+    final tools = <_ToolItem>[
+      _ToolItem(Icons.forum_rounded, 'Class groups', 'Chat with your class', const Color(0xFF0EA5E9), () => context.push('/school/groups'), badge: unreadGroups),
+      _ToolItem(Icons.videocam_rounded, 'Live classes', 'Join online lessons', const Color(0xFFEF4444), () => context.push('/upcoming-sessions')),
+      _ToolItem(Icons.chat_bubble_rounded, 'Messages', 'Talk to your teachers', const Color(0xFF8B5CF6), () => context.push('/messages')),
+      _ToolItem(Icons.notifications_rounded, 'Notifications', 'News for you', const Color(0xFFF59E0B), () => context.push('/notifications')),
+      _ToolItem(Icons.download_for_offline_rounded, 'Downloads', 'Study offline', const Color(0xFF10B981), () => context.push('/downloads')),
+      _ToolItem(Icons.workspace_premium_rounded, 'Certificates', 'Your awards', const Color(0xFFD97706), () => context.push('/certificates')),
+      _ToolItem(Icons.explore_rounded, 'All courses', 'Learn more topics', const Color(0xFF14B8A6), () => context.push('/courses')),
+      _ToolItem(Icons.help_rounded, 'Help', 'Get support', const Color(0xFF64748B), () => context.push('/help')),
+    ];
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Semantics(header: true, child: T('Explore and learn', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.getTextColor(context)))),
+          const SizedBox(height: 2),
+          T('Your learning tools in one place.', style: TextStyle(fontSize: 13, color: muted)),
+        ]),
+      ),
+      LayoutBuilder(builder: (context, c) {
+        if (c.maxWidth < 560) return Column(children: [labCard, const SizedBox(height: 12), libraryCard]);
+        return IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Expanded(child: labCard),
+            const SizedBox(width: 12),
+            Expanded(child: libraryCard),
+          ]),
+        );
+      }),
+      const SizedBox(height: 12),
+      Container(
+        decoration: cardDecoration(context),
+        padding: const EdgeInsets.fromLTRB(10, 14, 10, 10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(6, 0, 6, 8),
+            child: T('More tools', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppTheme.getTextColor(context))),
+          ),
+          LayoutBuilder(builder: (context, c) {
+            const cols = 4;
+            final w = c.maxWidth / cols;
+            return Wrap(children: [for (final t in tools) SizedBox(width: w, child: _ToolTile(item: t, showCaption: w >= 130))]);
+          }),
+        ]),
+      ),
+    ]);
+  }
+}
+
+class _ToolItem {
+  const _ToolItem(this.icon, this.label, this.caption, this.color, this.onTap, {this.badge = 0});
+  final IconData icon;
+  final String label;
+  final String caption;
+  final Color color;
+  final VoidCallback onTap;
+  final int badge;
+}
+
+class _ToolTile extends StatelessWidget {
+  const _ToolTile({required this.item, required this.showCaption});
+  final _ToolItem item;
+  final bool showCaption;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Semantics(
+      button: true,
+      label: trSchool(context, item.label),
+      excludeSemantics: true,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: item.onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Stack(clipBehavior: Clip.none, children: [
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: item.color.withValues(alpha: dark ? 0.22 : 0.12),
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Icon(item.icon, color: item.color, size: 25),
+              ),
+              if (item.badge > 0)
+                Positioned(
+                  right: -6,
+                  top: -6,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    constraints: const BoxConstraints(minWidth: 20),
+                    decoration: BoxDecoration(
+                      color: AppTheme.errorColor,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppTheme.getCardColor(context), width: 2),
+                    ),
+                    child: Text(item.badge > 99 ? '99+' : '${item.badge}',
+                        textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.w800)),
+                  ),
+                ),
+            ]),
+            const SizedBox(height: 7),
+            T(item.label,
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, height: 1.2, color: AppTheme.getTextColor(context))),
+            if (showCaption) ...[
+              const SizedBox(height: 2),
+              T(item.caption,
+                  maxLines: 1,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 11.5, color: AppTheme.getSecondaryTextColor(context))),
+            ],
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// Big gradient card for a headline tool (virtual lab, library).
+class _FeatureToolCard extends StatelessWidget {
+  const _FeatureToolCard({required this.icon, required this.tag, required this.title, required this.caption, required this.action, required this.colors, required this.onTap});
+  final IconData icon;
+  final String tag;
+  final String title;
+  final String caption;
+  final String action;
+  final List<Color> colors;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(20);
+    return Semantics(
+      button: true,
+      label: '${trSchool(context, title)}. ${trSchool(context, caption)}',
+      excludeSemantics: true,
+      child: Material(
+        color: Colors.transparent,
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            gradient: LinearGradient(colors: colors, begin: Alignment.topLeft, end: Alignment.bottomRight),
+            boxShadow: [BoxShadow(color: colors.last.withValues(alpha: 0.25), blurRadius: 16, offset: const Offset(0, 6))],
+          ),
+          child: InkWell(
+            borderRadius: radius,
+            onTap: onTap,
+            child: ClipRRect(
+              borderRadius: radius,
+              child: Stack(children: [
+                // Large faded icon as decoration in the corner.
+                Positioned(right: -18, bottom: -22, child: Icon(icon, size: 130, color: Colors.white.withValues(alpha: 0.12))),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Row(children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(13)),
+                        child: Icon(icon, color: Colors.white, size: 25),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
+                        child: T(tag, style: const TextStyle(color: Colors.white, fontSize: 11.5, fontWeight: FontWeight.w700, letterSpacing: 0.3)),
+                      ),
+                    ]),
+                    const SizedBox(height: 14),
+                    T(title, style: const TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800, height: 1.2)),
+                    const SizedBox(height: 4),
+                    T(caption, style: TextStyle(color: Colors.white.withValues(alpha: 0.88), fontSize: 13, height: 1.35)),
+                    const SizedBox(height: 14),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        T(action, style: TextStyle(color: colors.first, fontSize: 13, fontWeight: FontWeight.w800)),
+                        const SizedBox(width: 6),
+                        Icon(Icons.arrow_forward_rounded, size: 17, color: colors.first),
+                      ]),
+                    ),
+                  ]),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

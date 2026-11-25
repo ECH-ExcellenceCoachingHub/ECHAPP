@@ -46,7 +46,15 @@ async function finalizeAttempt(attempt, scenario) {
   let xpAwarded = 0;
   let newBadges = [];
   let lesson = null;
-  if (outcome.passed) {
+  // A student's own experiment: no XP (it could be farmed), one "Lab Inventor" badge the first time.
+  const ownProject = scenario.source === 'student' && String(scenario.createdBy) === String(attempt.userId);
+  if (outcome.passed && ownProject) {
+    const updated = await User.updateOne(
+      { _id: attempt.userId, 'labBadges.key': { $ne: 'lab-inventor' } },
+      { $push: { labBadges: { key: 'lab-inventor', awardedAt: new Date() } } },
+    );
+    if (updated.modifiedCount) newBadges = ['lab-inventor'];
+  } else if (outcome.passed) {
     const previousPass = await LabAttempt.exists({ userId: attempt.userId, scenarioId: scenario._id, passed: true, _id: { $ne: attempt._id } });
     if (!previousPass) {
       xpAwarded = Math.round((scenario.xp || def.xp || 100) * outcome.score.total / 100);

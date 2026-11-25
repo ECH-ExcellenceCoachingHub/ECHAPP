@@ -33,10 +33,33 @@ namespace ECHLabs.Runtime.Equipment
         bool streaming;
         LiquidVolume intoLiquid;
 
+        Vector3 homePos, homeRoot, rootTarget;
+        string shownPlacedIn;
+        ParticleSystem bubbles, steam;
+
+        /// <summary>Beakers, tubes and dishes can be put on a hot plate, in a water bath, on a balance…</summary>
+        public override bool GrabPlacesSomewhere => Type != "reagent_bottle" && Type != "pipette" && Type != "dropper_bottle" && Type != "solid_jar";
+
+        public override string ActionLabel(IntentType t)
+        {
+            if (t == IntentType.Grab && GrabPlacesSomewhere) return "Place in / on…";
+            if (t == IntentType.Rotate) return Type == "test_tube" ? "Shake" : "Stir / swirl";
+            if (t == IntentType.Pour && Type == "solid_jar") return "Add a spatula to…";
+            if (t == IntentType.Pour && Type == "dropper_bottle") return "Add drops to…";
+            if (t == IntentType.Inspect) return "Observe";
+            return base.ActionLabel(t);
+        }
+
         protected override void OnBound(EquipmentSpec spec)
         {
             if (!liquid) liquid = GetComponentInChildren<LiquidVolume>();
             if (!tiltPivot) tiltPivot = transform;
+            homePos = tiltPivot.position;
+            homeRoot = transform.position;
+            rootTarget = homeRoot;
+            shownPlacedIn = null;
+            if (!bubbles) bubbles = MakeBubbles("Bubbles", new Color(1f, 1f, 1f, 0.55f), 0.004f, 0.08f);
+            if (!steam) steam = MakeBubbles("Steam", new Color(1f, 1f, 1f, 0.18f), 0.02f, 0.12f);
             restPos = tiltPivot.position;
             restRot = tiltPivot.rotation;
             var b = EquipmentGeometry.BoundsOf(this);
@@ -57,9 +80,52 @@ namespace ECHLabs.Runtime.Equipment
             pourT = -1;
         }
 
+        ParticleSystem MakeBubbles(string name, Color color, float size, float speed)
+        {
+            var go = new GameObject(name);
+            // Inside the liquid (not the whole item: a tube's stand is wider than the tube).
+            var lr = liquid ? liquid.GetComponent<Renderer>() : null;
+            var b = lr ? lr.bounds : EquipmentGeometry.BoundsOf(this);
+            go.transform.SetParent(liquid ? liquid.transform : transform, true);
+            go.transform.position = new Vector3(b.center.x, b.min.y + 0.004f, b.center.z);
+            go.transform.rotation = Quaternion.Euler(-90, 0, 0);
+            var ps = go.AddComponent<ParticleSystem>();
+            var main = ps.main; main.startSize = size; main.startSpeed = speed; main.startLifetime = name == "Steam" ? 1.6f : 0.6f;
+            main.startColor = color; main.maxParticles = 200; main.simulationSpace = ParticleSystemSimulationSpace.World;
+            var shape = ps.shape; shape.shapeType = ParticleSystemShapeType.Cone; shape.angle = 2f; shape.radius = Mathf.Max(0.002f, Mathf.Min(b.extents.x, b.extents.z) * 0.5f); // straight up, inside the liquid
+            // Bubbles burst at the surface: lifetime ≈ time to rise through the liquid.
+            if (name == "Bubbles") main.startLifetime = Mathf.Max(0.2f, b.size.y / Mathf.Max(speed, 0.01f));
+            var em = ps.emission; em.rateOverTime = 0;
+            var r = go.GetComponent<ParticleSystemRenderer>();
+            var mat = Resources.Load<Material>("FX/Bubble") ?? Resources.Load<Material>("FX/Stream");
+            if (mat) r.sharedMaterial = mat;
+            ps.Play();
+            return ps;
+        }
+
         public override void Render(float dt)
         {
             base.Render(dt);
+            // What is in the container decides its colour (indicators, precipitates, food tests…).
+            if (TryStateColor(out var sc)) liquidColor = Color.Lerp(liquidColor, sc, dt * 4f);
+            // Placed on a hot plate / in a water bath / on a balance: that becomes its rest position.
+            var on = Str("placedIn");
+            if (on != shownPlacedIn && !Pouring)
+            {
+                shownPlacedIn = on;
+                var host = FindById(on);
+                rootTarget = host ? host.Attach.position + PlacementOffset(on) - (homePos - homeRoot) : homeRoot;
+            }
+            if (!Pouring && (transform.position - rootTarget).sqrMagnitude > 1e-8)
+            {
+                // Move the whole item (its stand too); the pour pivot's rest pose moves with it.
+                var before = transform.position;
+                transform.position = Vector3.Lerp(transform.position, rootTarget, Mathf.Min(1f, dt * 7f));
+                if (tiltPivot != transform) { restPos += transform.position - before; tiltPivot.position += transform.position - before; }
+                else restPos = transform.position;
+            }
+            if (bubbles) { var em = bubbles.emission; em.rateOverTime = Bool("fizzing") ? 45f : Num("temperatureC") >= 99 ? 30f : 0f; }
+            if (steam) { var em = steam.emission; em.rateOverTime = Num("temperatureC") >= 70 ? Mathf.Lerp(2f, 14f, Mathf.InverseLerp(70, 100, (float)Num("temperatureC"))) : 0f; }
             float target = (float)Num("volumeMl");
             if (shownVolume < 0) shownVolume = target;
             bool draining = Pouring && pourT > MoveIn && pourT < TiltEnd;

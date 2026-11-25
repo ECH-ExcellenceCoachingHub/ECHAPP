@@ -308,6 +308,13 @@ namespace ECHLabs.Runtime
                 if (fb.Kind == FeedbackKind.WrongAction || fb.Kind == FeedbackKind.Impossible) { hud.Toast(fb.Message, false); fx?.Mistake(); }
             };
             Runtime.Completed += score => _ = Complete(score);
+            // Things the student would notice (fizzing, precipitates, splint tests, overflows, spills).
+            Runtime.World.OnEvent += e =>
+            {
+                if (e == null || string.IsNullOrEmpty(e.Message)) return;
+                if (e.Type == "observe" || e.Type == "info") hud.Toast(e.Message, true);
+                else if (e.Type == "overflow" || e.Type == "spill" || e.Type == "empty") hud.Toast(e.Message, false);
+            };
         }
 
         public void FocusStepPublic(StepSpec step) => FocusStep(step);

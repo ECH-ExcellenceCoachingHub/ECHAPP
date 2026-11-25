@@ -15,7 +15,7 @@ namespace ECHLabs.EditorTools
     /// Output: Assets/ECHLabs/Resources/Equipment/&lt;type&gt;.prefab (+ meshes in Art/Generated).
     /// Run: menu "ECH Labs/Build equipment prefabs" or batch -executeMethod ECHLabs.EditorTools.PrefabFactory.BuildAll
     /// </summary>
-    public static class PrefabFactory
+    public static partial class PrefabFactory
     {
         const string PrefabDir = "Assets/ECHLabs/Resources/Equipment";
         const string MeshDir = "Assets/ECHLabs/Art/Generated";
@@ -41,6 +41,7 @@ namespace ECHLabs.EditorTools
                 { "server_rack", ServerRack }, { "network_switch", () => RackUnit("network_switch", false) },
                 { "patch_cable", PatchCable }, { "wall_display", WallDisplay },
             };
+            AddMaterialBuilders(builders);
             foreach (var kv in builders)
             {
                 var go = kv.Value();

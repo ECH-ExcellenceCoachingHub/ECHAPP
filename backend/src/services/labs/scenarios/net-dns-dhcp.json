@@ -1,0 +1,216 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "id": "net-dns-dhcp",
+  "title": "How a PC Joins a Network: DHCP and DNS",
+  "difficulty": 3,
+  "durationMin": 15,
+  "xp": 120,
+  "summary": "Get an address automatically with DHCP, then use DNS to turn a name into an IP address.",
+  "subject": "networking",
+  "environment": "ServerRoom",
+  "tags": [
+    "DHCP",
+    "DNS",
+    "practice"
+  ],
+  "objectives": [
+    "Request an address with DHCP",
+    "Look up a name with DNS",
+    "Explain what each service does"
+  ],
+  "equipment": [
+    {
+      "id": "rack1",
+      "type": "server_rack",
+      "slot": "rack.1",
+      "label": "School server (DHCP + DNS)"
+    },
+    {
+      "id": "sw",
+      "type": "network_switch",
+      "slot": "patch.panel",
+      "label": "Core switch",
+      "init": {
+        "ports": 24
+      }
+    },
+    {
+      "id": "cable1",
+      "type": "patch_cable",
+      "slot": "shelf.1",
+      "label": "Blue cable",
+      "init": {
+        "color": "blue"
+      }
+    },
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Student PC",
+      "init": {
+        "os": "ECH NetOS",
+        "commands": [
+          "ipconfig",
+          "dhcp renew",
+          "nslookup elearning.ech.rw",
+          "ping elearning.ech.rw"
+        ]
+      }
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "plug",
+      "kind": "action",
+      "title": "Connect",
+      "instruction": "Plug the PC's cable into the switch.",
+      "expect": {
+        "intent": "Connect",
+        "target": "cable1",
+        "into": "sw"
+      },
+      "focus": "cable1",
+      "points": 10,
+      "hints": [],
+      "until": "cable1.connected"
+    },
+    {
+      "id": "ip0",
+      "kind": "action",
+      "title": "Check",
+      "instruction": "Check the PC's address.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'ipconfig'",
+      "success": "IPv4: none (169.254.12.4) — no address from a server yet."
+    },
+    {
+      "id": "renew",
+      "kind": "action",
+      "title": "DHCP",
+      "instruction": "Ask the DHCP server for an address.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'dhcp renew'",
+      "success": "Lease: 10.0.5.37 /24, gateway 10.0.5.1, DNS 10.0.5.2"
+    },
+    {
+      "id": "lookup",
+      "kind": "action",
+      "title": "DNS",
+      "instruction": "Look up the IP address of elearning.ech.rw.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'nslookup elearning.ech.rw'",
+      "success": "elearning.ech.rw → 10.0.5.20"
+    },
+    {
+      "id": "ping",
+      "kind": "action",
+      "title": "Test",
+      "instruction": "Ping the site by name.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'ping elearning.ech.rw'",
+      "success": "Reply from 10.0.5.20: time=2ms"
+    },
+    {
+      "id": "hosts",
+      "kind": "measure",
+      "title": "Think",
+      "instruction": "The lease is a /24 network. How many usable host addresses does it have?",
+      "record": {
+        "unit": "hosts",
+        "key": "hosts",
+        "label": "Usable hosts",
+        "truth": "254",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": [
+        "2⁸ − 2"
+      ]
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Which service turned \"elearning.ech.rw\" into 10.0.5.20?",
+          "choices": [
+            "DNS",
+            "DHCP",
+            "The switch",
+            "Ping"
+          ],
+          "answerIndex": 0,
+          "explanation": "DNS is the internet's phone book: names → IP addresses."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "What did DHCP give the PC?",
+          "choices": [
+            "An IP address, gateway and DNS server",
+            "A website",
+            "A faster cable",
+            "A password"
+          ],
+          "answerIndex": 0,
+          "explanation": "DHCP hands out network settings automatically."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [
+    {
+      "key": "hosts",
+      "label": "Usable hosts",
+      "unit": "",
+      "expected": 254,
+      "tolerancePct": 1,
+      "source": "record.hosts"
+    }
+  ],
+  "scoring": {
+    "accuracy": 30,
+    "procedure": 70,
+    "safety": 0
+  }
+}

@@ -1,0 +1,253 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "variables": {},
+  "id": "phys-bulb-iv",
+  "title": "Is a Filament Lamp Ohmic?",
+  "difficulty": 3,
+  "durationMin": 18,
+  "xp": 130,
+  "environment": "PhysicsLab",
+  "subject": "physics",
+  "summary": "Measure the current through a filament lamp at 1 V and 6 V. Does its resistance stay the same?",
+  "tags": [
+    "circuits",
+    "I-V",
+    "practice"
+  ],
+  "objectives": [
+    "Take I–V readings for a component",
+    "Calculate resistance at different voltages",
+    "Explain why a filament is non-ohmic"
+  ],
+  "equipment": [
+    {
+      "id": "psu",
+      "type": "power_supply",
+      "slot": "benchA.left",
+      "init": {
+        "maxVoltage": 12
+      }
+    },
+    {
+      "id": "board",
+      "type": "breadboard",
+      "slot": "benchA.center"
+    },
+    {
+      "id": "lamp",
+      "type": "bulb",
+      "slot": "benchB.left",
+      "label": "Lamp 6 V 3 W",
+      "init": {
+        "ratedVoltage": 6,
+        "ratedPower": 3
+      }
+    },
+    {
+      "id": "amm",
+      "type": "ammeter",
+      "slot": "benchB.center"
+    },
+    {
+      "id": "volt",
+      "type": "voltmeter",
+      "slot": "benchB.right"
+    }
+  ],
+  "steps": [
+    {
+      "id": "c1",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect the lamp to the circuit board.",
+      "expect": {
+        "intent": "Connect",
+        "target": "lamp",
+        "into": "board"
+      },
+      "focus": "lamp",
+      "points": 10,
+      "hints": [],
+      "until": "lamp.connected"
+    },
+    {
+      "id": "c2",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect the ammeter in series.",
+      "expect": {
+        "intent": "Connect",
+        "target": "amm",
+        "into": "board"
+      },
+      "focus": "amm",
+      "points": 10,
+      "hints": [],
+      "until": "amm.connected"
+    },
+    {
+      "id": "c3",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect the voltmeter across the lamp.",
+      "expect": {
+        "intent": "Connect",
+        "target": "volt",
+        "into": "board"
+      },
+      "focus": "volt",
+      "points": 10,
+      "hints": [],
+      "until": "volt.connected"
+    },
+    {
+      "id": "on",
+      "kind": "action",
+      "title": "Power",
+      "instruction": "Switch on the power supply.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "psu"
+      },
+      "focus": "psu",
+      "points": 5,
+      "hints": [],
+      "until": "psu.on"
+    },
+    {
+      "id": "v1",
+      "kind": "action",
+      "title": "Reading 1",
+      "instruction": "Set the voltage to 1.0 V.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "psu",
+        "value": {
+          "min": 0.9,
+          "max": 1.1
+        }
+      },
+      "focus": "psu",
+      "points": 10,
+      "hints": [],
+      "until": "between(psu.voltageV, 0.9, 1.1)"
+    },
+    {
+      "id": "i1",
+      "kind": "measure",
+      "title": "Reading 1",
+      "instruction": "Read the current.",
+      "record": {
+        "unit": "A",
+        "key": "i1",
+        "label": "Current at 1 V",
+        "truth": "amm.reading",
+        "tolerance": 0.003
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "amm"
+    },
+    {
+      "id": "v6",
+      "kind": "action",
+      "title": "Reading 2",
+      "instruction": "Set the voltage to 6.0 V.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "psu",
+        "value": {
+          "min": 5.9,
+          "max": 6.1
+        }
+      },
+      "focus": "psu",
+      "points": 10,
+      "hints": [],
+      "until": "between(psu.voltageV, 5.9, 6.1)"
+    },
+    {
+      "id": "i6",
+      "kind": "measure",
+      "title": "Reading 2",
+      "instruction": "Read the current.",
+      "record": {
+        "unit": "A",
+        "key": "i6",
+        "label": "Current at 6 V",
+        "truth": "amm.reading",
+        "tolerance": 0.003
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "amm"
+    },
+    {
+      "id": "r1",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "Resistance at 1 V: R = 1.0 ÷ I.",
+      "record": {
+        "unit": "Ω",
+        "key": "r1",
+        "label": "Resistance at 1 V",
+        "truth": "1 / record.i1",
+        "tolerance": 0.3
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "r6",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "Resistance at 6 V: R = 6.0 ÷ I.",
+      "record": {
+        "unit": "Ω",
+        "key": "r6",
+        "label": "Resistance at 6 V",
+        "truth": "6 / record.i6",
+        "tolerance": 0.3
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "The resistance was much higher at 6 V. Why?",
+          "choices": [
+            "The filament gets hotter, so its ions vibrate more and resist the current",
+            "The voltmeter changes it",
+            "The current flows backwards",
+            "Lamps lose resistance when warm"
+          ],
+          "answerIndex": 0,
+          "explanation": "A hotter metal has more resistance, so a filament lamp is NOT ohmic — its I–V graph curves."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [
+    {
+      "id": "short",
+      "when": "board.shortCircuit",
+      "message": "Short circuit! The ammeter must be in series with the lamp.",
+      "severity": "warn",
+      "penalty": 15
+    }
+  ],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 85,
+    "safety": 15
+  }
+}

@@ -1,0 +1,241 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "id": "phys-pendulum-amplitude",
+  "title": "Does the Swing Angle Change the Period?",
+  "difficulty": 4,
+  "durationMin": 20,
+  "xp": 150,
+  "summary": "A fair test: keep the length the same, change only the release angle, and compare the periods.",
+  "subject": "physics",
+  "environment": "PhysicsLab",
+  "tags": [
+    "fair test",
+    "pendulum",
+    "practice"
+  ],
+  "objectives": [
+    "Plan a fair test with one independent variable",
+    "Compare two measured periods",
+    "Draw a conclusion from evidence"
+  ],
+  "equipment": [
+    {
+      "id": "pend",
+      "type": "pendulum",
+      "slot": "benchA.center",
+      "init": {
+        "lengthM": 0.9,
+        "massKg": 0.05
+      }
+    },
+    {
+      "id": "watch",
+      "type": "stopwatch",
+      "slot": "benchB.center"
+    },
+    {
+      "id": "rule",
+      "type": "metre_rule",
+      "slot": "benchA.right"
+    }
+  ],
+  "variables": {
+    "pm": {
+      "model": "phys.pendulum",
+      "inputs": {
+        "pendulum": "pend"
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "predict",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Prediction: what will happen to the period if you release the bob from a bigger angle?",
+          "choices": [
+            "It stays almost the same",
+            "It doubles",
+            "It halves",
+            "The bob stops sooner"
+          ],
+          "answerIndex": 0,
+          "explanation": "For small angles the period hardly depends on the angle — let's test it."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "small",
+      "kind": "action",
+      "title": "Test 1: small angle",
+      "instruction": "Release the bob from about 5°.",
+      "expect": {
+        "intent": "Release",
+        "target": "pend",
+        "value": {
+          "min": 3,
+          "max": 7
+        }
+      },
+      "focus": "pend",
+      "points": 10,
+      "hints": [],
+      "until": "pend.swinging"
+    },
+    {
+      "id": "time1",
+      "kind": "action",
+      "title": "Test 1: time it",
+      "instruction": "Time 10 complete swings.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "watch"
+      },
+      "focus": "pend",
+      "points": 15,
+      "hints": [],
+      "until": "pend.oscillations >= 10 && !watch.running"
+    },
+    {
+      "id": "t1",
+      "kind": "measure",
+      "title": "Test 1: period",
+      "instruction": "Calculate the period for the small angle (time ÷ 10).",
+      "record": {
+        "unit": "s",
+        "key": "periodSmall",
+        "label": "Period at 5°",
+        "truth": "watch.elapsedS / 10",
+        "tolerance": 0.02
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "stop",
+      "kind": "action",
+      "title": "Reset",
+      "instruction": "Stop the bob.",
+      "expect": {
+        "intent": "Grab",
+        "target": "pend"
+      },
+      "focus": "pend",
+      "points": 5,
+      "hints": [],
+      "until": "!pend.swinging"
+    },
+    {
+      "id": "reset",
+      "kind": "action",
+      "title": "Reset",
+      "instruction": "Reset the stopwatch to zero.",
+      "expect": {
+        "intent": "Select",
+        "target": "watch"
+      },
+      "focus": "watch",
+      "points": 5,
+      "hints": [
+        "Select the stopwatch while it is stopped to reset it."
+      ],
+      "until": "watch.elapsedS == 0"
+    },
+    {
+      "id": "big",
+      "kind": "action",
+      "title": "Test 2: bigger angle",
+      "instruction": "Release the bob from about 25°.",
+      "expect": {
+        "intent": "Release",
+        "target": "pend",
+        "value": {
+          "min": 22,
+          "max": 28
+        }
+      },
+      "focus": "pend",
+      "points": 10,
+      "hints": [],
+      "until": "pend.swinging"
+    },
+    {
+      "id": "time2",
+      "kind": "action",
+      "title": "Test 2: time it",
+      "instruction": "Time 10 complete swings again.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "watch"
+      },
+      "focus": "pend",
+      "points": 15,
+      "hints": [],
+      "until": "pend.oscillations >= 10 && !watch.running"
+    },
+    {
+      "id": "t2",
+      "kind": "measure",
+      "title": "Test 2: period",
+      "instruction": "Calculate the period for the bigger angle.",
+      "record": {
+        "unit": "s",
+        "key": "periodBig",
+        "label": "Period at 25°",
+        "truth": "watch.elapsedS / 10",
+        "tolerance": 0.02
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "diff",
+      "kind": "measure",
+      "title": "Compare",
+      "instruction": "How much longer (in seconds) was the period at 25°? (Period at 25° − period at 5°)",
+      "record": {
+        "unit": "s",
+        "key": "difference",
+        "label": "Difference",
+        "truth": "record.periodBig - record.periodSmall",
+        "tolerance": 0.02
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "What is the fairest conclusion?",
+          "choices": [
+            "The angle makes only a tiny difference to the period",
+            "A bigger angle halves the period",
+            "The angle is the main thing that sets the period",
+            "You cannot compare them"
+          ],
+          "answerIndex": 0,
+          "explanation": "The period grows only ~1% at 25°. Length is what really sets the period."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 100,
+    "safety": 0
+  }
+}

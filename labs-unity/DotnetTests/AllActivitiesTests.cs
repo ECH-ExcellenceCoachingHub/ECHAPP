@@ -106,6 +106,9 @@ public class AllActivitiesTests
                 else if (!sent)
                 {
                     double? value = e.Value != null ? (e.Value.Min + e.Value.Max) / 2 : type == IntentType.Rotate ? 1.0 : (double?)null;
+                    // A careful student slides the screen to where the image is sharpest.
+                    if (type == IntentType.Rotate && e.Value == null && w.Spec(e.Target)?.Type == "screen")
+                        value = w.OfType("convex_lens").Select(l => w.Num(l.Id, "imageDistanceCm")).FirstOrDefault();
                     rt.Handle(new Intent { Type = type, Target = e.Target, Into = e.Into, Value = value });
                     sent = true;
                 }

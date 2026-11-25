@@ -1,0 +1,193 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "id": "code-functions",
+  "title": "Functions: Write Once, Use Many Times",
+  "difficulty": 4,
+  "durationMin": 18,
+  "xp": 150,
+  "summary": "Define a function that calculates the area of a rectangle, call it with different values and predict the results.",
+  "subject": "coding",
+  "environment": "CodingBench",
+  "tags": [
+    "Python",
+    "functions",
+    "practice"
+  ],
+  "objectives": [
+    "Define a function with parameters",
+    "Return a value",
+    "Call a function with arguments"
+  ],
+  "equipment": [
+    {
+      "id": "ws",
+      "type": "workstation",
+      "slot": "desk.main",
+      "label": "Python workstation",
+      "init": {
+        "os": "Python 3",
+        "commands": [
+          "def area(w, h):",
+          "return w * h",
+          "print(area(3, 4))",
+          "print(area(7, 6))",
+          "print(area(area(2, 3), 2))"
+        ]
+      }
+    },
+    {
+      "id": "screen",
+      "type": "wall_display",
+      "slot": "wall.screen",
+      "label": "Output"
+    }
+  ],
+  "variables": {},
+  "steps": [
+    {
+      "id": "def",
+      "kind": "action",
+      "title": "Define",
+      "instruction": "Start a function called area with two parameters, w and h.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'def area(w, h):'"
+    },
+    {
+      "id": "ret",
+      "kind": "action",
+      "title": "Return",
+      "instruction": "Make the function return width × height.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [
+        "The body of a function is indented."
+      ],
+      "until": "ws.lastCommand == 'return w * h'"
+    },
+    {
+      "id": "call1",
+      "kind": "action",
+      "title": "Call it",
+      "instruction": "Call area with 3 and 4 and print the result.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'print(area(3, 4))'",
+      "success": "Output: 12"
+    },
+    {
+      "id": "p2",
+      "kind": "measure",
+      "title": "Predict",
+      "instruction": "Predict: what will print(area(7, 6)) show?",
+      "record": {
+        "unit": "",
+        "key": "a76",
+        "label": "area(7, 6)",
+        "truth": "42",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "call2",
+      "kind": "action",
+      "title": "Check",
+      "instruction": "Run it to check your prediction.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'print(area(7, 6))'",
+      "success": "Output: 42"
+    },
+    {
+      "id": "p3",
+      "kind": "measure",
+      "title": "Predict",
+      "instruction": "Harder: what will print(area(area(2, 3), 2)) show?",
+      "record": {
+        "unit": "",
+        "key": "nested",
+        "label": "area(area(2, 3), 2)",
+        "truth": "12",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": [
+        "Work from the inside out: area(2, 3) first."
+      ]
+    },
+    {
+      "id": "call3",
+      "kind": "action",
+      "title": "Check",
+      "instruction": "Run it to check.",
+      "expect": {
+        "intent": "Type",
+        "target": "ws"
+      },
+      "focus": "ws",
+      "points": 10,
+      "hints": [],
+      "until": "ws.lastCommand == 'print(area(area(2, 3), 2))'",
+      "success": "Output: 12"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "What does \"return\" do?",
+          "choices": [
+            "Sends a value back to where the function was called",
+            "Prints the value",
+            "Ends the whole program",
+            "Repeats the function"
+          ],
+          "answerIndex": 0,
+          "explanation": "return hands the result back so it can be printed or used in another calculation."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [
+    {
+      "key": "nested",
+      "label": "Nested call",
+      "unit": "",
+      "expected": 12,
+      "tolerancePct": 1,
+      "source": "record.nested"
+    }
+  ],
+  "scoring": {
+    "accuracy": 30,
+    "procedure": 70,
+    "safety": 0
+  }
+}

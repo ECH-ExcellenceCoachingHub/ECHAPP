@@ -21,7 +21,10 @@ const labScenarioSchema = new mongoose.Schema({
   definition: { type: mongoose.Schema.Types.Mixed, required: true },
   version: { type: Number, default: 1 },
   status: { type: String, enum: ['draft', 'review', 'published', 'archived'], default: 'draft', index: true },
-  source: { type: String, enum: ['seed', 'teacher', 'ai'], default: 'teacher' },
+  source: { type: String, enum: ['seed', 'teacher', 'ai', 'student'], default: 'teacher' },
+  // Student "My experiments": the editable builder spec (compiled into `definition`) and the write-up.
+  project: { type: mongoose.Schema.Types.Mixed, default: null },
+  remixOf: { type: mongoose.Schema.Types.ObjectId, ref: 'LabScenario', default: null },
   // Lessons this lab was generated for or is attached to.
   lessonIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Lesson' }],
   courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course', default: null },
@@ -36,6 +39,7 @@ const labScenarioSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 labScenarioSchema.index({ status: 1, subject: 1 });
+labScenarioSchema.index({ createdBy: 1, source: 1, updatedAt: -1 });
 
 /** Lightweight shape for lists (no step definitions). */
 labScenarioSchema.methods.toCard = function toCard() {
@@ -58,6 +62,7 @@ labScenarioSchema.methods.toCard = function toCard() {
     version: this.version,
     stepCount: Array.isArray(this.definition?.steps) ? this.definition.steps.length : 0,
     stats: this.stats,
+    source: this.source,
   };
 };
 

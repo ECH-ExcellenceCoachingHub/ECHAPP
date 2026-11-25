@@ -1,0 +1,220 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "variables": {},
+  "id": "chem-ion-tests",
+  "title": "Identify the Ions: Precipitate Tests",
+  "difficulty": 3,
+  "durationMin": 15,
+  "xp": 120,
+  "environment": "ChemLab",
+  "subject": "chemistry",
+  "summary": "Three unlabelled solutions. Use silver nitrate and barium chloride to find which contains chloride, iodide and sulfate ions.",
+  "tags": [
+    "analysis",
+    "precipitates",
+    "practice"
+  ],
+  "objectives": [
+    "Carry out halide and sulfate tests",
+    "Link precipitate colours to ions",
+    "Write a conclusion from observations"
+  ],
+  "equipment": [
+    {
+      "id": "goggles1",
+      "type": "goggles",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "a",
+      "type": "test_tube",
+      "slot": "benchA.center",
+      "label": "Solution A",
+      "init": {
+        "solution": "NaCl",
+        "conc": 0.1,
+        "volume": 5
+      }
+    },
+    {
+      "id": "b",
+      "type": "test_tube",
+      "slot": "benchA.center",
+      "label": "Solution B",
+      "init": {
+        "solution": "KI",
+        "conc": 0.1,
+        "volume": 5
+      }
+    },
+    {
+      "id": "c",
+      "type": "test_tube",
+      "slot": "benchA.center",
+      "label": "Solution C",
+      "init": {
+        "solution": "MgSO4",
+        "conc": 0.1,
+        "volume": 5
+      }
+    },
+    {
+      "id": "silver",
+      "type": "dropper_bottle",
+      "slot": "shelf.1",
+      "label": "Silver nitrate",
+      "init": {
+        "reagent": "AgNO3"
+      }
+    },
+    {
+      "id": "barium",
+      "type": "dropper_bottle",
+      "slot": "shelf.2",
+      "label": "Barium chloride",
+      "init": {
+        "reagent": "BaCl2"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "ppe1",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your safety goggles.",
+      "expect": {
+        "intent": "Grab",
+        "target": "goggles1"
+      },
+      "focus": "goggles1",
+      "points": 5,
+      "hints": [],
+      "until": "goggles1.worn"
+    },
+    {
+      "id": "agA",
+      "kind": "action",
+      "title": "Halide test",
+      "instruction": "Add silver nitrate to solution A.",
+      "expect": {
+        "intent": "Pour",
+        "target": "silver",
+        "into": "a"
+      },
+      "focus": "silver",
+      "points": 10,
+      "hints": [],
+      "until": "a.precipitate == 'AgCl'"
+    },
+    {
+      "id": "agB",
+      "kind": "action",
+      "title": "Halide test",
+      "instruction": "Add silver nitrate to solution B.",
+      "expect": {
+        "intent": "Pour",
+        "target": "silver",
+        "into": "b"
+      },
+      "focus": "silver",
+      "points": 10,
+      "hints": [],
+      "until": "b.precipitate == 'AgI'"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "A gave a WHITE precipitate and B a YELLOW one. Which ions are they?",
+          "choices": [
+            "A: chloride, B: iodide",
+            "A: iodide, B: chloride",
+            "Both sulfate",
+            "Both bromide"
+          ],
+          "answerIndex": 0,
+          "explanation": "Silver chloride is white, silver bromide cream, silver iodide yellow."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "baC",
+      "kind": "action",
+      "title": "Sulfate test",
+      "instruction": "Add barium chloride to solution C.",
+      "expect": {
+        "intent": "Pour",
+        "target": "barium",
+        "into": "c"
+      },
+      "focus": "barium",
+      "points": 10,
+      "hints": [],
+      "until": "c.precipitate == 'BaSO4'"
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Solution C gave a white precipitate with barium chloride. C contains…",
+          "choices": [
+            "Sulfate ions",
+            "Chloride ions",
+            "Carbonate only",
+            "Nothing"
+          ],
+          "answerIndex": 0,
+          "explanation": "Barium ions + sulfate ions → white barium sulfate."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q3",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Why must you NOT use barium chloride to test for chloride?",
+          "choices": [
+            "It already contains chloride ions",
+            "It is too expensive",
+            "It makes a yellow precipitate",
+            "It reacts with water"
+          ],
+          "answerIndex": 0,
+          "explanation": "Adding chloride ions would give a false result in a chloride test."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [
+    {
+      "id": "noGoggles",
+      "when": "!goggles1.worn && (silver.poured || barium.poured)",
+      "message": "Silver nitrate stains skin and eyes — goggles on.",
+      "severity": "warn",
+      "penalty": 15
+    }
+  ],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 85,
+    "safety": 15
+  }
+}

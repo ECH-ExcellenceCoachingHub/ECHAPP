@@ -17,6 +17,7 @@ const EXPR = Joi.string().trim().min(1).max(400);
 const SUBJECTS = ['chemistry', 'physics', 'biology', 'cybersecurity', 'networking', 'coding'];
 const LEVELS = ['primary', 'secondary', 'university', 'professional'];
 const BUILTINS = ['time', 'mistakes', 'hintsUsed']; // provided by the runtime
+const SMALL_PER_SLOT = 4;
 
 const questionSchema = Joi.object({
   prompt: TEXT(400).required(),
@@ -179,8 +180,13 @@ function validateScenario(input) {
     if (eqById.has(eq.id)) errors.push(`equipment: duplicate id "${eq.id}"`);
     eqById.set(eq.id, eq);
     if (!env.slots.includes(eq.slot)) errors.push(`equipment.${eq.id}: slot "${eq.slot}" does not exist in ${value.environment} (${env.slots.join(', ')})`);
-    else if (slotsUsed.has(eq.slot) && !eq.slot.startsWith('shelf') && eq.slot !== 'ppe.rack') errors.push(`equipment.${eq.id}: slot "${eq.slot}" already holds "${slotsUsed.get(eq.slot)}"`);
-    slotsUsed.set(eq.slot, eq.id);
+    else if (!eq.slot.startsWith('shelf') && eq.slot !== 'ppe.rack') {
+      // A bench slot holds one large item, or up to SMALL_PER_SLOT small ones (tubes, droppers, cells…).
+      const here = slotsUsed.get(eq.slot) || [];
+      const small = (id) => !!catalog.equipment[eqById.get(id)?.type || '']?.small;
+      if (here.length && (!catalog.equipment[eq.type].small || !here.every(small) || here.length >= SMALL_PER_SLOT)) errors.push(`equipment.${eq.id}: slot "${eq.slot}" already holds "${here.join('", "')}"`);
+    }
+    slotsUsed.set(eq.slot, [...(slotsUsed.get(eq.slot) || []), eq.id]);
     const allowedInit = catalog.equipment[eq.type].init;
     for (const k of Object.keys(eq.init)) if (!allowedInit.includes(k)) errors.push(`equipment.${eq.id}: "${k}" is not a setting of ${eq.type} (${allowedInit.join(', ') || 'none'})`);
   }

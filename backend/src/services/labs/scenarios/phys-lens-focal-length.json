@@ -1,0 +1,175 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "variables": {},
+  "id": "phys-lens-focal-length",
+  "title": "Find the Focal Length of a Lens",
+  "difficulty": 4,
+  "durationMin": 18,
+  "xp": 150,
+  "environment": "PhysicsLab",
+  "subject": "physics",
+  "summary": "Put an object 30 cm from a convex lens, move a screen until the image is sharp, and use 1/f = 1/u + 1/v.",
+  "tags": [
+    "light",
+    "lenses",
+    "practice"
+  ],
+  "objectives": [
+    "Form a sharp real image",
+    "Measure object and image distances",
+    "Use the lens equation"
+  ],
+  "equipment": [
+    {
+      "id": "box",
+      "type": "light_box",
+      "slot": "optics.rail",
+      "label": "Illuminated object"
+    },
+    {
+      "id": "lens1",
+      "type": "convex_lens",
+      "slot": "optics.rail",
+      "label": "Convex lens",
+      "init": {
+        "focalLengthCm": 10
+      }
+    },
+    {
+      "id": "scr",
+      "type": "screen",
+      "slot": "optics.rail"
+    }
+  ],
+  "steps": [
+    {
+      "id": "on",
+      "kind": "action",
+      "title": "Set up",
+      "instruction": "Switch on the illuminated object.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "box"
+      },
+      "focus": "box",
+      "points": 5,
+      "hints": [],
+      "until": "box.on"
+    },
+    {
+      "id": "u",
+      "kind": "action",
+      "title": "Set up",
+      "instruction": "Place the object 30 cm from the lens.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "lens1",
+        "value": {
+          "min": 29.5,
+          "max": 30.5
+        }
+      },
+      "focus": "lens1",
+      "points": 10,
+      "hints": [],
+      "until": "between(lens1.objectDistanceCm, 29.5, 30.5)"
+    },
+    {
+      "id": "focus",
+      "kind": "action",
+      "title": "Focus",
+      "instruction": "Move the screen until the image is sharp.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "scr"
+      },
+      "focus": "scr",
+      "points": 15,
+      "hints": [
+        "Move slowly back and forth around the sharpest point."
+      ],
+      "until": "scr.sharp"
+    },
+    {
+      "id": "v",
+      "kind": "measure",
+      "title": "Measure",
+      "instruction": "Measure the image distance v (lens to screen).",
+      "record": {
+        "unit": "cm",
+        "key": "v",
+        "label": "Image distance v",
+        "truth": "scr.distanceCm",
+        "tolerance": 0.5
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "scr"
+    },
+    {
+      "id": "f",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "Calculate f = (u × v) ÷ (u + v) with u = 30 cm.",
+      "record": {
+        "unit": "cm",
+        "key": "f",
+        "label": "Focal length f",
+        "truth": "30 * record.v / (30 + record.v)",
+        "tolerance": 0.3
+      },
+      "points": 15,
+      "hints": []
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "The image on the screen is…",
+          "choices": [
+            "Real and upside down",
+            "Virtual and upright",
+            "Real and upright",
+            "Virtual and upside down"
+          ],
+          "answerIndex": 0,
+          "explanation": "A convex lens with the object beyond f forms a real, inverted image you can catch on a screen."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [
+    {
+      "key": "f",
+      "label": "Focal length",
+      "unit": "cm",
+      "expected": 10,
+      "expectedExpr": "lens1.focalLengthCm",
+      "tolerancePct": 5,
+      "source": "record.f"
+    }
+  ],
+  "scoring": {
+    "accuracy": 40,
+    "procedure": 60,
+    "safety": 0
+  },
+  "randomize": [
+    {
+      "path": "lens1.focalLengthCm",
+      "choices": [
+        8,
+        10,
+        12,
+        15
+      ]
+    }
+  ]
+}

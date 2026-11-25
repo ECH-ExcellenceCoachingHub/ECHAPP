@@ -1,0 +1,217 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "variables": {},
+  "id": "chem-disappearing-cross",
+  "title": "Rates: The Disappearing Cross",
+  "difficulty": 4,
+  "durationMin": 15,
+  "xp": 150,
+  "environment": "ChemLab",
+  "subject": "chemistry",
+  "summary": "Sodium thiosulfate + hydrochloric acid makes a cloud of sulfur. Time how long until the cross under the flask disappears.",
+  "tags": [
+    "rates",
+    "timing",
+    "practice"
+  ],
+  "objectives": [
+    "Time a reaction to a fixed end point",
+    "Calculate a relative rate",
+    "Explain rate with collision theory"
+  ],
+  "equipment": [
+    {
+      "id": "goggles1",
+      "type": "goggles",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "flask",
+      "type": "conical_flask",
+      "slot": "benchA.center",
+      "label": "Sodium thiosulfate",
+      "init": {
+        "solution": "Na2S2O3",
+        "conc": 0.15,
+        "volume": 50
+      }
+    },
+    {
+      "id": "tile",
+      "type": "white_tile",
+      "slot": "benchA.left",
+      "label": "Paper with a cross"
+    },
+    {
+      "id": "acid",
+      "type": "reagent_bottle",
+      "slot": "shelf.1",
+      "label": "HCl 2 M",
+      "init": {
+        "solution": "HCl",
+        "conc": 2,
+        "volume": 500
+      }
+    },
+    {
+      "id": "watch",
+      "type": "stopwatch",
+      "slot": "benchA.right"
+    }
+  ],
+  "steps": [
+    {
+      "id": "ppe1",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your safety goggles.",
+      "expect": {
+        "intent": "Grab",
+        "target": "goggles1"
+      },
+      "focus": "goggles1",
+      "points": 5,
+      "hints": [],
+      "until": "goggles1.worn"
+    },
+    {
+      "id": "tile",
+      "kind": "action",
+      "title": "Set up",
+      "instruction": "Put the flask on the paper with the cross.",
+      "expect": {
+        "intent": "Grab",
+        "target": "flask",
+        "into": "tile"
+      },
+      "focus": "flask",
+      "points": 10,
+      "hints": [],
+      "until": "flask.placedIn == 'tile'"
+    },
+    {
+      "id": "acid",
+      "kind": "action",
+      "title": "Start",
+      "instruction": "Add the hydrochloric acid to the flask…",
+      "expect": {
+        "intent": "Pour",
+        "target": "acid",
+        "into": "flask"
+      },
+      "focus": "acid",
+      "points": 5,
+      "hints": []
+    },
+    {
+      "id": "start",
+      "kind": "action",
+      "title": "Start",
+      "instruction": "…and start the stopwatch straight away.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "watch"
+      },
+      "focus": "watch",
+      "points": 10,
+      "hints": [],
+      "until": "watch.running"
+    },
+    {
+      "id": "wait",
+      "kind": "action",
+      "title": "Watch the cross",
+      "instruction": "Look down through the flask. Wait until you can no longer see the cross.",
+      "expect": {
+        "intent": "Inspect",
+        "target": "flask"
+      },
+      "focus": "flask",
+      "points": 15,
+      "hints": [],
+      "until": "flask.crossHidden"
+    },
+    {
+      "id": "stop",
+      "kind": "action",
+      "title": "Stop",
+      "instruction": "Stop the stopwatch.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "watch"
+      },
+      "focus": "watch",
+      "points": 10,
+      "hints": [],
+      "until": "!watch.running"
+    },
+    {
+      "id": "time",
+      "kind": "measure",
+      "title": "Record",
+      "instruction": "Record the time.",
+      "record": {
+        "unit": "s",
+        "key": "time",
+        "label": "Time for the cross to disappear",
+        "truth": "watch.elapsedS",
+        "tolerance": 0.5
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "watch"
+    },
+    {
+      "id": "rate",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "Calculate the relative rate = 1000 ÷ time.",
+      "record": {
+        "unit": "1/s",
+        "key": "rate",
+        "label": "Relative rate",
+        "truth": "1000 / record.time",
+        "tolerance": 0.5
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "If you warmed the thiosulfate to 40 °C first, the cross would disappear…",
+          "choices": [
+            "Sooner",
+            "Later",
+            "At the same time",
+            "Never"
+          ],
+          "answerIndex": 0,
+          "explanation": "Hotter particles move faster and collide more often with enough energy, so the rate increases."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [
+    {
+      "id": "noGoggles",
+      "when": "!goggles1.worn && acid.poured",
+      "message": "Goggles on — sulfur dioxide and acid are irritants.",
+      "severity": "warn",
+      "penalty": 15
+    }
+  ],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 85,
+    "safety": 15
+  }
+}

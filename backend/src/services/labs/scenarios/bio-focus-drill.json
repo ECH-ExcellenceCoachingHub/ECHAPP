@@ -1,0 +1,254 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "id": "bio-focus-drill",
+  "title": "Microscope Drill: Low to High Power",
+  "difficulty": 2,
+  "durationMin": 12,
+  "xp": 100,
+  "summary": "Practise the correct order: start on low power, focus, then move to higher power and refocus. Record the magnification each time.",
+  "subject": "biology",
+  "environment": "BioLab",
+  "tags": [
+    "microscope",
+    "practice"
+  ],
+  "objectives": [
+    "Always start on the lowest objective",
+    "Focus with the fine focus knob",
+    "Calculate total magnification"
+  ],
+  "equipment": [
+    {
+      "id": "scope",
+      "type": "microscope",
+      "slot": "scope.station",
+      "init": {
+        "commands": [
+          "4x",
+          "10x",
+          "40x"
+        ]
+      }
+    },
+    {
+      "id": "slide1",
+      "type": "slide",
+      "slot": "prep.station",
+      "label": "Prepared onion slide",
+      "init": {
+        "specimen": "onion"
+      }
+    }
+  ],
+  "variables": {
+    "mic": {
+      "model": "bio.microscope",
+      "inputs": {
+        "microscope": "scope"
+      },
+      "params": {
+        "idealFocus": 0.62
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "stage",
+      "kind": "action",
+      "title": "Load the slide",
+      "instruction": "Place the prepared slide on the stage.",
+      "expect": {
+        "intent": "Grab",
+        "target": "slide1",
+        "into": "scope"
+      },
+      "focus": "slide1",
+      "points": 10,
+      "hints": [],
+      "until": "scope.slideLoaded"
+    },
+    {
+      "id": "light",
+      "kind": "action",
+      "title": "Light",
+      "instruction": "Switch on the light.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "scope"
+      },
+      "focus": "scope",
+      "points": 5,
+      "hints": [],
+      "until": "scope.lightOn"
+    },
+    {
+      "id": "focus4",
+      "kind": "action",
+      "title": "Low power",
+      "instruction": "With the 4x objective, focus until the image is sharp.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "scope",
+        "value": {
+          "min": 0.61,
+          "max": 0.63
+        }
+      },
+      "focus": "scope",
+      "points": 10,
+      "hints": [
+        "Slowly turn the fine focus."
+      ],
+      "until": "scope.objective == 4 && mic.focusQuality >= 0.8"
+    },
+    {
+      "id": "m4",
+      "kind": "measure",
+      "title": "Low power",
+      "instruction": "Record the total magnification (eyepiece 10x × objective).",
+      "record": {
+        "unit": "×",
+        "key": "mag4",
+        "label": "Magnification at 4x",
+        "truth": "mic.magnification",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": [
+        "10 × 4 = ?"
+      ]
+    },
+    {
+      "id": "to10",
+      "kind": "action",
+      "title": "Medium power",
+      "instruction": "Change to the 10x objective.",
+      "expect": {
+        "intent": "Type",
+        "target": "scope"
+      },
+      "focus": "scope",
+      "points": 5,
+      "hints": [],
+      "until": "scope.objective == 10"
+    },
+    {
+      "id": "focus10",
+      "kind": "action",
+      "title": "Medium power",
+      "instruction": "Refocus with the fine focus.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "scope",
+        "value": {
+          "min": 0.61,
+          "max": 0.63
+        }
+      },
+      "focus": "scope",
+      "points": 10,
+      "hints": [],
+      "until": "scope.objective == 10 && mic.focusQuality >= 0.8"
+    },
+    {
+      "id": "m10",
+      "kind": "measure",
+      "title": "Medium power",
+      "instruction": "Record the total magnification now.",
+      "record": {
+        "unit": "×",
+        "key": "mag10",
+        "label": "Magnification at 10x",
+        "truth": "mic.magnification",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "to40",
+      "kind": "action",
+      "title": "High power",
+      "instruction": "Change to the 40x objective.",
+      "expect": {
+        "intent": "Type",
+        "target": "scope"
+      },
+      "focus": "scope",
+      "points": 5,
+      "hints": [],
+      "until": "scope.objective == 40"
+    },
+    {
+      "id": "focus40",
+      "kind": "action",
+      "title": "High power",
+      "instruction": "Refocus carefully — only the fine focus at high power!",
+      "expect": {
+        "intent": "Rotate",
+        "target": "scope",
+        "value": {
+          "min": 0.61,
+          "max": 0.63
+        }
+      },
+      "focus": "scope",
+      "points": 10,
+      "hints": [],
+      "until": "scope.objective == 40 && mic.focusQuality >= 0.8"
+    },
+    {
+      "id": "m40",
+      "kind": "measure",
+      "title": "High power",
+      "instruction": "Record the total magnification.",
+      "record": {
+        "unit": "×",
+        "key": "mag40",
+        "label": "Magnification at 40x",
+        "truth": "mic.magnification",
+        "tolerance": 0
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Why start with the lowest-power objective?",
+          "choices": [
+            "It has the widest view, so the specimen is easy to find",
+            "It is the most magnified",
+            "It needs no light",
+            "It protects the eyepiece"
+          ],
+          "answerIndex": 0,
+          "explanation": "Low power shows a larger area, so you can find and centre the specimen first."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [
+    {
+      "key": "mag40",
+      "label": "Magnification at 40x",
+      "unit": "×",
+      "expected": 400,
+      "tolerancePct": 1,
+      "source": "record.mag40"
+    }
+  ],
+  "scoring": {
+    "accuracy": 30,
+    "procedure": 70,
+    "safety": 0
+  }
+}

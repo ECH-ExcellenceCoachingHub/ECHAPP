@@ -11,6 +11,7 @@ import 'package:excellencecoachinghub/presentation/providers/notification_provid
 import 'package:excellencecoachinghub/presentation/providers/admin_access_provider.dart';
 import 'package:excellencecoachinghub/widgets/modern_dialog.dart';
 import 'package:excellencecoachinghub/l10n/app_localizations.dart';
+import 'package:excellencecoachinghub/widgets/school/school_i18n.dart';
 
 /// Width of the collapsed desktop sidebar (icon rail).
 const double kSidebarRailWidth = 88;
@@ -29,7 +30,9 @@ const Color _kTeal = Color(0xFF0D9488);
 const Color _kRose = Color(0xFFE11D48);
 const Color _kSlate = Color(0xFF64748B);
 
-enum _MenuRole { student, admin, guest }
+/// [schoolStudent]: a student registered by a school. Their home is the
+/// school home and the school pays for courses, so they get their own menu.
+enum _MenuRole { student, schoolStudent, admin, guest }
 
 /// One destination in the menu.
 class _NavItem {
@@ -85,7 +88,8 @@ class ResponsiveNavigationDrawer extends ConsumerWidget {
   // Menu definitions
   // ---------------------------------------------------------------------------
 
-  _Menu _menuFor(_MenuRole role, AppLocalizations? l10n, {required bool desktop}) {
+  _Menu _menuFor(BuildContext context, _MenuRole role, AppLocalizations? l10n, {required bool desktop}) {
+    String tr(String en) => trSchool(context, en);
     final needHelp = _NavItem(
       icon: Icons.support_agent_rounded,
       color: _kGreen,
@@ -103,6 +107,96 @@ class ResponsiveNavigationDrawer extends ConsumerWidget {
     );
 
     switch (role) {
+      case _MenuRole.schoolStudent:
+        // Same menu on phones and desktop: the school student's learning
+        // tools, without private-learner pages (payments, enrolments).
+        return _Menu([
+          _NavSection(null, [
+            _NavItem(
+              icon: Icons.home_rounded,
+              color: _kGreen,
+              title: tr('My school'),
+              subtitle: tr('Homework, marks and subjects'),
+              route: '/school/home',
+            ),
+          ]),
+          _NavSection(tr('Explore and learn'), [
+            _NavItem(
+              icon: Icons.science_rounded,
+              color: _kPurple,
+              title: tr('Virtual laboratory'),
+              subtitle: tr('3D and VR experiments'),
+              route: '/labs',
+              pageKey: 'labs',
+            ),
+            _NavItem(
+              icon: Icons.local_library_rounded,
+              color: _kOrange,
+              title: tr('Library'),
+              subtitle: tr('Books and study materials'),
+              route: '/library',
+            ),
+            _NavItem(
+              icon: Icons.explore_rounded,
+              color: _kTeal,
+              title: tr('All courses'),
+              subtitle: tr('Learn more topics'),
+              route: '/courses',
+              pageKey: 'courses',
+            ),
+            _NavItem(
+              icon: Icons.videocam_rounded,
+              color: _kRose,
+              title: tr('Live classes'),
+              subtitle: tr('Join online lessons'),
+              route: '/upcoming-sessions',
+            ),
+            _NavItem(
+              icon: Icons.download_for_offline_rounded,
+              color: _kSlate,
+              title: tr('Downloads'),
+              subtitle: tr('Study offline'),
+              route: '/downloads',
+              pageKey: 'downloads',
+            ),
+          ]),
+          _NavSection(tr('Class and messages'), [
+            _NavItem(
+              icon: Icons.forum_rounded,
+              color: _kBlue,
+              title: tr('Class groups'),
+              subtitle: tr('Chat with your class'),
+              route: '/school/groups',
+            ),
+            _NavItem(
+              icon: Icons.chat_rounded,
+              color: _kPurple,
+              title: tr('Messages'),
+              subtitle: tr('Talk to your teachers'),
+              route: '/messages',
+              pageKey: 'messages',
+            ),
+            _NavItem(
+              icon: Icons.notifications_rounded,
+              color: _kOrange,
+              title: tr('Notifications'),
+              subtitle: tr('News for you'),
+              route: '/notifications',
+              pageKey: 'notifications',
+            ),
+          ]),
+          _NavSection(tr('My progress'), [
+            _NavItem(
+              icon: Icons.workspace_premium_rounded,
+              color: _kLime,
+              title: tr('Certificates'),
+              subtitle: tr('Your awards'),
+              route: '/certificates',
+              pageKey: 'certificates',
+            ),
+          ]),
+        ], [needHelp, settings]);
+
       case _MenuRole.guest:
         return _Menu([
           _NavSection(null, [
@@ -359,7 +453,11 @@ class ResponsiveNavigationDrawer extends ConsumerWidget {
     final user = ref.watch(authProvider.select((state) => state.user));
     final role = (user == null || currentPage == 'auth')
         ? _MenuRole.guest
-        : (user.role == 'admin' ? _MenuRole.admin : _MenuRole.student);
+        : user.role == 'admin'
+            ? _MenuRole.admin
+            : user.isSchoolStudent
+                ? _MenuRole.schoolStudent
+                : _MenuRole.student;
 
     final isDesktop = ResponsiveBreakpoints.isDesktop(context);
     final isPlatformDesktop = !kIsWeb &&
@@ -370,7 +468,7 @@ class ResponsiveNavigationDrawer extends ConsumerWidget {
     final bool useSidebarStyle = isDesktop ||
         (isPlatformDesktop && MediaQuery.of(context).size.width >= 600);
 
-    var menu = _menuFor(role, l10n, desktop: useSidebarStyle);
+    var menu = _menuFor(context, role, l10n, desktop: useSidebarStyle);
     if (role == _MenuRole.admin) {
       // Limited admins: hide the areas they have no access to.
       final access = ref.watch(myAdminAccessProvider).valueOrNull;
@@ -402,7 +500,7 @@ class ResponsiveNavigationDrawer extends ConsumerWidget {
     final route = item.route;
     if (route != null && path != null) {
       // Dashboards only match exactly; everything else also owns its sub-pages.
-      if (route == '/admin' || route == '/dashboard') return path == route;
+      if (route == '/admin' || route == '/dashboard' || route == '/school/home') return path == route;
       return path == route || path.startsWith('$route/');
     }
     return item.pageKey != null && item.pageKey == currentPage;
@@ -421,7 +519,15 @@ class ResponsiveNavigationDrawer extends ConsumerWidget {
       ));
       return;
     }
-    if (!selected) context.go(item.route!);
+    if (selected) return;
+    // School pages other than the home sit outside the shell: push them so
+    // their back button returns here.
+    final route = item.route!;
+    if (route.startsWith('/school/') && route != '/school/home') {
+      context.push(route);
+    } else {
+      context.go(route);
+    }
   }
 
   // ===========================================================================

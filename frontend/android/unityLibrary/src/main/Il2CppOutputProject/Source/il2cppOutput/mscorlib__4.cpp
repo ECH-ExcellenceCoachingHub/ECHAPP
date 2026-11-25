@@ -15719,6 +15719,10 @@ IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR double Math_Tan_mEB64432229F055AF02483F741267
 {
 	return tan(___0_a);
 }
+IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR double Math_Tanh_m3B272AF8087271318A539A608CF51532D7B07711 (double ___0_value, const RuntimeMethod* method) 
+{
+	return tanh(___0_value);
+}
 IL2CPP_EXTERN_C IL2CPP_METHOD_ATTR double Math_ModF_m0F96CE4FC43C89BECCE17B6EFB51B01D39BD0EBB (double ___0_x, double* ___1_intptr, const RuntimeMethod* method) 
 {
 	typedef double (*Math_ModF_m0F96CE4FC43C89BECCE17B6EFB51B01D39BD0EBB_ftn) (double, double*);

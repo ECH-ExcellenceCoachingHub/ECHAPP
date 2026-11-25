@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../models/lab_scenario.dart';
 import '../../providers/lab_provider.dart';
 import '../../widgets/labs/lab_rooms.dart';
+import 'lab_projects_screen.dart';
 
 /// One lab room: its activities as a learning path from Beginner to Expert.
 class LabRoomScreen extends ConsumerStatefulWidget {
@@ -74,6 +75,16 @@ class _LabRoomScreenState extends ConsumerState<LabRoomScreen> {
                 ),
               ),
             ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                child: OutlinedButton.icon(
+                  onPressed: () => startNewExperiment(context, ref, environment: widget.environment),
+                  icon: const Icon(Icons.lightbulb_outline_rounded),
+                  label: Text('Design your own experiment in the ${room.title}'),
+                ),
+              ),
+            ),
             if (shown.isEmpty)
               const SliverFillRemaining(hasScrollBody: false, child: Center(child: Text('No activities at this level yet.')))
             else
@@ -135,15 +146,34 @@ class _LabRoomScreenState extends ConsumerState<LabRoomScreen> {
 
   void _startLab(LabScenario lab) => context.push('/lab/${lab.id}');
 
+  /// Copy this activity into a new experiment of the student's own, to change anything.
+  Future<void> _remix(LabScenario lab) async {
+    try {
+      final (spec, remixOf) = await ref.read(labServiceProvider).remixSpec(lab.id);
+      if (!mounted) return;
+      context.push('/labs/projects/new', extra: {'spec': spec, 'remixOf': remixOf});
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
+  }
+
   void _openDetails(LabScenario lab, LabActivityProgress? progress) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (ctx) => _ActivityDetails(lab: lab, progress: progress, onStart: () {
-        Navigator.of(ctx).pop();
-        _startLab(lab);
-      }),
+      builder: (ctx) => _ActivityDetails(
+        lab: lab,
+        progress: progress,
+        onStart: () {
+          Navigator.of(ctx).pop();
+          _startLab(lab);
+        },
+        onRemix: () {
+          Navigator.of(ctx).pop();
+          _remix(lab);
+        },
+      ),
     );
   }
 }
@@ -230,6 +260,7 @@ class _ActivityTile extends StatelessWidget {
                   const SizedBox(height: 8),
                   Wrap(spacing: 8, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
                     DifficultyChip(lab.difficulty, compact: true),
+                    if (lab.source == 'student') const _Fact(Icons.school_rounded, 'Made by a student'),
                     _Fact(Icons.schedule_rounded, '${lab.durationMin} min'),
                     _Fact(Icons.checklist_rounded, '${lab.stepCount} steps'),
                     if (lab.hintCount > 0) _Fact(Icons.lightbulb_outline_rounded, '${lab.hintCount} hints') else const _Fact(Icons.lightbulb_outline_rounded, 'No hints'),
@@ -275,7 +306,8 @@ class _ActivityDetails extends StatelessWidget {
   final LabScenario lab;
   final LabActivityProgress? progress;
   final VoidCallback onStart;
-  const _ActivityDetails({required this.lab, required this.progress, required this.onStart});
+  final VoidCallback onRemix;
+  const _ActivityDetails({required this.lab, required this.progress, required this.onStart, required this.onRemix});
 
   @override
   Widget build(BuildContext context) {
@@ -334,6 +366,16 @@ class _ActivityDetails extends StatelessWidget {
                 style: FilledButton.styleFrom(backgroundColor: d.color, padding: const EdgeInsets.symmetric(vertical: 14)),
                 icon: const Icon(Icons.play_arrow_rounded),
                 label: Text(progress?.passed == true ? 'Play again' : 'Start activity', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onRemix,
+                style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 12)),
+                icon: const Icon(Icons.tune_rounded),
+                label: const Text('Remix — make my own version'),
               ),
             ),
           ]),

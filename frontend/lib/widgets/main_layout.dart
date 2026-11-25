@@ -254,7 +254,7 @@ class MainLayout extends ConsumerWidget {
                     if (currentRoute.startsWith('/admin')) {
                       context.go('/admin');
                     } else {
-                      context.go('/dashboard');
+                      context.go(_homeRoute(context));
                     }
                   }
                 }
@@ -682,10 +682,24 @@ class MainLayout extends ConsumerWidget {
     }
   }
 
+  /// Home of the signed-in user: school students have their own school home.
+  String _homeRoute(BuildContext context) {
+    final user = ProviderScope.containerOf(context, listen: false).read(authProvider).user;
+    return user?.isSchoolStudent == true ? '/school/home' : '/dashboard';
+  }
+
   VoidCallback _getNavigationAction(int index, BuildContext context) {
     switch (index) {
       case 0:
-        return () => NavigationOptimizer.navigateToTab(context, '/dashboard');
+        return () {
+          final home = _homeRoute(context);
+          // The school home sits outside this shell, so go there directly.
+          if (home != '/dashboard') {
+            context.go(home);
+          } else {
+            NavigationOptimizer.navigateToTab(context, home);
+          }
+        };
       case 1:
         return () => NavigationOptimizer.navigateToTab(context, '/courses');
       case 2:

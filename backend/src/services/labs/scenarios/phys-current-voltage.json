@@ -1,0 +1,307 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "id": "phys-current-voltage",
+  "title": "Current vs Voltage: Three Readings",
+  "difficulty": 3,
+  "durationMin": 18,
+  "xp": 130,
+  "summary": "Change the voltage across a resistor three times and record the current each time. Is current proportional to voltage?",
+  "subject": "physics",
+  "environment": "PhysicsLab",
+  "tags": [
+    "Ohm's law",
+    "graphs",
+    "practice"
+  ],
+  "objectives": [
+    "Take a set of readings while changing one variable",
+    "Spot a proportional relationship",
+    "Find resistance from your data"
+  ],
+  "equipment": [
+    {
+      "id": "psu",
+      "type": "power_supply",
+      "slot": "benchA.left",
+      "init": {
+        "maxVoltage": 12
+      }
+    },
+    {
+      "id": "board",
+      "type": "breadboard",
+      "slot": "benchA.center"
+    },
+    {
+      "id": "r1",
+      "type": "resistor",
+      "slot": "benchB.left",
+      "label": "Resistor R",
+      "init": {
+        "ohms": 68
+      }
+    },
+    {
+      "id": "amm",
+      "type": "ammeter",
+      "slot": "benchB.center"
+    },
+    {
+      "id": "volt",
+      "type": "voltmeter",
+      "slot": "benchB.right"
+    }
+  ],
+  "variables": {
+    "circ": {
+      "model": "phys.circuit",
+      "inputs": {
+        "circuit": "board"
+      },
+      "params": {
+        "internalOhm": 0
+      }
+    }
+  },
+  "steps": [
+    {
+      "id": "place",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect the resistor to the circuit board.",
+      "expect": {
+        "intent": "Connect",
+        "target": "r1",
+        "into": "board"
+      },
+      "focus": "r1",
+      "points": 10,
+      "hints": [],
+      "until": "r1.connected"
+    },
+    {
+      "id": "ammeter",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect the ammeter in series.",
+      "expect": {
+        "intent": "Connect",
+        "target": "amm",
+        "into": "board"
+      },
+      "focus": "amm",
+      "points": 10,
+      "hints": [
+        "Series means in the same loop as the resistor."
+      ],
+      "until": "amm.connected"
+    },
+    {
+      "id": "voltmeter",
+      "kind": "action",
+      "title": "Build the circuit",
+      "instruction": "Connect the voltmeter in parallel across the resistor.",
+      "expect": {
+        "intent": "Connect",
+        "target": "volt",
+        "into": "board"
+      },
+      "focus": "volt",
+      "points": 10,
+      "hints": [],
+      "until": "volt.connected"
+    },
+    {
+      "id": "power",
+      "kind": "action",
+      "title": "Power on",
+      "instruction": "Switch on the power supply.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "psu"
+      },
+      "focus": "psu",
+      "points": 5,
+      "hints": [],
+      "until": "psu.on"
+    },
+    {
+      "id": "v2",
+      "kind": "action",
+      "title": "Set the voltage",
+      "instruction": "Turn the voltage knob to 2.0 V.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "psu",
+        "value": {
+          "min": 1.9,
+          "max": 2.1
+        }
+      },
+      "focus": "psu",
+      "points": 10,
+      "hints": [],
+      "until": "between(psu.voltageV, 1.9, 2.1)"
+    },
+    {
+      "id": "i2",
+      "kind": "measure",
+      "title": "Reading 1",
+      "instruction": "Read the current at 2.0 V.",
+      "record": {
+        "unit": "A",
+        "key": "i2",
+        "label": "Current at 2 V",
+        "truth": "amm.reading",
+        "tolerance": 0.003
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "amm"
+    },
+    {
+      "id": "v4",
+      "kind": "action",
+      "title": "Set the voltage",
+      "instruction": "Turn the voltage knob to 4.0 V.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "psu",
+        "value": {
+          "min": 3.9,
+          "max": 4.1
+        }
+      },
+      "focus": "psu",
+      "points": 10,
+      "hints": [],
+      "until": "between(psu.voltageV, 3.9, 4.1)"
+    },
+    {
+      "id": "i4",
+      "kind": "measure",
+      "title": "Reading 2",
+      "instruction": "Read the current at 4.0 V.",
+      "record": {
+        "unit": "A",
+        "key": "i4",
+        "label": "Current at 4 V",
+        "truth": "amm.reading",
+        "tolerance": 0.003
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "amm"
+    },
+    {
+      "id": "v6",
+      "kind": "action",
+      "title": "Set the voltage",
+      "instruction": "Turn the voltage knob to 6.0 V.",
+      "expect": {
+        "intent": "Rotate",
+        "target": "psu",
+        "value": {
+          "min": 5.9,
+          "max": 6.1
+        }
+      },
+      "focus": "psu",
+      "points": 10,
+      "hints": [],
+      "until": "between(psu.voltageV, 5.9, 6.1)"
+    },
+    {
+      "id": "i6",
+      "kind": "measure",
+      "title": "Reading 3",
+      "instruction": "Read the current at 6.0 V.",
+      "record": {
+        "unit": "A",
+        "key": "i6",
+        "label": "Current at 6 V",
+        "truth": "amm.reading",
+        "tolerance": 0.003
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "amm"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "When the voltage doubled from 2 V to 4 V, the current…",
+          "choices": [
+            "Doubled",
+            "Halved",
+            "Stayed the same",
+            "Went up by 2 A"
+          ],
+          "answerIndex": 0,
+          "explanation": "For a resistor at constant temperature, I ∝ V — that is Ohm's law."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "calcR",
+      "kind": "measure",
+      "title": "Calculate",
+      "instruction": "Use your 6 V reading to calculate R = V ÷ I.",
+      "record": {
+        "unit": "Ω",
+        "key": "resistance",
+        "label": "Resistance R",
+        "truth": "6 / record.i6",
+        "tolerance": 2
+      },
+      "points": 15,
+      "hints": [
+        "R = 6 ÷ (your third current reading)."
+      ]
+    }
+  ],
+  "hazards": [
+    {
+      "id": "short",
+      "when": "board.shortCircuit",
+      "message": "Short circuit! The ammeter must be in series with the resistor. Switch off and reconnect.",
+      "severity": "warn",
+      "penalty": 15
+    }
+  ],
+  "results": [
+    {
+      "key": "resistance",
+      "label": "Resistance",
+      "unit": "Ω",
+      "expected": 68,
+      "expectedExpr": "r1.ohms",
+      "tolerancePct": 4,
+      "source": "record.resistance"
+    }
+  ],
+  "scoring": {
+    "accuracy": 40,
+    "procedure": 45,
+    "safety": 15
+  },
+  "randomize": [
+    {
+      "path": "r1.ohms",
+      "choices": [
+        33,
+        47,
+        68,
+        82,
+        100
+      ]
+    }
+  ]
+}

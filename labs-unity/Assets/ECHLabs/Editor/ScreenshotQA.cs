@@ -84,12 +84,14 @@ namespace ECHLabs.EditorTools
             foreach (var v in world.Variables) foreach (var o in v.Value) Debug.Log($"[ECHLabs] QA {v.Key}.{o.Key} = {o.Value}");
         }
 
-        static void Render(Transform shot, string file, int w, int h)
+        static void Render(Transform shot, string file, int w, int h) => RenderShot(shot, file, w, h, 55);
+
+        public static void RenderShot(Transform shot, string file, int w, int h, float fov)
         {
             var go = new GameObject("QA Camera");
             var cam = go.AddComponent<Camera>();
             go.transform.SetPositionAndRotation(shot.position, shot.rotation);
-            cam.fieldOfView = 55;
+            cam.fieldOfView = fov;
             cam.nearClipPlane = 0.02f;
             cam.farClipPlane = 60;
             var data = go.AddComponent<UniversalAdditionalCameraData>();

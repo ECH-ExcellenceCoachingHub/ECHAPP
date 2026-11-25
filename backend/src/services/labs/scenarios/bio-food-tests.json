@@ -1,0 +1,313 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "variables": {},
+  "id": "bio-food-tests",
+  "title": "Food Tests: Starch, Sugar and Protein",
+  "difficulty": 2,
+  "durationMin": 15,
+  "xp": 110,
+  "environment": "BioLab",
+  "subject": "biology",
+  "summary": "Test bread for starch with iodine, glucose for sugar with hot Benedict's reagent and egg white for protein with biuret.",
+  "tags": [
+    "nutrition",
+    "food tests",
+    "practice"
+  ],
+  "objectives": [
+    "Carry out the iodine, Benedict's and biuret tests",
+    "Use a water bath safely",
+    "Interpret colour changes"
+  ],
+  "equipment": [
+    {
+      "id": "goggles1",
+      "type": "goggles",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "t1",
+      "type": "test_tube",
+      "slot": "benchA.center",
+      "label": "Tube 1 (water)",
+      "init": {
+        "solution": "water",
+        "volume": 5
+      }
+    },
+    {
+      "id": "t2",
+      "type": "test_tube",
+      "slot": "benchA.center",
+      "label": "Tube 2 (glucose)",
+      "init": {
+        "solution": "glucose_sol",
+        "conc": 0.05,
+        "volume": 5
+      }
+    },
+    {
+      "id": "t3",
+      "type": "test_tube",
+      "slot": "benchA.center",
+      "label": "Tube 3 (water)",
+      "init": {
+        "solution": "water",
+        "volume": 3
+      }
+    },
+    {
+      "id": "bread",
+      "type": "solid_jar",
+      "slot": "shelf.1",
+      "label": "Bread",
+      "init": {
+        "substance": "bread"
+      }
+    },
+    {
+      "id": "egg",
+      "type": "solid_jar",
+      "slot": "shelf.1",
+      "label": "Egg white",
+      "init": {
+        "substance": "egg_white"
+      }
+    },
+    {
+      "id": "iod",
+      "type": "dropper_bottle",
+      "slot": "shelf.2",
+      "label": "Iodine solution",
+      "init": {
+        "reagent": "iodine"
+      }
+    },
+    {
+      "id": "ben",
+      "type": "dropper_bottle",
+      "slot": "shelf.2",
+      "label": "Benedict's reagent",
+      "init": {
+        "reagent": "benedicts"
+      }
+    },
+    {
+      "id": "biu",
+      "type": "dropper_bottle",
+      "slot": "shelf.2",
+      "label": "Biuret reagent",
+      "init": {
+        "reagent": "biuret"
+      }
+    },
+    {
+      "id": "bath",
+      "type": "water_bath",
+      "slot": "benchB.center",
+      "label": "Water bath (80 °C)",
+      "init": {
+        "setpointC": 80
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "ppe1",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your safety goggles.",
+      "expect": {
+        "intent": "Grab",
+        "target": "goggles1"
+      },
+      "focus": "goggles1",
+      "points": 5,
+      "hints": [],
+      "until": "goggles1.worn"
+    },
+    {
+      "id": "b1",
+      "kind": "action",
+      "title": "Starch test",
+      "instruction": "Add some bread to tube 1.",
+      "expect": {
+        "intent": "Pour",
+        "target": "bread",
+        "into": "t1"
+      },
+      "focus": "bread",
+      "points": 5,
+      "hints": [],
+      "until": "t1.starch"
+    },
+    {
+      "id": "i1",
+      "kind": "action",
+      "title": "Starch test",
+      "instruction": "Add iodine solution to tube 1.",
+      "expect": {
+        "intent": "Pour",
+        "target": "iod",
+        "into": "t1"
+      },
+      "focus": "iod",
+      "points": 10,
+      "hints": [],
+      "until": "t1.colour == 'blue-black'"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "The iodine turned blue-black. Bread contains…",
+          "choices": [
+            "Starch",
+            "Protein",
+            "Fat",
+            "No food"
+          ],
+          "answerIndex": 0,
+          "explanation": "Iodine turns from orange-brown to blue-black when starch is present."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "ben",
+      "kind": "action",
+      "title": "Sugar test",
+      "instruction": "Add Benedict's reagent to tube 2 (glucose).",
+      "expect": {
+        "intent": "Pour",
+        "target": "ben",
+        "into": "t2"
+      },
+      "focus": "ben",
+      "points": 5,
+      "hints": []
+    },
+    {
+      "id": "on",
+      "kind": "action",
+      "title": "Sugar test",
+      "instruction": "Switch on the water bath.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "bath"
+      },
+      "focus": "bath",
+      "points": 5,
+      "hints": [],
+      "until": "bath.on"
+    },
+    {
+      "id": "heat",
+      "kind": "action",
+      "title": "Sugar test",
+      "instruction": "Stand tube 2 in the hot water bath and wait for a colour change.",
+      "expect": {
+        "intent": "Grab",
+        "target": "t2",
+        "into": "bath"
+      },
+      "focus": "t2",
+      "points": 15,
+      "hints": [
+        "Benedict's only works when hot — about 80 °C."
+      ],
+      "until": "t2.precipitate == 'Cu2O'"
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "The Benedict's test went from blue to orange-red. This shows…",
+          "choices": [
+            "A reducing sugar (glucose) is present",
+            "Starch is present",
+            "Protein is present",
+            "The tube is dirty"
+          ],
+          "answerIndex": 0,
+          "explanation": "Reducing sugars turn hot Benedict's reagent green → yellow → orange → brick red, depending on how much sugar."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "egg",
+      "kind": "action",
+      "title": "Protein test",
+      "instruction": "Add egg white to tube 3.",
+      "expect": {
+        "intent": "Pour",
+        "target": "egg",
+        "into": "t3"
+      },
+      "focus": "egg",
+      "points": 5,
+      "hints": []
+    },
+    {
+      "id": "biu",
+      "kind": "action",
+      "title": "Protein test",
+      "instruction": "Add biuret reagent to tube 3.",
+      "expect": {
+        "intent": "Pour",
+        "target": "biu",
+        "into": "t3"
+      },
+      "focus": "biu",
+      "points": 10,
+      "hints": [],
+      "until": "t3.colour == 'purple'"
+    },
+    {
+      "id": "q3",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "Biuret reagent turned purple. Egg white contains…",
+          "choices": [
+            "Protein",
+            "Starch",
+            "Glucose",
+            "Fat"
+          ],
+          "answerIndex": 0,
+          "explanation": "Biuret reagent turns from blue to purple (lilac) with protein."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [
+    {
+      "id": "noGoggles",
+      "when": "!goggles1.worn && (ben.poured || biu.poured)",
+      "message": "Benedict's and biuret reagents are irritants — goggles on.",
+      "severity": "warn",
+      "penalty": 10
+    }
+  ],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 85,
+    "safety": 15
+  }
+}

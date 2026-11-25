@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import '../../config/api_config.dart';
+import '../../models/lab_project.dart';
 import '../../models/lab_scenario.dart';
 import '../infrastructure/api_client.dart';
 
@@ -57,6 +58,63 @@ class LabService {
     final json = jsonDecode(res.body) as Map<String, dynamic>;
     if (res.statusCode >= 400 || json['success'] != true) throw ApiException((json['message'] ?? 'Generation failed').toString(), res.statusCode);
     return LabScenario.fromJson(Map<String, dynamic>.from(json['data'] as Map));
+  }
+
+  // ─── Student "My experiments" ───────────────────────────────────────────────
+
+  Map<String, dynamic> _projectData(dynamic res) {
+    final json = jsonDecode(res.body as String) as Map<String, dynamic>;
+    if (res.statusCode >= 400 || json['success'] != true) {
+      final err = json['error'];
+      final errors = err is List ? [for (final e in err) e.toString()] : (err is Map && err['errors'] is List ? [for (final e in err['errors'] as List) e.toString()] : <String>[]);
+      if (res.statusCode == 422 && errors.isNotEmpty) throw LabProjectInvalid((json['message'] ?? 'Your experiment needs a few fixes').toString(), errors);
+      throw ApiException((json['message'] ?? 'Request failed').toString(), res.statusCode as int);
+    }
+    return json;
+  }
+
+  Future<LabKit> projectKit() async => LabKit.fromJson(Map<String, dynamic>.from(_projectData(await _api.get('$_base/projects/kit'))['data'] as Map));
+
+  Future<List<LabProject>> myProjects() async {
+    final list = _projectData(await _api.get('$_base/projects'))['data'] as List;
+    return [for (final p in list) LabProject.fromJson(Map<String, dynamic>.from(p as Map))];
+  }
+
+  /// The card plus the editable `spec`.
+  Future<(LabProject, Map<String, dynamic>)> getProject(String id) async {
+    final d = Map<String, dynamic>.from(_projectData(await _api.get('$_base/projects/$id'))['data'] as Map);
+    return (LabProject.fromJson(d), Map<String, dynamic>.from(d['spec'] as Map));
+  }
+
+  Future<LabProject> saveProject(Map<String, dynamic> spec, {String? id, String? remixOf}) async {
+    final body = {'spec': spec, if (remixOf != null) 'remixOf': remixOf};
+    final res = id == null ? await _api.post('$_base/projects', body: body) : await _api.put('$_base/projects/$id', body: body);
+    return LabProject.fromJson(Map<String, dynamic>.from(_projectData(res)['data'] as Map));
+  }
+
+  /// Compile without saving. Returns the problems (empty = ready to run).
+  Future<List<String>> checkProject(Map<String, dynamic> spec) async {
+    final d = Map<String, dynamic>.from(_projectData(await _api.post('$_base/projects/check', body: {'spec': spec}))['data'] as Map);
+    return [for (final e in (d['errors'] as List? ?? const [])) e.toString()];
+  }
+
+  Future<void> deleteProject(String id) async => _projectData(await _api.delete('$_base/projects/$id'));
+
+  Future<LabProject> shareProject(String id, {bool share = true}) async =>
+      LabProject.fromJson(Map<String, dynamic>.from(_projectData(await _api.post('$_base/projects/$id/share', body: {'share': share}))['data'] as Map));
+
+  Future<void> saveConclusion(String id, String conclusion) async => _projectData(await _api.patch('$_base/projects/$id/conclusion', body: {'conclusion': conclusion}));
+
+  /// An existing lab as an editable spec ("Remix").
+  Future<(Map<String, dynamic>, String)> remixSpec(String scenarioId) async {
+    final d = Map<String, dynamic>.from(_projectData(await _api.get('$_base/projects/remix/$scenarioId'))['data'] as Map);
+    return (Map<String, dynamic>.from(d['spec'] as Map), d['remixOf'].toString());
+  }
+
+  /// AI drafts a spec from the student's idea (not saved).
+  Future<Map<String, dynamic>> projectFromIdea(String environment, String idea) async {
+    final d = Map<String, dynamic>.from(_projectData(await _api.post('$_base/projects/from-idea', body: {'environment': environment, 'idea': idea}))['data'] as Map);
+    return Map<String, dynamic>.from(d['spec'] as Map);
   }
 
   Future<void> attachToLesson(String lessonId, String? scenarioId, {bool required = false}) async {

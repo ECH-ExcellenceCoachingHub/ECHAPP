@@ -1,0 +1,254 @@
+{
+  "version": 1,
+  "level": "secondary",
+  "variables": {},
+  "id": "bio-enzyme-amylase",
+  "title": "Enzymes: How Fast Does Amylase Work?",
+  "difficulty": 4,
+  "durationMin": 20,
+  "xp": 150,
+  "environment": "BioLab",
+  "subject": "biology",
+  "summary": "Amylase breaks starch down. With iodine in the tube, time how long until the blue-black colour disappears at body temperature.",
+  "tags": [
+    "enzymes",
+    "rates",
+    "practice"
+  ],
+  "objectives": [
+    "Use iodine to follow starch digestion",
+    "Time an enzyme reaction",
+    "Explain the effect of temperature on enzymes"
+  ],
+  "equipment": [
+    {
+      "id": "goggles1",
+      "type": "goggles",
+      "slot": "ppe.rack"
+    },
+    {
+      "id": "tube",
+      "type": "test_tube",
+      "slot": "benchA.center",
+      "label": "Starch solution",
+      "init": {
+        "solution": "starch_sol",
+        "volume": 5,
+        "temperature": 37
+      }
+    },
+    {
+      "id": "iod",
+      "type": "dropper_bottle",
+      "slot": "shelf.1",
+      "label": "Iodine solution",
+      "init": {
+        "reagent": "iodine"
+      }
+    },
+    {
+      "id": "amy",
+      "type": "dropper_bottle",
+      "slot": "shelf.1",
+      "label": "Amylase",
+      "init": {
+        "reagent": "amylase"
+      }
+    },
+    {
+      "id": "bath",
+      "type": "water_bath",
+      "slot": "benchB.center",
+      "label": "Water bath",
+      "init": {
+        "setpointC": 37
+      }
+    },
+    {
+      "id": "watch",
+      "type": "stopwatch",
+      "slot": "benchA.left"
+    }
+  ],
+  "steps": [
+    {
+      "id": "ppe1",
+      "kind": "action",
+      "title": "Safety first",
+      "instruction": "Put on your safety goggles.",
+      "expect": {
+        "intent": "Grab",
+        "target": "goggles1"
+      },
+      "focus": "goggles1",
+      "points": 5,
+      "hints": [],
+      "until": "goggles1.worn"
+    },
+    {
+      "id": "on",
+      "kind": "action",
+      "title": "Set up",
+      "instruction": "Switch on the water bath (set to 37 °C, body temperature).",
+      "expect": {
+        "intent": "Toggle",
+        "target": "bath"
+      },
+      "focus": "bath",
+      "points": 5,
+      "hints": [],
+      "until": "bath.on"
+    },
+    {
+      "id": "in",
+      "kind": "action",
+      "title": "Set up",
+      "instruction": "Stand the starch tube in the water bath.",
+      "expect": {
+        "intent": "Grab",
+        "target": "tube",
+        "into": "bath"
+      },
+      "focus": "tube",
+      "points": 10,
+      "hints": [],
+      "until": "tube.placedIn == 'bath'"
+    },
+    {
+      "id": "iod",
+      "kind": "action",
+      "title": "Set up",
+      "instruction": "Add a few drops of iodine — it turns blue-black because starch is there.",
+      "expect": {
+        "intent": "Pour",
+        "target": "iod",
+        "into": "tube"
+      },
+      "focus": "iod",
+      "points": 10,
+      "hints": [],
+      "until": "tube.colour == 'blue-black'"
+    },
+    {
+      "id": "amy",
+      "kind": "action",
+      "title": "Start",
+      "instruction": "Add the amylase…",
+      "expect": {
+        "intent": "Pour",
+        "target": "amy",
+        "into": "tube"
+      },
+      "focus": "amy",
+      "points": 5,
+      "hints": []
+    },
+    {
+      "id": "start",
+      "kind": "action",
+      "title": "Start",
+      "instruction": "…and start the stopwatch.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "watch"
+      },
+      "focus": "watch",
+      "points": 10,
+      "hints": [],
+      "until": "watch.running"
+    },
+    {
+      "id": "wait",
+      "kind": "action",
+      "title": "Watch",
+      "instruction": "Watch the tube until the blue-black colour has gone (no starch left).",
+      "expect": {
+        "intent": "Inspect",
+        "target": "tube"
+      },
+      "focus": "tube",
+      "points": 15,
+      "hints": [],
+      "until": "!tube.starch"
+    },
+    {
+      "id": "stop",
+      "kind": "action",
+      "title": "Stop",
+      "instruction": "Stop the stopwatch.",
+      "expect": {
+        "intent": "Toggle",
+        "target": "watch"
+      },
+      "focus": "watch",
+      "points": 10,
+      "hints": [],
+      "until": "!watch.running"
+    },
+    {
+      "id": "time",
+      "kind": "measure",
+      "title": "Record",
+      "instruction": "Record the time taken.",
+      "record": {
+        "unit": "s",
+        "key": "time",
+        "label": "Time for starch to disappear",
+        "truth": "watch.elapsedS",
+        "tolerance": 0.5
+      },
+      "points": 10,
+      "hints": [],
+      "focus": "watch"
+    },
+    {
+      "id": "q1",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "If you repeated this at 70 °C, the starch would…",
+          "choices": [
+            "Stay — the enzyme is denatured",
+            "Disappear much faster",
+            "Disappear at the same time",
+            "Turn into protein"
+          ],
+          "answerIndex": 0,
+          "explanation": "Above about 50 °C the active site changes shape (denatures) so amylase stops working."
+        }
+      },
+      "points": 10,
+      "hints": []
+    },
+    {
+      "id": "q2",
+      "kind": "checkpoint",
+      "title": "Check your understanding",
+      "instruction": "Answer the question.",
+      "checkpoint": {
+        "question": {
+          "prompt": "What does amylase break starch down into?",
+          "choices": [
+            "Maltose (a sugar)",
+            "Amino acids",
+            "Fatty acids",
+            "Glycerol"
+          ],
+          "answerIndex": 0,
+          "explanation": "Amylase digests starch into the sugar maltose."
+        }
+      },
+      "points": 10,
+      "hints": []
+    }
+  ],
+  "hazards": [],
+  "results": [],
+  "scoring": {
+    "accuracy": 0,
+    "procedure": 100,
+    "safety": 0
+  }
+}

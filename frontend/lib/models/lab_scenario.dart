@@ -17,6 +17,8 @@ class LabScenario {
   final List<String> tags;
   final List<String> objectives;
   final int hintCount;
+  /// 'student' for a student's own experiment that a teacher published.
+  final String source;
 
   const LabScenario({
     required this.id,
@@ -35,6 +37,7 @@ class LabScenario {
     this.tags = const [],
     this.objectives = const [],
     this.hintCount = 0,
+    this.source = 'seed',
   });
 
   factory LabScenario.fromJson(Map<String, dynamic> j) => LabScenario(
@@ -54,6 +57,7 @@ class LabScenario {
         tags: [for (final t in (j['tags'] as List? ?? const [])) t.toString()],
         objectives: [for (final o in (j['objectives'] as List? ?? const [])) o.toString()],
         hintCount: (j['hintCount'] as num?)?.toInt() ?? 0,
+        source: (j['source'] ?? 'seed').toString(),
       );
 }
 
@@ -102,6 +106,7 @@ class LabBadge {
         'safety-champion' => 'Safety Champion',
         'precision-scientist' => 'Precision Scientist',
         'flawless-lab' => 'Flawless Lab',
+        'lab-inventor' => 'Lab Inventor',
         _ => key.split('-').map((w) => w.isEmpty ? w : w[0].toUpperCase() + w.substring(1)).join(' '),
       };
 }

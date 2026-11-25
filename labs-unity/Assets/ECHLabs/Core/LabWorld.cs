@@ -56,6 +56,8 @@ namespace ECHLabs.Core
         public readonly Dictionary<string, double> Records = new Dictionary<string, double>();
         public readonly HashSet<string> Done = new HashSet<string>();
         public readonly Dictionary<string, IEquipmentLogic> Logic = new Dictionary<string, IEquipmentLogic>();
+        /// <summary>Simulated contents of containers (beakers, tubes, flasks…), keyed by equipment id.</summary>
+        public readonly Dictionary<string, ECHLabs.Sim.Mixture> Mixtures = new Dictionary<string, ECHLabs.Sim.Mixture>();
         public readonly Random Rng;
         public double Time;
         public int Mistakes;
@@ -105,6 +107,14 @@ namespace ECHLabs.Core
             => Variables.TryGetValue(name, out var v) && v.TryGetValue(output, out var o) ? Expr.Num(o) : 0;
 
         public EquipmentSpec Spec(string id) => Definition.FindEquipment(id);
+        public ECHLabs.Sim.Mixture MixtureOf(string id) => id != null && Mixtures.TryGetValue(id, out var m) ? m : null;
+        /// <summary>Human name of a piece of equipment (its label, or its type).</summary>
+        public string Label(string id)
+        {
+            var s = Spec(id);
+            if (s == null) return id ?? "";
+            return !string.IsNullOrEmpty(s.Label) ? s.Label : s.Type.Replace('_', ' ');
+        }
         public IEnumerable<EquipmentSpec> OfType(string type)
         {
             foreach (var e in Definition.Equipment) if (e.Type == type) yield return e;
@@ -152,28 +162,55 @@ namespace ECHLabs.Core
         {
             Time += dt;
             foreach (var kv in Logic) kv.Value.Tick(dt, this);
+            Materials.Tick(this, dt);
             VariableModels.UpdateAll(this);
         }
 
-        /// <summary>Moves liquid from a container into a receiver.</summary>
+        /// <summary>
+        /// Moves liquid from a container into a receiver. The contents (Sim.Mixture) move with it,
+        /// so reactions happen in the receiver; legacy receivers (burette, flask) also get Receive().
+        /// </summary>
         public bool Transfer(string intoId, string solution, double conc, double volumeMl, string fromId)
         {
             if (volumeMl <= 0) return false;
-            if (intoId != null && Logic.TryGetValue(intoId, out var target) && target is ILiquidReceiver receiver)
+            ILiquidReceiver receiver = intoId != null && Logic.TryGetValue(intoId, out var target) ? target as ILiquidReceiver : null;
+            var src = MixtureOf(fromId);
+            var dst = receiver != null ? MixtureOf(intoId) : null;
+            if (src != null && src.LiquidMl > 1e-9)
+                src.PourInto(dst ?? new ECHLabs.Sim.Mixture(), Math.Min(1, volumeMl / src.LiquidMl));
+            else if (dst != null)
+                dst.AddRecipe(solution, conc, volumeMl);
+            if (receiver != null)
             {
                 receiver.Receive(this, solution, conc, volumeMl);
+                Materials.Sync(this, fromId);
+                Materials.Sync(this, intoId);
                 return true;
             }
+            Materials.Sync(this, fromId);
             Emit("spill", fromId, "Liquid spilled on the bench.");
             return false;
         }
 
         // ─── Save / resume ───────────────────────────────────────────────────
 
+        static ECHLabs.Sim.Mixture MixtureFrom(object value)
+        {
+            IDictionary<string, object> d = value as IDictionary<string, object>;
+            if (d == null && value is Newtonsoft.Json.Linq.JObject jo)
+            {
+                d = new Dictionary<string, object>();
+                foreach (var p in jo.Properties())
+                    d[p.Name] = p.Value is Newtonsoft.Json.Linq.JObject inner ? inner.ToObject<Dictionary<string, double>>() : (object)p.Value.ToObject<double>();
+            }
+            return d != null ? ECHLabs.Sim.Mixture.FromSnapshot(d) : null;
+        }
+
         public Dictionary<string, Dictionary<string, object>> SnapshotEquipment()
         {
             var copy = new Dictionary<string, Dictionary<string, object>>();
             foreach (var kv in Equipment) copy[kv.Key] = new Dictionary<string, object>(kv.Value);
+            foreach (var kv in Mixtures) if (copy.TryGetValue(kv.Key, out var st)) st["_mix"] = kv.Value.Snapshot();
             return copy;
         }
 
@@ -181,8 +218,14 @@ namespace ECHLabs.Core
         {
             if (snapshot == null) return;
             foreach (var kv in snapshot)
-                if (Equipment.ContainsKey(kv.Key))
-                    foreach (var s in kv.Value) Equipment[kv.Key][s.Key] = s.Value is long l ? (double)l : s.Value;
+            {
+                if (!Equipment.ContainsKey(kv.Key)) continue;
+                foreach (var s in kv.Value)
+                {
+                    if (s.Key == "_mix") { var mix = MixtureFrom(s.Value); if (mix != null) Mixtures[kv.Key] = mix; continue; }
+                    Equipment[kv.Key][s.Key] = s.Value is long l ? (double)l : s.Value;
+                }
+            }
             VariableModels.UpdateAll(this);
         }
     }

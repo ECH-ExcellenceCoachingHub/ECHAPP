@@ -39,7 +39,9 @@ namespace ECHLabs.Runtime.World
             foreach (var spec in world.Definition.Equipment)
             {
                 Pose pose;
-                if (anchors.TryGetValue(spec.Slot, out var anchor)) pose = anchor.NextPose();
+                // Small items (tubes, droppers, cells, probes) share a bench slot, close together like on a real bench.
+                bool small = (bool?)Catalog["equipment"]?[spec.Type]?["small"] == true && !spec.Slot.StartsWith("shelf") && spec.Slot != "ppe.rack";
+                if (anchors.TryGetValue(spec.Slot, out var anchor)) pose = anchor.NextPose(small ? 0.075f : (float?)null);
                 else
                 {
                     Debug.LogWarning($"[ECHLabs] Slot '{spec.Slot}' not found in room; placing {spec.Id} at origin.");

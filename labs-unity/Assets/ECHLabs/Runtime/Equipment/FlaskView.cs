@@ -63,6 +63,7 @@ namespace ECHLabs.Runtime.Equipment
                 float display = Mathf.Max(c, flash * nearEnd * 0.8f);
                 target = Color.Lerp(ToColor(info.FromRgba), ToColor(info.ToRgba), display);
             }
+            else if (TryStateColor(out var sc)) target = sc;
             shown = Color.Lerp(shown, target, dt * 5f);
             // Level rises smoothly with what is poured in (a stream takes a moment to fill).
             float vol = (float)Num("volumeMl");
@@ -75,7 +76,8 @@ namespace ECHLabs.Runtime.Equipment
             bool under = Bool("underBurette");
             if (under != wasUnder) { wasUnder = under; if (liquid) liquid.Splash(0.6f); }
             if (under && placedOn == null) placedOn = FindTileAnchor();
-            Vector3 targetPos = under && placedOn ? placedOn.position : restPosition;
+            var host = !under ? FindById(Str("placedIn")) : null;
+            Vector3 targetPos = under && placedOn ? placedOn.position : host ? host.Attach.position : restPosition;
 
             // Gentle swirl while base flows in: a bounded wobble around the upright pose (never accumulates).
             swirlBoost = Mathf.Max(0, swirlBoost - dt);

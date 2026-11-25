@@ -1,6 +1,7 @@
 // ECH Labs — behaviour of each equipment type (pure C#).
 // State keys match backend/src/services/labs/catalog.json "state".
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using ECHLabs.Sim;
 
@@ -14,6 +15,26 @@ namespace ECHLabs.Core
             {
                 case "goggles": case "labcoat": case "gloves": return new WearableLogic();
                 case "reagent_bottle": case "beaker": case "pipette": return new ContainerLogic();
+                case "test_tube": case "measuring_cylinder": case "evaporating_dish": return new VesselLogic();
+                case "solid_jar": return new SolidJarLogic();
+                case "dropper_bottle": return new DropperBottleLogic();
+                case "hot_plate": return new HotPlateLogic();
+                case "water_bath": return new WaterBathLogic();
+                case "thermometer": return new ProbeLogic(false);
+                case "ph_meter": return new ProbeLogic(true);
+                case "balance": return new BalanceLogic();
+                case "metal_block": return new BlockLogic();
+                case "potato_cylinder": return new PotatoLogic();
+                case "pondweed": return new PondweedLogic();
+                case "splint": return new SplintLogic();
+                case "delivery_tube": return new DeliveryTubeLogic();
+                case "lamp": return new LampLogic();
+                case "battery": case "switch": case "variable_resistor": case "bulb": case "led": return new ComponentLogic();
+                case "spring": return new SpringLogic();
+                case "ramp": return new RampLogic();
+                case "light_gate": return new LightGateLogic();
+                case "convex_lens": return new LensLogic();
+                case "screen": return new ScreenLogic();
                 case "burette": return new BuretteLogic();
                 case "conical_flask": return new FlaskLogic();
                 case "indicator": case "stain": return new DropperLogic();
@@ -62,44 +83,46 @@ namespace ECHLabs.Core
         }
     }
 
-    /// <summary>Reagent bottle / beaker / pipette: pours its solution into a receiver.</summary>
+    /// <summary>Reagent bottle / beaker / pipette (and vessels): real contents (Sim.Mixture); pours into a receiver.</summary>
     public class ContainerLogic : StaticLogic, ILiquidReceiver
     {
         public const double DefaultPourMl = 10;
         public override void Init(EquipmentSpec spec, LabWorld w)
         {
             base.Init(spec, w);
-            w.Set(Id, "volumeMl", spec.InitNumber("volume", 0));
+            double v = spec.InitNumber("volume", 0);
             w.Set(Id, "poured", false);
-            w.Set(Id, "filled", spec.InitNumber("volume", 0) > 0);
+            w.Set(Id, "filled", v > 0);
+            w.Set(Id, "placedIn", null);
+            Materials.InitMixture(spec, w, v);
         }
         public override bool Apply(Intent i, LabWorld w)
         {
+            if (i.Type == IntentType.Grab && i.Into != null) { w.Set(Id, "placedIn", i.Into); return true; }
             if (i.Type != IntentType.Pour) return base.Apply(i, w);
-            double available = w.Num(Id, "volumeMl");
-            if (available <= 0) { w.Emit("empty", Id, "This container is empty."); return false; }
+            var m = w.MixtureOf(Id);
+            double available = m != null ? m.LiquidMl : w.Num(Id, "volumeMl");
+            if (available <= 1e-6) { w.Emit("empty", Id, "This container is empty."); return false; }
             // Receivers that know how much they want (e.g. a burette being filled) are given it.
             double amount = Math.Min(available, i.Value ?? Wanted(i.Into, w));
-            if (!w.Transfer(i.Into, w.Str(Id, "solution"), w.Num(Id, "conc"), amount, Id)) { w.Set(Id, "volumeMl", available - amount); w.Set(Id, "poured", true); return false; }
-            w.Set(Id, "volumeMl", available - amount);
+            bool ok = w.Transfer(i.Into, w.Str(Id, "solution"), w.Num(Id, "conc"), amount, Id);
             w.Set(Id, "poured", true);
-            return true;
+            Materials.Sync(w, Id);
+            return ok;
         }
         static double Wanted(string into, LabWorld w)
-            => into != null && w.Logic.TryGetValue(into, out var l) && l is BuretteLogic b ? b.WantedMl(w) : DefaultPourMl;
+        {
+            if (into != null && w.Logic.TryGetValue(into, out var l) && l is BuretteLogic b) return b.WantedMl(w);
+            var type = into != null ? w.Spec(into)?.Type : null;
+            return type == "test_tube" ? 5 : type == "evaporating_dish" ? 20 : DefaultPourMl;
+        }
 
         public void Receive(LabWorld w, string solution, double conc, double volumeMl)
         {
-            double v = w.Num(Id, "volumeMl");
-            double total = v + volumeMl;
-            // Mixing the same solution: concentration-weighted.
-            if (w.Str(Id, "solution") == null || w.Str(Id, "solution") == solution)
-            {
-                w.Set(Id, "solution", solution);
-                w.Set(Id, "conc", total > 0 ? (w.Num(Id, "conc") * v + conc * volumeMl) / total : conc);
-            }
-            w.Set(Id, "volumeMl", total);
+            // The liquid itself already arrived through LabWorld.Transfer (mixtures); keep legacy keys.
+            if (w.Str(Id, "solution") == null) { w.Set(Id, "solution", solution); w.Set(Id, "conc", conc); }
             w.Set(Id, "filled", true);
+            Materials.Sync(w, Id);
         }
     }
 
@@ -124,6 +147,7 @@ namespace ECHLabs.Core
             w.Set(Id, "rinsed", false);
             w.Set(Id, "tapOpen", 0.0);
             w.Set(Id, "reading", Capacity);
+            w.Mixtures[Id] = new ECHLabs.Sim.Mixture();
             // Students fill "to just above zero, then run down": the start reading is never exactly 0.00.
             fillTarget = Capacity - Math.Round((0.1 + w.Rng.NextDouble() * 0.8) * 20) / 20; // 0.10…0.90 in 0.05 steps
         }
@@ -137,6 +161,7 @@ namespace ECHLabs.Core
             {
                 w.Set(Id, "rinsed", true); // rinse portion drained to waste
                 w.Emit("rinse", Id, "Burette rinsed with " + solution + ".");
+                Rebuild(w);
                 return;
             }
             double v = Math.Min(w.Num(Id, "volumeMl") + volumeMl, Capacity);
@@ -146,6 +171,16 @@ namespace ECHLabs.Core
             w.Set(Id, "volumeMl", v);
             w.Set(Id, "filled", v >= 45);
             w.Set(Id, "reading", Capacity - v);
+            Rebuild(w);
+        }
+
+        /// <summary>The burette only ever holds one titrant: its contents follow its own volume.</summary>
+        void Rebuild(LabWorld w)
+        {
+            var m = new ECHLabs.Sim.Mixture();
+            double v = w.Num(Id, "volumeMl");
+            if (v > 0) m.AddRecipe(w.Str(Id, "solution") ?? "water", w.Num(Id, "conc", 0.1), v);
+            w.Mixtures[Id] = m;
         }
 
         public override bool Apply(Intent i, LabWorld w)
@@ -171,6 +206,7 @@ namespace ECHLabs.Core
             w.Set(Id, "dispensedMl", w.Num(Id, "dispensedMl") + flow);
             var receiver = w.Definition.Equipment.FirstOrDefault(e => w.Bool(e.Id, "underBurette"));
             w.Transfer(receiver?.Id, w.Str(Id, "solution"), w.Num(Id, "conc"), flow, Id);
+            Rebuild(w);
             if (v <= 0) { w.Set(Id, "tapOpen", 0.0); w.Emit("empty", Id, "The burette is empty."); }
         }
     }
@@ -186,6 +222,9 @@ namespace ECHLabs.Core
             w.Set(Id, "hasIndicator", false);
             w.Set(Id, "swirled", false);
             w.Set(Id, "underBurette", false);
+            w.Set(Id, "placedIn", null);
+            Materials.InitMixture(spec, w, spec.InitNumber("volume", 0));
+            w.Set(Id, "volumeMl", spec.InitNumber("volume", 0));
         }
 
         public void Receive(LabWorld w, string solution, double conc, double volumeMl)
@@ -207,10 +246,20 @@ namespace ECHLabs.Core
                 // Placing it on the white tile puts it under the burette.
                 bool onTile = i.Into != null && w.Spec(i.Into)?.Type == "white_tile";
                 w.Set(Id, "underBurette", onTile);
+                w.Set(Id, "placedIn", i.Into);
                 w.Set(Id, "swirled", true);
                 return true;
             }
             if (i.Type == IntentType.Rotate) { w.Set(Id, "swirled", true); return true; }
+            if (i.Type == IntentType.Pour)
+            {
+                var m = w.MixtureOf(Id);
+                if (m == null || m.LiquidMl <= 1e-6) { w.Emit("empty", Id, "The flask is empty."); return false; }
+                double amount = Math.Min(m.LiquidMl, i.Value ?? (w.Spec(i.Into ?? "")?.Type == "test_tube" ? 5 : 10));
+                bool ok = w.Transfer(i.Into, w.Str(Id, "solution"), w.Num(Id, "conc"), amount, Id);
+                Materials.Sync(w, Id);
+                return ok;
+            }
             return base.Apply(i, w);
         }
     }
@@ -231,6 +280,8 @@ namespace ECHLabs.Core
             {
                 w.Set(i.Into, "hasIndicator", true);
                 w.Set(i.Into, "indicator", w.Str(Id, "name"));
+                var mix = w.MixtureOf(i.Into);
+                if (mix != null) { mix.AddRecipe(w.Str(Id, "name") ?? "universal", 0, 0.15); Materials.Sync(w, i.Into); }
             }
             return true;
         }
@@ -285,8 +336,12 @@ namespace ECHLabs.Core
     }
 
     /// <summary>
-    /// Series circuit on the board: supply → ammeter → resistors, voltmeter across the resistors.
-    /// An ammeter connected with no load is a short circuit across the supply.
+    /// The circuit board. Supply = power supply (when on) plus any connected cells.
+    /// Layout "series" (default): supply → switch → ammeter → every load in one loop.
+    /// Layout "parallel": the resistive loads (resistors, rheostats, bulbs) are side by side;
+    /// the switch, ammeter and LEDs stay in the main line. The voltmeter reads across the loads.
+    /// Filament bulbs are non-ohmic (hotter → more resistance); LEDs only conduct above their
+    /// forward voltage. An ammeter connected with no load is a short circuit across the supply.
     /// </summary>
     public sealed class CircuitBoardLogic : StaticLogic
     {
@@ -298,6 +353,17 @@ namespace ECHLabs.Core
             w.Set(Id, "currentA", 0.0);
             w.Set(Id, "voltageV", 0.0);
             w.Set(Id, "powerW", 0.0);
+            w.Set(Id, "totalOhms", 0.0);
+            w.Set(Id, "layout", spec.InitString("layout", "series"));
+        }
+
+        sealed class Load { public string Id, Type; public double Ohms, RatedV, RatedW, I, V; }
+
+        static double BulbOhms(Load b, double v)
+        {
+            double hot = b.RatedV * b.RatedV / Math.Max(b.RatedW, 0.01), cold = hot / 8;
+            double x = Math.Min(Math.Abs(v) / Math.Max(b.RatedV, 0.01), 1.3);
+            return cold + (hot - cold) * Math.Pow(x, 0.85);
         }
 
         public override void Tick(double dt, LabWorld w)
@@ -305,27 +371,92 @@ namespace ECHLabs.Core
             var psu = w.OfType("power_supply").FirstOrDefault();
             var ammeter = w.OfType("ammeter").FirstOrDefault();
             var voltmeter = w.OfType("voltmeter").FirstOrDefault();
-            var resistors = w.OfType("resistor").Where(r => w.Bool(r.Id, "connected")).Select(r => r.InitNumber("ohms", 10)).ToList();
-            bool on = psu != null && w.Bool(psu.Id, "on");
-            double supply = psu != null ? w.Num(psu.Id, "voltageV") : 0;
+            bool Conn(EquipmentSpec e) => w.Bool(e.Id, "connected");
+
+            double supply = 0;
+            bool on = false;
+            if (psu != null && w.Bool(psu.Id, "on")) { supply += w.Num(psu.Id, "voltageV"); on = true; }
+            foreach (var b in w.OfType("battery").Where(Conn)) { supply += w.Num(b.Id, "emfV", 3); on = true; }
+
+            var loads = new List<Load>();
+            foreach (var r in w.OfType("resistor").Where(Conn)) loads.Add(new Load { Id = r.Id, Type = "resistor", Ohms = r.InitNumber("ohms", 10) });
+            foreach (var r in w.OfType("variable_resistor").Where(Conn)) loads.Add(new Load { Id = r.Id, Type = "rheostat", Ohms = Math.Max(w.Num(r.Id, "ohms", 50), 0.5) });
+            foreach (var b in w.OfType("bulb").Where(Conn)) loads.Add(new Load { Id = b.Id, Type = "bulb", RatedV = b.InitNumber("ratedVoltage", 6), RatedW = b.InitNumber("ratedPower", 3) });
+            var leds = w.OfType("led").Where(Conn).ToList();
+            double vf = leds.Sum(l => ComponentLogic.LedForwardV(l.InitString("colour", "red")));
+            double ledOhms = leds.Count * 15; // built-in series resistance
+
             bool ammeterIn = ammeter == null || w.Bool(ammeter.Id, "connected");
-            bool closed = resistors.Count > 0 && ammeterIn;
-            bool shortCircuit = on && supply > 0 && ammeter != null && w.Bool(ammeter.Id, "connected") && resistors.Count == 0;
-            double current = 0, load = 0;
-            if (on && closed)
+            bool switchOpen = w.OfType("switch").Any(sw => Conn(sw) && !w.Bool(sw.Id, "closed"));
+            bool hasLoad = loads.Count > 0 || leds.Count > 0;
+            bool closed = hasLoad && ammeterIn && !switchOpen;
+            bool shortCircuit = on && supply > 0 && ammeter != null && w.Bool(ammeter.Id, "connected") && !hasLoad && !switchOpen;
+            bool parallel = (w.Str(Id, "layout") ?? "series") == "parallel" && loads.Count > 1;
+
+            double current = 0, loadV = 0, totalR = 0;
+            if (on && closed && supply > 0)
             {
-                var r = Physics.SeriesCircuit(supply, resistors, internalOhm: 0);
-                current = r.CurrentA;
-                load = r.LoadVoltageV;
+                // Fixed-point iteration: bulb resistance depends on its own voltage.
+                double vLoads = supply;
+                for (int it = 0; it < 40; it++)
+                {
+                    double rLoads;
+                    if (parallel)
+                    {
+                        double g = 0;
+                        foreach (var l in loads) { l.V = vLoads; if (l.Type == "bulb") l.Ohms = BulbOhms(l, vLoads); g += 1 / l.Ohms; }
+                        rLoads = g > 0 ? 1 / g : 0;
+                    }
+                    else
+                    {
+                        rLoads = 0;
+                        foreach (var l in loads) { if (l.Type == "bulb") l.Ohms = BulbOhms(l, current * (l.Ohms > 0 ? l.Ohms : 1)); rLoads += l.Ohms; }
+                    }
+                    double rTotal = rLoads + ledOhms;
+                    double drive = supply - vf;
+                    double i = drive > 0 && rTotal > 0 ? drive / rTotal : 0;
+                    current = current + (i - current) * 0.6;
+                    vLoads = current * rLoads;
+                    totalR = rTotal;
+                }
+                loadV = current * (totalR - ledOhms);
+                foreach (var l in loads)
+                {
+                    if (parallel) { l.V = loadV; l.I = l.Ohms > 0 ? loadV / l.Ohms : 0; }
+                    else { l.I = current; l.V = current * l.Ohms; }
+                }
             }
+            else foreach (var l in loads) { l.I = 0; l.V = 0; }
+
+            foreach (var l in loads)
+            {
+                w.Set(l.Id, "currentA", Math.Round(l.I, 4));
+                w.Set(l.Id, "voltageV", Math.Round(l.V, 3));
+                if (l.Type == "bulb")
+                {
+                    double b = Math.Min(1.5, l.I * l.V / Math.Max(l.RatedW, 0.01));
+                    w.Set(l.Id, "brightness", Math.Round(b, 3));
+                    w.Set(l.Id, "lit", b > 0.04);
+                    w.Set(l.Id, "ohms", Math.Round(l.Ohms, 2));
+                }
+            }
+            foreach (var l in leds)
+            {
+                w.Set(l.Id, "currentA", Math.Round(current, 4));
+                w.Set(l.Id, "lit", current > 0.001);
+                w.Set(l.Id, "brightness", Math.Round(Math.Min(1, current / 0.02), 3));
+                if (current > 0.05 && !w.Bool(l.Id, "blown")) { w.Set(l.Id, "blown", true); w.Emit("observe", l.Id, "The LED was given too much current — use a resistor in series to protect it."); }
+            }
+
             w.Set(Id, "closed", closed);
             if (shortCircuit && !w.Bool(Id, "shortCircuit")) w.Emit("shortCircuit", Id, "Short circuit!");
             w.Set(Id, "shortCircuit", shortCircuit);
             w.Set(Id, "currentA", current);
-            w.Set(Id, "voltageV", load);
-            w.Set(Id, "powerW", current * load);
+            w.Set(Id, "voltageV", loadV);
+            w.Set(Id, "powerW", current * loadV);
+            w.Set(Id, "totalOhms", Math.Round(totalR, 3));
             if (ammeter != null) w.Set(ammeter.Id, "reading", w.Bool(ammeter.Id, "connected") ? Math.Round(current * 1000) / 1000 : 0.0);
-            if (voltmeter != null) w.Set(voltmeter.Id, "reading", w.Bool(voltmeter.Id, "connected") ? Math.Round(load * 100) / 100 : 0.0);
+            if (voltmeter != null) w.Set(voltmeter.Id, "reading", w.Bool(voltmeter.Id, "connected") ? Math.Round(loadV * 100) / 100 : 0.0);
         }
     }
 
