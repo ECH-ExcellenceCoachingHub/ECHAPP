@@ -219,7 +219,7 @@ const unmarkTaught = wrap(async (req, res) => {
 function assessmentView(a, extra = {}) {
   return {
     id: String(a._id),
-    classSubjectId: String(a.classSubjectId._id || a.classSubjectId),
+    classSubjectId: a.classSubjectId ? String(a.classSubjectId._id || a.classSubjectId) : null,
     classroomId: String(a.classroomId._id || a.classroomId),
     className: a.classroomId?.name,
     subject: a.subject,

@@ -1,20 +1,33 @@
 /**
  * Service API for eexams: a teacher who created an exam on eexams sends it
- * to the ECH classes they teach. eexams authenticates with the shared
+ * to their ECH classes — a class subject they teach, or a whole class they are
+ * the class teacher of (even one with no subjects yet) — for the whole class
+ * or chosen students. eexams authenticates with the shared
  * ECH_EEXAMS_SSO_SECRET (Authorization: Bearer) and names the teacher with
  * X-ECH-User (their ECH id, known from SSO). The exam then appears on the
  * students' and parents' ECH dashboards with a "Join exam" button.
+ *
+ * A "class" here is one of:
+ *   { classSubjectId }  a subject the teacher teaches in a class
+ *   { classId }         a class the teacher is the class teacher of. When they
+ *                       send to it, they get a "General" subject in that class
+ *                       (created once, then reused), so the exam is an ordinary
+ *                       subject assessment in every ECH screen.
  */
 const Assessment = require('../../models/Assessment');
 const ClassSubject = require('../../models/ClassSubject');
+const Classroom = require('../../models/Classroom');
 const User = require('../../models/User');
 const eexams = require('../../services/integrations/eexams.service');
-const { teacherLoad, classSubjectAccess } = require('../../services/school/access.service');
+const { teacherLoad, classSubjectAccess, classroomAccess } = require('../../services/school/access.service');
 const { createAssessmentFor, classStudentIds, guardianIds, eexamsStartPath } = require('./teaching.controller');
 const { notifyUsers } = require('../../services/school/notify.service');
 const { HttpError, ok, wrap, requireId } = require('./helpers');
 
 const DAY = 24 * 3600 * 1000;
+// The subject a class teacher gets in their class for exams sent from eexams;
+// the second name is used if a different teacher already has the first.
+const CLASS_TEACHER_SUBJECTS = ['General', 'Class teacher'];
 
 async function serviceTeacher(req) {
   if (!eexams.checkServiceAuth(req)) throw new HttpError('Invalid service credentials', 401);
@@ -34,50 +47,124 @@ function cleanExamId(v) {
   return id;
 }
 
-/** GET /integrations/eexams/school/classes — the class subjects this teacher teaches. */
+async function classSizes(roomIds) {
+  if (!roomIds.length) return new Map();
+  const counts = await User.aggregate([
+    { $match: { classroomId: { $in: roomIds }, role: 'student', isActive: true } },
+    { $group: { _id: '$classroomId', n: { $sum: 1 } } },
+  ]);
+  return new Map(counts.map((c) => [String(c._id), c.n]));
+}
+
+/**
+ * GET /integrations/eexams/school/classes — what this teacher can send to:
+ * each class subject they teach, plus each class they are the class teacher of.
+ */
 const classes = wrap(async (req, res) => {
   const user = await serviceTeacher(req);
   const load = await teacherLoad(user);
-  const roomIds = [...new Set(load.subjects.map((s) => String(s.classroomId._id)))];
-  const counts = await User.aggregate([
-    { $match: { classroomId: { $in: load.subjects.map((s) => s.classroomId._id) }, role: 'student', isActive: true } },
-    { $group: { _id: '$classroomId', n: { $sum: 1 } } },
-  ]);
-  const size = new Map(counts.map((c) => [String(c._id), c.n]));
-  ok(res, {
-    teacher: { id: String(user._id), fullName: user.fullName },
-    classes: load.subjects.map((s) => ({
+  const rooms = [
+    ...load.subjects.map((s) => s.classroomId),
+    ...load.classTeacherOf,
+  ];
+  const size = await classSizes([...new Map(rooms.map((r) => [String(r._id), r._id])).values()]);
+  const teachesIn = new Set(load.subjects.map((s) => String(s.classroomId._id)));
+  const rows = [
+    // Class teacher without a subject of their own in the class yet.
+    ...load.classTeacherOf.filter((room) => !teachesIn.has(String(room._id))).map((room) => ({
+      classSubjectId: null,
+      classId: String(room._id),
+      className: room.name,
+      level: room.level || null,
+      subject: null,
+      classTeacher: true,
+      students: size.get(String(room._id)) || 0,
+    })),
+    ...load.subjects.map((s) => ({
       classSubjectId: String(s._id),
       classId: String(s.classroomId._id),
       className: s.classroomId.name,
       level: s.classroomId.level || null,
       subject: s.subject,
+      classTeacher: false,
       students: size.get(String(s.classroomId._id)) || 0,
     })),
-    classCount: roomIds.length,
+  ].sort((a, b) => a.className.localeCompare(b.className) || (a.subject || '').localeCompare(b.subject || ''));
+  ok(res, {
+    teacher: { id: String(user._id), fullName: user.fullName },
+    classes: rows,
+    classCount: new Set(rows.map((r) => r.classId)).size,
   });
 });
 
-/** The class subject, checked to be taught by this teacher. */
-async function taughtClassSubject(user, id) {
-  requireId(id, 'class');
-  const cs = await ClassSubject.findById(id).populate('classroomId');
-  if (!cs || !cs.isActive) throw new HttpError('Class not found', 404);
-  const access = await classSubjectAccess(user, cs);
-  if (!access.canTeach) throw new HttpError(`You do not teach ${cs.subject} in ${cs.classroomId.name}.`, 403);
-  return cs;
+/**
+ * The class teacher's own subject in their class, for sending exams from
+ * eexams: "General" (or "Class teacher" if another teacher already has
+ * "General"), created once and assigned to them, then reused.
+ */
+async function classTeacherSubject(user, room) {
+  for (const subject of CLASS_TEACHER_SUBJECTS) {
+    let cs = await ClassSubject.findOne({ classroomId: room._id, subject });
+    if (!cs) {
+      try {
+        cs = await ClassSubject.create({ schoolId: room.schoolId, classroomId: room._id, subject, teacherId: user._id });
+      } catch (e) {
+        if (e.code !== 11000) throw e; // created meanwhile by a parallel request
+        cs = await ClassSubject.findOne({ classroomId: room._id, subject });
+      }
+    }
+    if (!cs.teacherId || String(cs.teacherId) === String(user._id)) {
+      if (!cs.teacherId || !cs.isActive) {
+        cs.teacherId = user._id;
+        cs.isActive = true;
+        await cs.save();
+      }
+      await cs.populate('classroomId');
+      return cs;
+    }
+  }
+  throw new HttpError(`Ask your school admin to give you a subject in ${room.name}.`, 409);
 }
 
-/** GET /integrations/eexams/school/students?classSubjectId= — the students of a class the teacher teaches. */
+/**
+ * Resolves a class target after checking the teacher may use it.
+ * Returns { room, cs } — cs is the subject to send under; for a class-teacher
+ * target it is created only when `forSending` (listing students reads only).
+ */
+async function resolveTarget(user, { classSubjectId, classId }, { forSending = false } = {}) {
+  if (classSubjectId) {
+    requireId(classSubjectId, 'class');
+    const cs = await ClassSubject.findById(classSubjectId).populate('classroomId');
+    if (!cs || !cs.isActive || !cs.classroomId) throw new HttpError('Class not found', 404);
+    const access = await classSubjectAccess(user, cs);
+    if (!access.canTeach) throw new HttpError(`You do not teach ${cs.subject} in ${cs.classroomId.name}.`, 403);
+    return { cs, room: cs.classroomId };
+  }
+  requireId(classId, 'class');
+  const room = await Classroom.findById(classId);
+  if (!room || room.isActive === false) throw new HttpError('Class not found', 404);
+  const access = await classroomAccess(user, room);
+  if (!access.isClassTeacher) throw new HttpError(`You are not the class teacher of ${room.name}.`, 403);
+  return { room, cs: forSending ? await classTeacherSubject(user, room) : null };
+}
+
+/**
+ * GET /integrations/eexams/school/students?classSubjectId= | ?classId=
+ * The students of a class the teacher teaches or is the class teacher of.
+ */
 const students = wrap(async (req, res) => {
   const user = await serviceTeacher(req);
-  const cs = await taughtClassSubject(user, String(req.query.classSubjectId || ''));
-  const list = await User.find({ classroomId: cs.classroomId._id, role: 'student', isActive: true })
+  const { room, cs } = await resolveTarget(user, {
+    classSubjectId: req.query.classSubjectId ? String(req.query.classSubjectId) : null,
+    classId: req.query.classId ? String(req.query.classId) : null,
+  });
+  const list = await User.find({ classroomId: room._id, role: 'student', isActive: true })
     .select('fullName studentCode').sort({ fullName: 1 }).lean();
   ok(res, {
-    classSubjectId: String(cs._id),
-    className: cs.classroomId.name,
-    subject: cs.subject,
+    classSubjectId: cs ? String(cs._id) : null,
+    classId: String(room._id),
+    className: room.name,
+    subject: cs ? cs.subject : null,
     students: list.map((s) => ({ id: String(s._id), fullName: s.fullName || 'Student', studentCode: s.studentCode || null })),
   });
 });
@@ -97,7 +184,8 @@ const assignments = wrap(async (req, res) => {
   ok(res, {
     assignments: list.map((a) => ({
       id: String(a._id),
-      classSubjectId: String(a.classSubjectId),
+      classSubjectId: a.classSubjectId ? String(a.classSubjectId) : null,
+      classId: String(a.classroomId?._id || a.classroomId),
       className: a.classroomId?.name || '',
       subject: a.subject,
       type: a.type,
@@ -112,8 +200,8 @@ const assignments = wrap(async (req, res) => {
 /**
  * POST /integrations/eexams/school/assign
  * { examId, title, dueAt, type?: 'exam'|'quiz', maxScore?, instructions?,
- *   targets?: [{ classSubjectId, studentIds?: [ECH student ids] }],   // no studentIds = whole class
- *   classSubjectIds?: [] }                                            // older form: whole classes
+ *   targets?: [{ classSubjectId | classId, studentIds?: [ECH student ids] }],  // no studentIds = whole class
+ *   classSubjectIds?: [] }                                                    // older form: whole classes
  * Sending again to the same class updates the title / due date and adds the
  * new students instead of creating a duplicate. A whole-class send widens a
  * chosen-students one to the whole class.
@@ -130,10 +218,12 @@ const assign = wrap(async (req, res) => {
   const targets = [];
   const seen = new Set();
   for (const t of raw.slice(0, 30)) {
-    const id = String(t?.classSubjectId || '');
-    if (!id || seen.has(id)) continue;
-    seen.add(id);
-    targets.push({ classSubjectId: id, studentIds: Array.isArray(t.studentIds) ? t.studentIds.map(String) : [] });
+    const classSubjectId = t?.classSubjectId ? String(t.classSubjectId) : null;
+    const classId = !classSubjectId && t?.classId ? String(t.classId) : null;
+    const key = classSubjectId ? `cs:${classSubjectId}` : classId ? `class:${classId}` : '';
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    targets.push({ classSubjectId, classId, studentIds: Array.isArray(t.studentIds) ? t.studentIds.map(String) : [] });
   }
   if (!targets.length) throw new HttpError('Choose at least one class.');
   const title = String(b.title || '').trim().slice(0, 200);
@@ -145,7 +235,8 @@ const assign = wrap(async (req, res) => {
   const created = [];
   const updated = [];
   for (const t of targets) {
-    const cs = await taughtClassSubject(user, t.classSubjectId);
+    const { cs, room } = await resolveTarget(user, t, { forSending: true });
+    const { subject } = cs;
     const chosen = await classStudentIds(cs, t.studentIds); // [] = whole class
 
     const existing = await Assessment.findOne({ classSubjectId: cs._id, eexamsExamId: examId });
@@ -156,7 +247,7 @@ const assign = wrap(async (req, res) => {
       if (!wasWholeClass) {
         if (!chosen.length) {
           existing.studentIds = []; // now for the whole class
-          added = (await User.find({ classroomId: cs.classroomId._id, role: 'student', isActive: true, _id: { $nin: [...before] } }).select('_id').lean()).map((s) => s._id);
+          added = (await User.find({ classroomId: room._id, role: 'student', isActive: true, _id: { $nin: [...before] } }).select('_id').lean()).map((s) => s._id);
         } else {
           added = chosen.filter((id) => !before.has(String(id)));
           existing.studentIds = [...existing.studentIds, ...added];
@@ -169,11 +260,11 @@ const assign = wrap(async (req, res) => {
         const newcomers = await User.find({ _id: { $in: added } }).select('_id guardians').lean();
         const label = type === 'quiz' ? 'New quiz' : 'New exam';
         const due = dueAt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
-        await notifyUsers(newcomers.map((s) => s._id), { title: `${label}: ${cs.subject}`, message: `${title} — due ${due}`, type: 'homework', data: { kind: 'assessment', assessmentId: String(existing._id), route: `/school/homework/${existing._id}` } });
-        await notifyUsers(guardianIds(newcomers), { title: `${label} for your child`, message: `${cs.subject}: ${title} — due ${due}`, type: 'homework', data: { kind: 'assessment', assessmentId: String(existing._id) }, push: false });
+        await notifyUsers(newcomers.map((s) => s._id), { title: `${label}: ${subject}`, message: `${title} — due ${due}`, type: 'homework', data: { kind: 'assessment', assessmentId: String(existing._id), route: `/school/homework/${existing._id}` } });
+        await notifyUsers(guardianIds(newcomers), { title: `${label} for your child`, message: `${subject}: ${title} — due ${due}`, type: 'homework', data: { kind: 'assessment', assessmentId: String(existing._id) }, push: false });
       }
       updated.push({
-        id: String(existing._id), className: cs.classroomId.name, subject: cs.subject,
+        id: String(existing._id), className: room.name, subject,
         notified: added.length, forStudents: existing.studentIds.length, studentIds: await audienceIds(existing),
       });
       continue;
@@ -190,7 +281,7 @@ const assign = wrap(async (req, res) => {
       studentIds: chosen.map(String),
     });
     created.push({
-      id: String(a._id), className: cs.classroomId.name, subject: cs.subject,
+      id: String(a._id), className: room.name, subject,
       notified, forStudents: a.studentIds.length, studentIds: await audienceIds(a),
     });
   }
