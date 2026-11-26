@@ -43,6 +43,7 @@ const members = require('../src/controllers/school/members.controller');
 const teaching = require('../src/controllers/school/teaching.controller');
 const learner = require('../src/controllers/school/learner.controller');
 const reports = require('../src/controllers/school/reports.controller');
+const studentReports = require('../src/controllers/school/studentReports.controller');
 const pinAuth = require('../src/controllers/pinAuth.controller');
 const { protect } = require('../src/middleware/auth.middleware');
 const { denySelfRegisteredTeacher } = require('../src/services/teacherAccess.service');
@@ -320,6 +321,50 @@ test('homework: teacher assigns, students notified, student hands in, teacher ma
 
   const results = await call(reports.results, { user: s.head, params: { schoolId: s.schoolId }, query: { classId: s.s3a.id } });
   assert.equal(results.body.data.subjectAverages.Biology, 80);
+});
+
+test('student, class and school reports: right people only, numbers agree', async () => {
+  const s = await setupSchool();
+  const a = await addStudent(s.head, s.schoolId, { fullName: 'Aline Mukamana', gender: 'female', classroomId: s.s3a.id, guardians: [{ name: 'Paul', phone: '0788123456' }] });
+  const b = await addStudent(s.head, s.schoolId, { fullName: 'Eric Niyonzima', gender: 'male', classroomId: s.s3a.id });
+  const aline = await me(a.body.data.student.id);
+
+  // One graded homework (Aline 8/10), one past due that nobody handed in.
+  const hw = await call(teaching.createAssessment, { user: s.classTeacher, params: { id: s.bio.id }, body: { title: 'Draw a cell', dueAt: new Date(Date.now() + 864e5), maxScore: 10, submissionMode: 'text' } });
+  await call(learner.submitAssessment, { user: aline, params: { id: hw.body.data.assessment.id }, body: { text: 'cell' } });
+  const detail = await call(teaching.getAssessment, { user: s.classTeacher, params: { id: hw.body.data.assessment.id } });
+  const subId = detail.body.data.students.find((x) => x.id === String(aline._id)).submission.id;
+  await call(teaching.gradeSubmission, { user: s.classTeacher, params: { id: hw.body.data.assessment.id, subId }, body: { score: 8 } });
+  const Assessment = require('../src/models/Assessment');
+  await Assessment.create({ schoolId: s.schoolId, classroomId: s.s3a.id, classSubjectId: s.maths.id, subject: 'Mathematics', teacherId: s.mathsTeacher._id, title: 'Fractions', dueAt: new Date(Date.now() - 864e5), maxScore: 20, submissionMode: 'text' });
+
+  // Student report: class teacher yes, subject teacher no.
+  const sr = await call(studentReports.studentReport, { user: s.classTeacher, params: { schoolId: s.schoolId, userId: String(aline._id) } });
+  assert.equal(sr.status, 200, JSON.stringify(sr.body));
+  assert.equal(sr.body.data.student.guardians[0].name, 'Paul');
+  assert.equal(sr.body.data.stats.average, 80);
+  assert.equal(sr.body.data.stats.missing, 1);
+  assert.equal(sr.body.data.assessments.find((x) => x.title === 'Draw a cell').percent, 80);
+  const denied = await call(studentReports.studentReport, { user: s.mathsTeacher, params: { schoolId: s.schoolId, userId: String(aline._id) } });
+  assert.equal(denied.status, 403);
+
+  // Class report.
+  const cr = await call(studentReports.classReport, { user: s.classTeacher, params: { classId: s.s3a.id } });
+  assert.equal(cr.status, 200, JSON.stringify(cr.body));
+  assert.equal(cr.body.data.summary.studentCount, 2);
+  assert.deepEqual(cr.body.data.summary.genders, { male: 1, female: 1, other: 0 });
+  assert.equal(cr.body.data.subjects.find((x) => x.subject === 'Biology').average, 80);
+  const row = cr.body.data.students.find((x) => x.id === String(aline._id));
+  assert.equal(row.position, 1);
+  assert.equal(cr.body.data.students.find((x) => x.id === b.body.data.student.id).stats.missing, 1);
+  assert.equal((await call(studentReports.classReport, { user: s.mathsTeacher, params: { classId: s.s3a.id } })).status, 403);
+
+  // School report: managers only (route) — every active class is listed.
+  const sch = await call(studentReports.schoolReport, { user: s.head, params: { schoolId: s.schoolId } });
+  assert.equal(sch.status, 200, JSON.stringify(sch.body));
+  assert.equal(sch.body.data.classes.length, 3);
+  assert.equal(sch.body.data.summary.studentCount, 2);
+  assert.equal((await call(studentReports.schoolReport, { user: s.classTeacher, params: { schoolId: s.schoolId } })).status, 403);
 });
 
 test('billing: paid term gives course access, grace period, then expiry', async () => {

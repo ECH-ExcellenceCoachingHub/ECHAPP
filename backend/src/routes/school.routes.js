@@ -22,6 +22,7 @@ const learner = require('../controllers/school/learner.controller');
 const accessCodes = require('../controllers/school/access.controller');
 const groups = require('../controllers/school/groups.controller');
 const year = require('../controllers/school/year.controller');
+const studentReports = require('../controllers/school/studentReports.controller');
 
 const superAdmin = [protect, authorize('admin')];
 const managers = [protect, authorize('admin', 'school_admin')];
@@ -57,6 +58,7 @@ router.patch('/schools/:schoolId/coverage/:id', ...managers, reports.reviewCover
 router.get('/schools/:schoolId/teachers/:userId/activity', ...managers, reports.teacherActivity);
 router.get('/schools/:schoolId/results', ...managers, reports.results);
 router.get('/schools/:schoolId/sign-ins', ...managers, reports.signIns);
+router.get('/schools/:schoolId/report', ...managers, studentReports.schoolReport);
 
 // Classes
 router.get('/schools/:schoolId/classes', ...staff, classes.listClasses);
@@ -68,6 +70,7 @@ router.post('/school/classes/:classId/subjects', ...managers, classes.addSubject
 router.patch('/school/class-subjects/:id', ...managers, classes.updateSubject);
 router.delete('/school/class-subjects/:id', ...managers, classes.removeSubject);
 router.post('/school/classes/:classId/login-cards', ...staff, year.loginCards);
+router.get('/school/classes/:classId/report', ...staff, studentReports.classReport);
 
 // Year-end promotion
 router.get('/schools/:schoolId/promotion/preview', ...managers, year.promotionPreview);
@@ -83,6 +86,7 @@ router.post('/schools/:schoolId/students', ...staff, members.addStudent);
 router.post('/schools/:schoolId/students/import', ...staff, members.importStudents);
 router.post('/schools/:schoolId/students/:userId/enroll', ...staff, members.enrollExistingStudent);
 router.get('/schools/:schoolId/members/:userId', ...staff, members.getMember);
+router.get('/schools/:schoolId/students/:userId/report', ...staff, studentReports.studentReport);
 router.patch('/schools/:schoolId/members/:userId', ...staff, members.updateMember);
 router.post('/schools/:schoolId/members/:userId/reset-credentials', ...staff, members.resetCredentials);
 router.get('/schools/:schoolId/parents', ...managers, members.listParents);

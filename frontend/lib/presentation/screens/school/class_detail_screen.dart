@@ -5,8 +5,10 @@ import '../../../config/app_theme.dart';
 import '../../../services/api/school_service.dart';
 import '../../../services/api/teacher_tools_service.dart' show saveAndOpenDocument;
 import '../../../widgets/school/login_cards_pdf.dart';
+import '../../../widgets/school/school_reports_pdf.dart';
 import '../../../widgets/school/pickers.dart';
 import '../../../widgets/school/school_ui.dart';
+import 'student_detail_screen.dart';
 import 'student_form_screen.dart';
 
 /// One class: roster and subjects. Used by the school admin (everything),
@@ -69,6 +71,22 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
     if (done == true) _load();
   }
 
+  /// Admin and class teacher: everything about one student, with a PDF.
+  Future<void> _openStudent(Map<String, dynamic> s) async {
+    final changed = await Navigator.of(context).push<bool>(MaterialPageRoute(
+      builder: (_) => StudentDetailScreen(
+        schoolId: _schoolId,
+        studentId: '${s['id']}',
+        name: '${s['fullName']}',
+        onEdit: () async =>
+            await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => StudentFormScreen(schoolId: _schoolId, existing: s, fixedClass: {'id': _class['id'], 'name': _class['name']}))) == true,
+      ),
+    ));
+    if (changed == true) _load();
+  }
+
+  void _classReport() => downloadClassReport(context, _svc, classId: '${_class['id']}', className: '${_class['name']}');
+
   Future<void> _setClassTeacher() async {
     final t = await pickTeacher(context, _svc, _schoolId, title: 'Class teacher of ${_class['name']}');
     if (t == null) return;
@@ -100,6 +118,10 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
               IconButton(tooltip: trSchool(context, 'Class code'), onPressed: () => context.push('/school/code?classId=${_class['id']}'), icon: const Icon(Icons.pin_outlined))
             else
               TextButton.icon(onPressed: () => context.push('/school/code?classId=${_class['id']}'), icon: const Icon(Icons.pin_outlined), label: const T('Class code')),
+            if (_canRoster)
+              narrow
+                  ? IconButton(tooltip: trSchool(context, 'Class report (PDF)'), onPressed: _classReport, icon: const Icon(Icons.picture_as_pdf_outlined))
+                  : TextButton.icon(onPressed: _classReport, icon: const Icon(Icons.picture_as_pdf_outlined), label: const T('Class report (PDF)')),
             if (_isAdmin)
               PopupMenuButton<String>(
                 onSelected: (v) async {
@@ -196,6 +218,7 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
                     StatusPill('Parent: ${(students[i]['guardians'] as List).first['name'] ?? (students[i]['guardians'] as List).first['phone'] ?? ''}', tone: Tone.neutral, icon: Icons.family_restroom_outlined),
                 ],
                 trailing: _canRoster ? _studentMenu(students[i]) : null,
+                onTap: _canRoster ? () => _openStudent(students[i]) : null,
               ),
             ],
           ]),
@@ -205,7 +228,9 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
 
   Widget _studentMenu(Map<String, dynamic> s) => PopupMenuButton<String>(
         onSelected: (v) async {
-          if (v == 'edit') {
+          if (v == 'view') {
+            _openStudent(s);
+          } else if (v == 'edit') {
             final ok = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => StudentFormScreen(schoolId: _schoolId, existing: s, fixedClass: {'id': _class['id'], 'name': _class['name']})));
             if (ok == true) _load();
           } else if (v == 'pin') {
@@ -244,6 +269,7 @@ class _ClassDetailScreenState extends State<ClassDetailScreen> {
           }
         },
         itemBuilder: (_) => [
+          const PopupMenuItem(value: 'view', child: T('View details')),
           const PopupMenuItem(value: 'edit', child: T('Edit details')),
           const PopupMenuItem(value: 'pin', child: T('New PIN')),
           if (_isAdmin) const PopupMenuItem(value: 'move', child: T('Move to another class')),

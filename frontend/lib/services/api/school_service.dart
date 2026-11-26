@@ -184,6 +184,16 @@ class SchoolService {
   Future<Map<String, dynamic>> teacherActivity(String schoolId, String userId, {int days = 30}) =>
       _get('/schools/$schoolId/teachers/$userId/activity', {'days': days});
   Future<Map<String, dynamic>> results(String schoolId, String classId) => _get('/schools/$schoolId/results', {'classId': classId});
+
+  /// Full details of one student (profile, parents, marks, homework, exams, sign-ins).
+  /// School admin or the class teacher of the student.
+  Future<Map<String, dynamic>> studentReport(String schoolId, String userId) => _get('/schools/$schoolId/students/$userId/report');
+
+  /// Class report: every student with averages, hand-ins and exams (school admin or class teacher).
+  Future<Map<String, dynamic>> classReport(String classId) => _get('/school/classes/$classId/report');
+
+  /// Whole-school report, class by class (school admin).
+  Future<Map<String, dynamic>> schoolReport([String schoolId = 'me']) => _get('/schools/$schoolId/report');
   Future<Map<String, dynamic>> signIns(String schoolId, {bool suspiciousOnly = false, String? userId, int page = 1}) =>
       _get('/schools/$schoolId/sign-ins', {'suspicious': suspiciousOnly ? 'true' : null, 'userId': userId, 'page': page});
 

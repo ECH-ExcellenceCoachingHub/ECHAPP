@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../config/app_theme.dart';
 import '../../../../services/api/school_service.dart';
+import '../../../../widgets/school/school_reports_pdf.dart';
 import '../../../../widgets/school/school_ui.dart';
 import '../school_admin_dashboard_screen.dart';
 
@@ -64,6 +65,14 @@ class _ResultsSectionState extends State<ResultsSection> {
         decoration: const InputDecoration(labelText: 'Class', prefixIcon: Icon(Icons.meeting_room_outlined)),
         items: [for (final c in _classes!) DropdownMenuItem(value: '${c['id']}', child: T('${c['name']}'))],
         onChanged: (v) => v == null ? null : _pick(v),
+      ),
+      ActionBar(
+        primary: BarAction('Class report (PDF)', Icons.picture_as_pdf_outlined, _classId == null
+            ? null
+            : () => downloadClassReport(context, widget.c.svc, classId: _classId!, className: '${_classes!.firstWhere((c) => '${c['id']}' == _classId, orElse: () => {'name': 'class'})['name']}')),
+        more: [
+          BarAction('School report (PDF)', Icons.download_outlined, () => downloadSchoolReport(context, widget.c.svc, schoolId: widget.c.schoolId, schoolName: '${widget.c.school['name'] ?? 'school'}')),
+        ],
       ),
       if (_loading)
         const Padding(padding: EdgeInsets.all(40), child: Center(child: CircularProgressIndicator()))

@@ -9,6 +9,7 @@ import 'dart:ui' as ui;
 import 'package:excellencecoachinghub/presentation/screens/auth/school_sign_in_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/school/class_code_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/school/class_detail_screen.dart';
+import 'package:excellencecoachinghub/presentation/screens/school/student_detail_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/school/parent_screens.dart';
 import 'package:excellencecoachinghub/presentation/screens/school/student_form_screen.dart';
 import 'package:excellencecoachinghub/presentation/screens/school/student_school_screens.dart';
@@ -60,6 +61,7 @@ class _FakeApi extends ApiClient {
     for (final e in ends.entries) {
       if (path.endsWith(e.key)) name = e.value;
     }
+    if (RegExp(r'/students/[^/]+/report$').hasMatch(path)) name = 'student_report';
     if (name != null) {
       // matched above
     } else if (RegExp(r'/school/teaching/assessments/[^/]+$').hasMatch(path)) {
@@ -170,6 +172,7 @@ void main() {
     'admin_students': () => _section(StudentsSection(c: _ctx())),
     'admin_access': () => _section(AccessSection(c: _ctx())),
     'class_detail': () => const ClassDetailScreen(classId: 'c1'),
+    'student_detail': () => const StudentDetailScreen(schoolId: 's1', studentId: 'u1'),
     'class_code': () => const ClassCodeScreen(classId: 'c1'),
     'teacher_classes': () => const MyClassesScreen(),
     'student_form': () => const StudentFormScreen(schoolId: 's1'),

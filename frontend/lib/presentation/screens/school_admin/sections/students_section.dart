@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../../services/api/school_service.dart';
+import '../../../../widgets/school/school_reports_pdf.dart';
 import '../../../../widgets/school/school_ui.dart';
 import '../../school/class_detail_screen.dart';
+import '../../school/student_detail_screen.dart';
 import '../../school/student_form_screen.dart';
 import '../school_admin_dashboard_screen.dart';
 
@@ -100,7 +102,10 @@ class _StudentsSectionState extends State<StudentsSection> {
       ]),
       ActionBar(
         primary: BarAction('Register student', Icons.person_add_alt_1_outlined, _register),
-        more: [BarAction('Import a list', Icons.playlist_add_outlined, _import)],
+        more: [
+          BarAction('Import a list', Icons.playlist_add_outlined, _import),
+          BarAction('School report (PDF)', Icons.picture_as_pdf_outlined, () => downloadSchoolReport(context, widget.c.svc, schoolId: widget.c.schoolId, schoolName: '${widget.c.school['name'] ?? 'school'}')),
+        ],
       ),
       SectionCard(
         padding: const EdgeInsets.all(12),
@@ -154,6 +159,9 @@ class _StudentsSectionState extends State<StudentsSection> {
     ]);
   }
 
+  Future<bool> Function() _editFn(Map<String, dynamic> s) => () async =>
+      await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => StudentFormScreen(schoolId: widget.c.schoolId, existing: s, classes: _classes))) == true;
+
   Widget _tile(Map<String, dynamic> s) {
     final g = (s['guardians'] as List?) ?? const [];
     return EntityTile(
@@ -166,14 +174,21 @@ class _StudentsSectionState extends State<StudentsSection> {
         if (s['isActive'] == false) const StatusPill('Removed', tone: Tone.bad),
       ],
       onTap: () async {
-        final ok = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => StudentFormScreen(schoolId: widget.c.schoolId, existing: s, classes: _classes)));
-        if (ok == true) _load();
+        final changed = await Navigator.of(context).push<bool>(MaterialPageRoute(builder: (_) => StudentDetailScreen(
+              schoolId: widget.c.schoolId,
+              studentId: '${s['id']}',
+              name: '${s['fullName']}',
+              onEdit: _editFn(s),
+            )));
+        if (changed == true) _load();
       },
       trailing: PopupMenuButton<String>(
         onSelected: (v) async {
           final svc = widget.c.svc;
           try {
-            if (v == 'pin') {
+            if (v == 'edit') {
+              if (await _editFn(s)()) _load();
+            } else if (v == 'pin') {
               if (!await confirm(context, title: 'New PIN for ${s['fullName']}?', message: 'The old PIN stops working and the student is signed out everywhere.', confirmLabel: 'Create new PIN')) return;
               final r = await svc.resetCredentials(widget.c.schoolId, '${s['id']}');
               final c = Map<String, dynamic>.from(r['credentials'] as Map);
@@ -198,6 +213,7 @@ class _StudentsSectionState extends State<StudentsSection> {
           }
         },
         itemBuilder: (_) => [
+          const PopupMenuItem(value: 'edit', child: T('Edit details')),
           const PopupMenuItem(value: 'pin', child: T('New PIN')),
           const PopupMenuItem(value: 'move', child: T('Change class')),
           PopupMenuItem(value: 'toggle', child: Text(s['isActive'] == false ? 'Reactivate' : 'Remove from school')),

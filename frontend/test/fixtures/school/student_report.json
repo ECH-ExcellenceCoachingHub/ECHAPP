@@ -1,0 +1,152 @@
+{
+ "success": true,
+ "data": {
+  "generatedAt": "2026-11-26T10:00:00Z",
+  "school": {
+   "id": "s1",
+   "name": "Groupe Scolaire Butare"
+  },
+  "student": {
+   "id": "u1",
+   "fullName": "Aline Mukamana Uwimana Ndayishimiye",
+   "studentCode": "GSB260001",
+   "gender": "female",
+   "dateOfBirth": "2011-03-02",
+   "guardians": [
+    {
+     "name": "Paul Habimana Nkurunziza",
+     "phone": "0788123456",
+     "relationship": "father",
+     "hasAccount": true
+    },
+    {
+     "name": "Grace",
+     "phone": null,
+     "hasAccount": false
+    }
+   ],
+   "address": {
+    "province": "Southern",
+    "district": "Huye",
+    "sector": "Ngoma",
+    "cell": "Butare",
+    "village": "Taba"
+   },
+   "isActive": true,
+   "lastActive": "2026-11-25T08:00:00Z",
+   "createdAt": "2026-01-10T08:00:00Z",
+   "classroom": {
+    "id": "c1",
+    "name": "S6 MPC A"
+   }
+  },
+  "classroom": {
+   "id": "c1",
+   "name": "S6 MPC A",
+   "level": "S6",
+   "academicYear": "2026",
+   "classTeacher": {
+    "fullName": "Musa Habimana",
+    "phone": "0788000000"
+   }
+  },
+  "subjects": [
+   {
+    "id": "cs1",
+    "subject": "Mathematics",
+    "teacher": {
+     "fullName": "Marie Maths"
+    },
+    "lessonsTaught": 12,
+    "syllabusLessons": 40,
+    "average": 82
+   },
+   {
+    "id": "cs2",
+    "subject": "Physics",
+    "teacher": null,
+    "lessonsTaught": 0,
+    "syllabusLessons": 0,
+    "average": null
+   },
+   {
+    "id": "cs3",
+    "subject": "Computer Science",
+    "teacher": {
+     "fullName": "Jean"
+    },
+    "lessonsTaught": 5,
+    "average": 45
+   }
+  ],
+  "assessments": [
+   {
+    "id": "a1",
+    "subject": "Mathematics",
+    "type": "homework",
+    "title": "Fractions and decimals worksheet with a long title",
+    "dueAt": "2026-11-20",
+    "maxScore": 20,
+    "state": "graded",
+    "score": 16,
+    "percent": 80,
+    "isLate": true,
+    "feedback": "Good work, show your steps",
+    "submittedVia": "parent"
+   },
+   {
+    "id": "a2",
+    "subject": "Physics",
+    "type": "quiz",
+    "title": "Forces",
+    "dueAt": "2026-11-18",
+    "maxScore": 10,
+    "state": "missing"
+   },
+   {
+    "id": "a3",
+    "subject": "Computer Science",
+    "type": "exam",
+    "title": "Mid-term",
+    "dueAt": "2026-12-01",
+    "maxScore": 50,
+    "state": "pending"
+   }
+  ],
+  "exams": [
+   {
+    "title": "S6 Mathematics mock exam",
+    "score": 45,
+    "maxScore": 60,
+    "percentage": 75,
+    "completedAt": "2026-11-01"
+   }
+  ],
+  "stats": {
+   "average": 64,
+   "given": 3,
+   "handedIn": 1,
+   "expected": 2,
+   "missing": 1,
+   "late": 1,
+   "waitingForMark": 0,
+   "handInRate": 50,
+   "examCount": 1,
+   "examAverage": 75
+  },
+  "signIns": [
+   {
+    "at": "2026-11-25T08:00:00Z",
+    "success": true,
+    "method": "pin",
+    "suspicious": true
+   },
+   {
+    "at": "2026-11-24T08:00:00Z",
+    "success": false,
+    "method": "pin",
+    "reason": "Wrong PIN entered here"
+   }
+  ]
+ }
+}
