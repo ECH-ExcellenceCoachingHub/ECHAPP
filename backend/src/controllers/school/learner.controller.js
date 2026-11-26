@@ -32,7 +32,7 @@ async function studentOverview(student, { forParent = false } = {}) {
     student.classroomId ? ClassSubject.find({ classroomId: student.classroomId, isActive: true }).populate('teacherId', 'fullName').sort({ subject: 1 }).lean() : [],
   ]);
   const assessments = classroom
-    ? await Assessment.find({ classroomId: classroom._id, createdAt: { $gte: new Date(Date.now() - 180 * DAY) } }).populate('teacherId', 'fullName').sort({ dueAt: 1 }).lean()
+    ? await Assessment.find({ classroomId: classroom._id, createdAt: { $gte: new Date(Date.now() - 180 * DAY) }, ...Assessment.visibleTo(student._id) }).populate('teacherId', 'fullName').sort({ dueAt: 1 }).lean()
     : [];
   const subs = await AssessmentSubmission.find({ studentId: student._id, assessmentId: { $in: assessments.map((a) => a._id) } }).lean();
   const subMap = new Map(subs.map((s) => [String(s.assessmentId), s]));
@@ -143,7 +143,7 @@ const studentHome = wrap(async (req, res) => {
 async function loadAssessmentOf(student, id) {
   requireId(id, 'id');
   const a = await Assessment.findById(id).populate('teacherId', 'fullName');
-  if (!a || String(a.classroomId) !== String(student.classroomId)) throw new HttpError('Homework not found', 404);
+  if (!a || String(a.classroomId) !== String(student.classroomId) || !a.isFor(student._id)) throw new HttpError('Homework not found', 404);
   return a;
 }
 

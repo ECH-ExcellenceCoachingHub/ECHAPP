@@ -199,7 +199,7 @@ async function recordOnSchoolHomework(userId, result) {
   if (!result.externalExamId) return;
   const student = await User.findById(userId).select('role schoolId classroomId').lean();
   if (!student || student.role !== 'student' || !student.classroomId) return;
-  const list = await Assessment.find({ classroomId: student.classroomId, eexamsExamId: result.externalExamId }).lean();
+  const list = await Assessment.find({ classroomId: student.classroomId, eexamsExamId: result.externalExamId, ...Assessment.visibleTo(student._id) }).lean();
   for (const a of list) {
     const existing = await AssessmentSubmission.findOne({ assessmentId: a._id, studentId: userId }).lean();
     if (existing && existing.status === 'graded' && existing.submittedVia !== 'eexams') continue;

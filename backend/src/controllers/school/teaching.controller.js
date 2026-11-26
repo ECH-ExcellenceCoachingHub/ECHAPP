@@ -234,6 +234,8 @@ function assessmentView(a, extra = {}) {
     allowLate: a.allowLate,
     eexamsExamId: a.eexamsExamId || null,
     eexamsPath: a.eexamsPath || null,
+    // 0 = whole class; otherwise the number of chosen students.
+    forStudents: a.studentIds?.length || 0,
     status: a.status,
     createdAt: a.createdAt,
     ...extra,
@@ -258,6 +260,18 @@ function submissionView(s) {
     // 'student', 'parent' (handed in from the parent's account) or 'eexams' (exam result).
     submittedVia: s.submittedVia || 'student',
   };
+}
+
+/**
+ * The chosen students, checked to be active members of the class. An empty
+ * or missing list means the whole class (returns []).
+ */
+async function classStudentIds(cs, ids) {
+  if (!Array.isArray(ids) || !ids.length) return [];
+  const wanted = [...new Set(ids.map(String))].filter((id) => /^[a-f0-9]{24}$/i.test(id)).slice(0, 500);
+  const found = await User.find({ _id: { $in: wanted }, classroomId: cs.classroomId._id, role: 'student', isActive: true }).select('_id').lean();
+  if (!found.length) throw new HttpError('None of the chosen students are in this class.');
+  return found.map((s) => s._id);
 }
 
 /**
@@ -297,9 +311,14 @@ async function createAssessmentFor(teacher, cs, b = {}) {
     coverageId,
     eexamsExamId: b.eexamsExamId ? String(b.eexamsExamId) : null,
     eexamsPath: b.eexamsExamId ? eexamsStartPath(b.eexamsExamId) : null,
+    studentIds: await classStudentIds(cs, b.studentIds),
   });
 
-  const students = await User.find({ classroomId: cs.classroomId._id, role: 'student', isActive: true }).select('_id guardians').lean();
+  // Tell only the students it is for (everyone when it's for the whole class).
+  const students = await User.find({
+    classroomId: cs.classroomId._id, role: 'student', isActive: true,
+    ...(a.studentIds.length ? { _id: { $in: a.studentIds } } : {}),
+  }).select('_id guardians').lean();
   const label = type === 'homework' ? 'New homework' : type === 'quiz' ? 'New quiz' : 'New exam';
   const due = dueAt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
   await notifyUsers(students.map((s) => s._id), { title: `${label}: ${cs.subject}`, message: `${title} — due ${due}`, type: 'homework', data: { kind: 'assessment', assessmentId: String(a._id), route: `/school/homework/${a._id}` } });
@@ -328,7 +347,7 @@ const listAssessments = wrap(async (req, res) => {
     classSize,
     assessments: list.map((a) => {
       const s = sm.get(String(a._id)) || {};
-      return assessmentView(a, { submitted: s.submitted || 0, graded: s.graded || 0, averageScore: s.avg != null ? Math.round(s.avg * 10) / 10 : null, classSize });
+      return assessmentView(a, { submitted: s.submitted || 0, graded: s.graded || 0, averageScore: s.avg != null ? Math.round(s.avg * 10) / 10 : null, classSize: a.studentIds?.length || classSize });
     }),
   });
 });
@@ -349,7 +368,10 @@ async function loadAssessmentForStaff(req, { teach = false } = {}) {
 const getAssessment = wrap(async (req, res) => {
   const a = await loadAssessmentForStaff(req);
   const [students, subs] = await Promise.all([
-    User.find({ classroomId: a.classroomId._id, role: 'student', isActive: true }).select('fullName studentCode').sort({ fullName: 1 }).lean(),
+    User.find({
+      classroomId: a.classroomId._id, role: 'student', isActive: true,
+      ...(a.studentIds?.length ? { _id: { $in: a.studentIds } } : {}),
+    }).select('fullName studentCode').sort({ fullName: 1 }).lean(),
     AssessmentSubmission.find({ assessmentId: a._id }).populate('studentId', 'fullName studentCode').lean(),
   ]);
   const byStudent = new Map(subs.map((s) => [String(s.studentId._id || s.studentId), s]));
@@ -412,6 +434,6 @@ const gradeSubmission = wrap(async (req, res) => {
 
 module.exports = {
   myTeaching, syllabus, markTaught, unmarkTaught,
-  createAssessment, createAssessmentFor, eexamsStartPath, listAssessments, getAssessment, updateAssessment, deleteAssessment, gradeSubmission,
+  createAssessment, createAssessmentFor, classStudentIds, guardianIds, eexamsStartPath, listAssessments, getAssessment, updateAssessment, deleteAssessment, gradeSubmission,
   assessmentView, submissionView, coverageView, cleanAttachments,
 };

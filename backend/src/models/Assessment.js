@@ -29,9 +29,22 @@ const assessmentSchema = new mongoose.Schema({
   eexamsExamId: { type: String, default: null },
   eexamsPath: { type: String, default: null },
 
+  // Who it is for: empty = the whole class; otherwise only these students
+  // (e.g. an eexams exam the teacher sent to chosen students).
+  studentIds: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], default: [] },
+
   status: { type: String, enum: ['published', 'closed'], default: 'published', index: true },
 }, { timestamps: true });
 
 assessmentSchema.index({ classroomId: 1, dueAt: -1 });
+
+/** Mongo filter: assessments a given student can see (whole-class ones and the ones aimed at them). */
+assessmentSchema.statics.visibleTo = function (studentId) {
+  return { $or: [{ studentIds: { $exists: false } }, { studentIds: { $size: 0 } }, { studentIds: studentId }] };
+};
+
+assessmentSchema.methods.isFor = function (studentId) {
+  return !this.studentIds?.length || this.studentIds.some((id) => String(id) === String(studentId));
+};
 
 module.exports = mongoose.model('Assessment', assessmentSchema);
