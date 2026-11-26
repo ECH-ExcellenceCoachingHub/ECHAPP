@@ -16,6 +16,7 @@ const EexamsSsoCode = require('../../models/EexamsSsoCode');
 const ExternalExamResult = require('../../models/ExternalExamResult');
 const Notification = require('../../models/Notification');
 const Assessment = require('../../models/Assessment');
+const Classroom = require('../../models/Classroom');
 const AssessmentSubmission = require('../../models/AssessmentSubmission');
 
 const CODE_TTL_MS = 60 * 1000;
@@ -87,6 +88,7 @@ async function exchangeCode(code) {
   if (!user || !user.isActive) return null;
 
   return {
+    ...(await classInfo(user)),
     echUserId: String(user._id),
     email: user.email || null,
     emailVerified: await isEmailVerified(user),
@@ -96,6 +98,17 @@ async function exchangeCode(code) {
     role: user.role,
     redirect: record.redirect,
   };
+}
+
+/**
+ * A school student's class level ("S3", "P6", "L4") and combination, so eexams
+ * can show them only their class's exams. Empty for learners without a class.
+ */
+async function classInfo(user) {
+  if (user.role !== 'student' || !user.classroomId) return {};
+  const room = await Classroom.findById(user.classroomId).select('level combination').lean();
+  if (!room?.level) return {};
+  return { classLevel: room.level, classCombination: room.combination || null };
 }
 
 function verifyWebhook(req) {
