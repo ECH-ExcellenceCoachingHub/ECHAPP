@@ -4,6 +4,8 @@ const {
   createBook,
   getAllBooks,
   getAllBooksForAdmin,
+  getBookForAdmin,
+  bulkBookAction,
   getBookById,
   getBooksByCourse,
   updateBook,
@@ -12,6 +14,11 @@ const {
 } = require('../controllers/book.controller');
 const { protect } = require('../middleware/auth.middleware');
 const { authorize } = require('../middleware/role.middleware');
+
+// Admin routes (declared before /:id so they are not swallowed by it)
+router.get('/admin/all', protect, authorize('admin'), getAllBooksForAdmin);
+router.get('/admin/:id', protect, authorize('admin'), getBookForAdmin);
+router.post('/admin/bulk', protect, authorize('admin'), bulkBookAction);
 
 // Public route to get all published books (for library)
 router.get('/', getAllBooks);
@@ -25,7 +32,6 @@ router.get('/:id', getBookById);
 // Admin routes
 router.post('/upload-files', protect, authorize('admin'), uploadBookFiles);
 router.post('/', protect, authorize('admin'), createBook);
-router.get('/admin/all', protect, authorize('admin'), getAllBooksForAdmin);
 router.put('/:id', protect, authorize('admin'), updateBook);
 router.delete('/:id', protect, authorize('admin'), deleteBook);
 

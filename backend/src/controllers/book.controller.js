@@ -6,7 +6,7 @@ const pdfParse = require('pdf-parse');
 // Create a new book
 const createBook = async (req, res) => {
   try {
-    const { title, author, description, language, subject, academicCategory, pdfUrl, pdfS3Key, coverUrl, coverS3Key, fileSize, pages, relatedCourses, textContent } = req.body;
+    const { title, author, description, language, subject, academicCategory, pdfUrl, pdfS3Key, coverUrl, coverS3Key, fileSize, pages, relatedCourses, textContent, isPublished } = req.body;
 
     // Validate required fields
     if (!title || !author || !pdfUrl || !pdfS3Key) {
@@ -29,7 +29,7 @@ const createBook = async (req, res) => {
       fileSize,
       pages,
       textContent,
-      isPublished: true
+      isPublished: isPublished === undefined ? true : !!isPublished
     });
 
     sendSuccess(res, book, 'Book created successfully');
@@ -83,33 +83,154 @@ const getAllBooks = async (req, res) => {
   }
 };
 
-// Get all books for admin (including unpublished)
+// Escape user text for use inside a RegExp
+const escapeRegex = (str) => String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const ADMIN_SORTS = {
+  newest: { createdAt: -1 },
+  oldest: { createdAt: 1 },
+  updated: { updatedAt: -1 },
+  title: { title: 1 },
+  author: { author: 1 },
+  downloads: { downloadCount: -1 },
+};
+
+const safeDeleteS3 = async (key) => {
+  if (!key) return;
+  try {
+    await s3Service.deleteFile(key);
+  } catch (e) {
+    console.error('Failed to delete S3 object', key, e.message);
+  }
+};
+
+// Get all books for admin (including unpublished), with search, filters,
+// sorting, pagination and summary stats.
 const getAllBooksForAdmin = async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const { search, subject, language, status, courseId, academicCategory, sort } = req.query;
+
+    const query = {};
+    if (search && search.trim()) {
+      const rx = new RegExp(escapeRegex(search.trim()), 'i');
+      query.$or = [{ title: rx }, { author: rx }, { subject: rx }, { description: rx }, { academicCategory: rx }];
+    }
+    if (subject && subject !== 'All') query.subject = subject;
+    if (language && language !== 'All') query.language = language;
+    if (academicCategory && academicCategory !== 'All') query.academicCategory = academicCategory;
+    if (status === 'published') query.isPublished = true;
+    if (status === 'draft') query.isPublished = false;
+    if (status === 'nocover') query.$and = [{ $or: [{ coverUrl: null }, { coverUrl: '' }] }];
+    if (courseId === 'none') {
+      query.relatedCourses = { $size: 0 };
+    } else if (courseId && courseId !== 'All') {
+      query.relatedCourses = courseId;
+    }
 
     const skip = (page - 1) * limit;
 
-    const books = await Book.find()
-      .populate('uploadedBy', 'fullName email')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+    const [books, total, statsAgg, subjects, categories] = await Promise.all([
+      Book.find(query)
+        .select('-textContent')
+        .populate('uploadedBy', 'fullName email')
+        .populate('relatedCourses', 'title thumbnail level')
+        .sort(ADMIN_SORTS[sort] || ADMIN_SORTS.newest)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Book.countDocuments(query),
+      Book.aggregate([
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            published: { $sum: { $cond: ['$isPublished', 1, 0] } },
+            downloads: { $sum: { $ifNull: ['$downloadCount', 0] } },
+            totalSize: { $sum: { $ifNull: ['$fileSize', 0] } },
+            withoutCover: { $sum: { $cond: [{ $gt: [{ $strLenCP: { $ifNull: ['$coverUrl', ''] } }, 0] }, 0, 1] } },
+          },
+        },
+      ]),
+      Book.distinct('subject'),
+      Book.distinct('academicCategory'),
+    ]);
 
-    const total = await Book.countDocuments();
+    const st = statsAgg[0] || { total: 0, published: 0, downloads: 0, totalSize: 0, withoutCover: 0 };
 
     sendSuccess(res, {
       books,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page,
+        limit,
         total,
-        pages: Math.ceil(total / limit)
-      }
+        pages: Math.max(1, Math.ceil(total / limit)),
+      },
+      stats: {
+        total: st.total,
+        published: st.published,
+        drafts: st.total - st.published,
+        downloads: st.downloads,
+        totalSize: st.totalSize,
+        withoutCover: st.withoutCover,
+      },
+      subjects: subjects.filter(Boolean).sort((a, b) => a.localeCompare(b)),
+      academicCategories: categories.filter(Boolean).sort((a, b) => a.localeCompare(b)),
     }, 'Books retrieved successfully');
   } catch (error) {
     console.error('Get all books for admin error:', error);
     sendError(res, 'Failed to retrieve books', 500, error.message);
+  }
+};
+
+// Get one book for admin (full record, does not count as a download)
+const getBookForAdmin = async (req, res) => {
+  try {
+    const book = await Book.findById(req.params.id)
+      .populate('uploadedBy', 'fullName email')
+      .populate('relatedCourses', 'title thumbnail level');
+    if (!book) return sendError(res, 'Book not found', 404);
+    sendSuccess(res, book, 'Book retrieved successfully');
+  } catch (error) {
+    console.error('Get book for admin error:', error);
+    sendError(res, 'Failed to retrieve book', 500, error.message);
+  }
+};
+
+// Bulk publish / unpublish / delete
+const bulkBookAction = async (req, res) => {
+  try {
+    const { ids, action } = req.body || {};
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return sendError(res, 'No books selected', 400);
+    }
+    if (ids.length > 200) {
+      return sendError(res, 'Too many books selected (max 200)', 400);
+    }
+
+    if (action === 'publish' || action === 'unpublish') {
+      const result = await Book.updateMany(
+        { _id: { $in: ids } },
+        { $set: { isPublished: action === 'publish' } }
+      );
+      return sendSuccess(res, { modified: result.modifiedCount }, `Books ${action === 'publish' ? 'published' : 'unpublished'}`);
+    }
+
+    if (action === 'delete') {
+      const books = await Book.find({ _id: { $in: ids } }).select('pdfS3Key coverS3Key');
+      for (const b of books) {
+        await safeDeleteS3(b.pdfS3Key);
+        await safeDeleteS3(b.coverS3Key);
+      }
+      const result = await Book.deleteMany({ _id: { $in: ids } });
+      return sendSuccess(res, { deleted: result.deletedCount }, 'Books deleted');
+    }
+
+    sendError(res, 'Unknown action', 400);
+  } catch (error) {
+    console.error('Bulk book action error:', error);
+    sendError(res, 'Failed to apply bulk action', 500, error.message);
   }
 };
 
@@ -133,10 +254,15 @@ const getBookById = async (req, res) => {
   }
 };
 
-// Update a book
+// Update a book: every editable field, including replacing the PDF / cover,
+// removing the cover and changing related courses.
 const updateBook = async (req, res) => {
   try {
-    const { title, author, description, language, subject, academicCategory, coverUrl, coverS3Key, isPublished, pages } = req.body;
+    const {
+      title, author, description, language, subject, academicCategory,
+      coverUrl, coverS3Key, isPublished, pages, relatedCourses,
+      pdfUrl, pdfS3Key, fileSize, textContent,
+    } = req.body;
 
     const book = await Book.findById(req.params.id);
 
@@ -144,21 +270,54 @@ const updateBook = async (req, res) => {
       return sendError(res, 'Book not found', 404);
     }
 
-    // Update fields
-    if (title) book.title = title;
-    if (author) book.author = author;
+    if (title !== undefined) {
+      if (!String(title).trim()) return sendError(res, 'Title cannot be empty', 400);
+      book.title = title;
+    }
+    if (author !== undefined) {
+      if (!String(author).trim()) return sendError(res, 'Author cannot be empty', 400);
+      book.author = author;
+    }
+    if (subject !== undefined) {
+      if (!String(subject).trim()) return sendError(res, 'Subject cannot be empty', 400);
+      book.subject = subject;
+    }
     if (description !== undefined) book.description = description;
     if (language) book.language = language;
-    if (subject) book.subject = subject;
-    if (academicCategory !== undefined) book.academicCategory = academicCategory;
-    if (coverUrl !== undefined) book.coverUrl = coverUrl;
-    if (coverS3Key !== undefined) book.coverS3Key = coverS3Key;
-    if (isPublished !== undefined) book.isPublished = isPublished;
-    if (pages !== undefined) book.pages = pages;
+    if (academicCategory !== undefined) book.academicCategory = academicCategory || undefined;
+    if (isPublished !== undefined) book.isPublished = !!isPublished;
+    if (pages !== undefined) {
+      const n = pages === null || pages === '' ? null : parseInt(pages, 10);
+      book.pages = Number.isFinite(n) && n > 0 ? n : null;
+    }
+    if (Array.isArray(relatedCourses)) {
+      book.relatedCourses = [...new Set(relatedCourses.map(String))];
+    }
+
+    // Cover replaced or removed: clean up the old file
+    const oldCoverKey = book.coverS3Key;
+    if (coverUrl !== undefined) {
+      book.coverUrl = coverUrl || null;
+      book.coverS3Key = coverUrl ? (coverS3Key || null) : null;
+      if (oldCoverKey && oldCoverKey !== book.coverS3Key) await safeDeleteS3(oldCoverKey);
+    }
+
+    // PDF replaced: swap file metadata and clean up the old file
+    if (pdfUrl && pdfS3Key && pdfS3Key !== book.pdfS3Key) {
+      const oldPdfKey = book.pdfS3Key;
+      book.pdfUrl = pdfUrl;
+      book.pdfS3Key = pdfS3Key;
+      if (fileSize !== undefined) book.fileSize = fileSize || 0;
+      if (textContent !== undefined) book.textContent = textContent || null;
+      await safeDeleteS3(oldPdfKey);
+    }
 
     await book.save();
+    await book.populate('relatedCourses', 'title thumbnail level');
 
-    sendSuccess(res, book, 'Book updated successfully');
+    const out = book.toObject();
+    delete out.textContent;
+    sendSuccess(res, out, 'Book updated successfully');
   } catch (error) {
     console.error('Update book error:', error);
     sendError(res, 'Failed to update book', 500, error.message);
@@ -261,27 +420,31 @@ const uploadBookFiles = async (req, res) => {
       const pdfFile = req.files['pdf'] ? req.files['pdf'][0] : null;
       const coverFile = req.files['cover'] ? req.files['cover'][0] : null;
 
-      if (!pdfFile) {
-        return sendError(res, 'PDF file is required', 400);
+      if (!pdfFile && !coverFile) {
+        return sendError(res, 'A PDF or a cover image is required', 400);
       }
 
       try {
         // Extract text from PDF
         let extractedText = null;
-        try {
-          const pdfData = await pdfParse(pdfFile.buffer);
-          extractedText = pdfData.text;
-        } catch (pdfError) {
-          console.error('PDF text extraction failed:', pdfError);
-          // Continue without text extraction
-        }
+        let pageCount = null;
+        let pdfResult = null;
+        if (pdfFile) {
+          try {
+            const pdfData = await pdfParse(pdfFile.buffer);
+            extractedText = pdfData.text;
+            pageCount = pdfData.numpages || null;
+          } catch (pdfError) {
+            console.error('PDF text extraction failed:', pdfError);
+            // Continue without text extraction
+          }
 
-        // Upload PDF
-        const pdfResult = await s3Service.uploadDocument(
-          pdfFile.buffer,
-          pdfFile.originalname,
-          pdfFile.mimetype
-        );
+          pdfResult = await s3Service.uploadDocument(
+            pdfFile.buffer,
+            pdfFile.originalname,
+            'application/pdf'
+          );
+        }
 
         let coverResult = null;
         if (coverFile) {
@@ -293,11 +456,12 @@ const uploadBookFiles = async (req, res) => {
         }
 
         sendSuccess(res, {
-          pdfUrl: pdfResult.url,
-          pdfS3Key: pdfResult.key,
+          pdfUrl: pdfResult ? pdfResult.url : null,
+          pdfS3Key: pdfResult ? pdfResult.key : null,
           coverUrl: coverResult ? coverResult.url : null,
           coverS3Key: coverResult ? coverResult.key : null,
-          fileSize: pdfFile.size,
+          fileSize: pdfFile ? pdfFile.size : null,
+          pages: pageCount,
           textContent: extractedText
         }, 'Book files uploaded successfully');
       } catch (s3Error) {
@@ -315,6 +479,8 @@ module.exports = {
   createBook,
   getAllBooks,
   getAllBooksForAdmin,
+  getBookForAdmin,
+  bulkBookAction,
   getBookById,
   getBooksByCourse,
   updateBook,
