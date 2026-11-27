@@ -26,8 +26,16 @@ class S3Service {
 
   // Generate unique key for file storage
   generateFileKey(originalName, folder = 'uploads') {
-    const ext = path.extname(originalName);
-    const basename = path.basename(originalName, ext);
+    const name = String(originalName || 'file');
+    // Keep keys URL-safe: non-ASCII characters (accents, emoji, the narrow
+    // no-break space in macOS screenshot names, ...) break uploads and URLs.
+    const ext = path.extname(name).toLowerCase().replace(/[^a-z0-9.]/g, '');
+    const basename = path.basename(name, path.extname(name))
+      .normalize('NFKD')
+      .replace(/[^A-Za-z0-9._-]+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^[-.]+|[-.]+$/g, '')
+      .slice(0, 80) || 'file';
     const timestamp = Date.now();
     const randomString = crypto.randomBytes(8).toString('hex');
     return `${folder}/${basename}-${timestamp}-${randomString}${ext}`;
@@ -35,9 +43,10 @@ class S3Service {
 
   // Upload file to S3
   async uploadFile(buffer, originalName, contentType, folder = 'uploads') {
+    let key;
     try {
-      const key = this.generateFileKey(originalName, folder);
-      
+      key = this.generateFileKey(originalName, folder);
+
       const command = new PutObjectCommand({
         Bucket: this.bucketName,
         Key: key,
@@ -46,7 +55,8 @@ class S3Service {
         // Remove ACL since modern S3 buckets may not allow ACLs
         // Public access is controlled via bucket policy
         Metadata: {
-          'original-name': originalName
+          // S3 metadata is sent as HTTP headers and must be ASCII
+          'original-name': encodeURIComponent(String(originalName || '')).slice(0, 1024)
         }
       });
 
